@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Group và account · Demo Spring Boot</title>
+<style>
+body{font:16px/1.55 system-ui;max-width:60rem;margin:2rem auto;padding:0 1rem;color:#182435} label{display:block;margin:.5rem 0}
+input,select,button{font:inherit;padding:.35rem .55rem} table{width:100%;border-collapse:collapse} th,td{padding:.5rem;text-align:left;border-bottom:1px solid #ccc} th{background:#eef4f8}
+pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#eef4f8;padding:.8rem} section{margin:1.5rem 0} .table{overflow:auto}
+</style><script src="/lab-ui.js" defer></script>
+</head>
+<body>
+<h1>Quản lý group và account</h1>
+<p>Demo chạy tại localhost. Đăng nhập bằng <code>admin / demo-pass</code> để tạo, sửa, xóa hoặc <code>reader / demo-pass</code> để chỉ đọc. Mở DevTools → Network để so sánh URL, body và trạng thái HTTP.</p>
+<section><h2>Danh sách</h2>
+<label>Tài khoản demo <select id="role"><option>admin</option><option>reader</option></select></label>
+<form id="search"><label>Loại <select id="kind"><option value="groups">Group</option><option value="accounts">Account</option></select></label>
+<label>Từ khóa <input id="query"></label><button>Tìm / tải lại</button></form>
+<div class="table"><table id="rows"></table></div>
+</section>
+<section><h2>Tạo hoặc cập nhật</h2>
+<form id="edit"><label>ID để cập nhật (để trống khi tạo) <input id="id" type="number" min="1"></label>
+<label id="name-label">Tên group <input id="name"></label>
+<div id="account-fields" hidden><label>Email <input id="email" type="email"></label>
+<label>Group ID (phân cách bằng dấu phẩy, bỏ trống nếu chưa gán) <input id="groupIds"></label></div>
+<button>Lưu</button> <button type="reset">Xóa dữ liệu form</button></form>
+<p>Chọn Sửa hoặc Xóa trên một dòng để thao tác đúng ID. Đổi loại đối tượng sẽ làm trống form.</p>
+</section>
+<section><h2>Kết quả gần nhất</h2><pre id="result" role="status" aria-live="polite">Đang tải…</pre></section>
+</body></html>

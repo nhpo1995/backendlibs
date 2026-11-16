@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Đi từ hành vi người dùng đến contract, đặt ranh giới trách nhiệm và nối các đối tượng bằng constructor.">
+  <title>Buổi 9 · Thiết kế từ yêu cầu, SOLID và DI</title>
+  <link rel="stylesheet" href="../../../assets/styles.css">
+  <script src="../../../assets/site.js" defer></script>
+</head>
+<body id="top">
+  <a class="skip" href="#noi-dung">Đến nội dung</a>
+  <header class="masthead"><div class="mast-inner">
+    <a class="brand" href="../../../index.html"><span class="mark" aria-hidden="true">B</span> Backend Service</a>
+    <a class="source" href="https://drive.google.com/file/d/1dwJzfGIBXfsskU0fpZQe-QsHrQFEm8_w/view" target="_blank" rel="noopener">Video gốc <span aria-hidden="true">↗</span></a>
+  </div></header>
+  <div class="hero"><div class="hero-inner">
+    <div>
+      <nav class="crumbs" aria-label="Vị trí hiện tại"><a href="../../../index.html">Khóa học</a> / <a href="../index.html">Spring Boot</a> / Buổi 9</nav>
+      <p class="kicker">Railway 89 <span></span> Video 3:55:06</p>
+      <h1>Thiết kế từ yêu cầu, <em>SOLID và DI</em></h1>
+      <p class="lead">Đi từ hành vi người dùng đến contract, đặt ranh giới trách nhiệm và nối các đối tượng bằng constructor.</p>
+      <div class="hero-actions"><a class="button" href="#chua">Bắt đầu bài học <span aria-hidden="true">↓</span></a><a class="button secondary" href="#thuc-hanh">Thực hành</a></div>
+    </div>
+    <div class="flow">
+      <div class="flow-head"><span aria-hidden="true">● ● ●</span><span>Từ màn hình lên thiết kế</span></div>
+      <div class="flow-body"><ol><li><b>Contract</b><span>Chốt input, output và trường hợp lỗi</span></li><li><b>Service</b><span>Viết use case qua interface phù hợp</span></li><li><b>Repository</b><span>Chọn schema theo truy vấn cần dùng</span></li><li><b>Constructor</b><span>Nối service với implementation</span></li></ol></div>
+    </div>
+  </div></div>
+  <div class="layout">
+    <aside class="sidebar"><nav aria-labelledby="toc-heading"><h2 id="toc-heading">Nội dung buổi học</h2>
+      <ol><li><a href="#chua">Thiết kế API thêm thành viên</a></li><li><a href="#design">Top-down và bottom-up</a></li><li><a href="#solid">Năm nguyên tắc SOLID qua hợp đồng</a></li><li><a href="#di">IoC, DI và lỗi null</a></li><li><a href="#thuc-hanh">Thực hành</a></li><li><a href="#tu-kiem-tra">Tự kiểm tra</a></li><li><a href="#moc-video">Mốc xem lại và nguồn đối chiếu</a></li></ol>
+    </nav></aside>
+    <main id="noi-dung" tabindex="-1">
+      <div class="callout intro"><strong>Mục tiêu của Buổi 9</strong><p>Giải thích khi nào nên thiết kế từ API xuống, nhận ra năm nguyên tắc SOLID qua hành vi cụ thể và phân biệt DIP, IoC, DI.</p><p>Cần biết interface, kế thừa và luồng controller → service → repository. <a href="../buoi-08/index.html">Ôn bài quản lý user/group</a>.</p></div>
+      <section class="chapter" id="chua">
+        <h2>Thiết kế API thêm thành viên</h2>
+<p>Giả sử Bình có ID 2 và nhóm Backend có ID 1. Khi quản trị viên bấm “Thêm Bình”, client gọi <code>PUT /api/v1/groups/1/members/2</code>. Nếu một trong hai bản ghi đích không tồn tại, API trả 404. Nếu cả hai tồn tại, API bảo đảm có đúng một liên kết giữa Bình và Backend rồi trả 204. Khi client gửi lại cùng request, cặp đã tồn tại nên service bỏ qua thao tác ghi. Gọi <code>GET /api/v1/groups/1/members</code> để kiểm tra Bình chỉ xuất hiện một lần.</p>
+ <p>Một lỗi lúc khởi động liên quan tới tên thuộc tính trong repository. Hãy đọc từ <code>Could not create query</code> đến <code>No property … found for type …</code>. Kiểu được ghi ở cuối cho biết Spring Data đã đi tới entity nào khi phân tích đường dẫn. Trong demo, <code>Membership.user</code> dẫn đến <code>DirectoryUser.id</code>. Vì vậy viết <code>User_Id</code>, hoặc dùng JPQL với <code>m.user.id</code> và tham số <code>:userId</code>. Chữ <code>user_id</code> trong SQL có nghĩa khác với <code>user.id</code> trong JPQL.</p>
+ <figure class="snippet"><figcaption>Truy vấn JPQL theo cặp user/group</figcaption><pre tabindex="0"><code>// Đặt trong MembershipRepository khi cần trả chính entity quan hệ.
+@Query("""
+    select m from Membership m
+    where m.user.id = :userId and m.group.id = :groupId
+    """)
+Optional&lt;Membership&gt; findPair(@Param("userId") long userId,
+                              @Param("groupId") long groupId);</code></pre></figure>
+ <p>Với dữ liệu demo, <code>findPair(1, 2)</code> tìm thấy hàng, còn <code>findPair(2, 2)</code> trả <code>Optional.empty()</code>. Tham số mang tên giúp đọc bộ lọc ngay trong câu JPQL. UNIQUE trên cặp bảo đảm truy vấn kỳ vọng tối đa một kết quả.</p>
+      </section>
+      <section class="chapter" id="design">
+        <h2>Top-down và bottom-up</h2>
+<div class="table-wrap"><table><thead><tr><th>Điểm bắt đầu</th><th>Thứ tự triển khai</th><th>Điều cần đối chiếu</th></tr></thead><tbody>
+ <tr><td>Top-down</td><td>Luồng màn hình → request/response và lỗi → use case service → repository/schema.</td><td>Contract có đủ trường và các trường hợp rỗng, lỗi, lặp thao tác. UI có thể phát triển song song dựa trên contract.</td></tr>
+ <tr><td>Bottom-up</td><td>Schema và dữ liệu sẵn có → truy vấn → service → API.</td><td>Ràng buộc nào đến từ hệ thống cũ. Dữ liệu nào cần chuyển dạng trước khi trả cho client.</td></tr>
+ </tbody></table></div>
+ <p>Áp dụng cho màn hình quản lý nhóm. Người dùng mở Backend, thấy danh sách thành viên, tìm theo tên rồi bấm thêm Bình. Contract tối thiểu cần một GET lấy thành viên và một thao tác theo cặp group/user. Ghi rõ dữ liệu rỗng hiển thị thế nào, thao tác gọi lặp trả gì, và trường hợp ID bị xóa từ phiên khác. Sau đó mới chọn cặp khóa duy nhất và truy vấn <code>WHERE group_id = ?</code>. Nếu đã có lược đồ từ hệ thống khác, đi ngược lại để kiểm tra lược đồ có biểu diễn được N–N và có index phù hợp rồi xác nhận lại contract.</p>
+ <p>Để bàn giao, ghi ví dụ đầu vào, đầu ra, mã lỗi, người chịu trách nhiệm và điều kiện nghiệm thu trong ticket. Một ca nghiệm thu là gửi PUT cho Bình hai lần rồi GET thấy đúng một Bình. Điều này kiểm tra hành vi qua nhiều tầng bằng cùng một kịch bản.</p>
+      </section>
+      <section class="chapter" id="solid">
+        <h2>Năm nguyên tắc SOLID qua hợp đồng</h2>
+<h3>S · Single Responsibility</h3>
+ <p>Tìm lý do thay đổi, chẳng hạn chính sách tính lương, mẫu in phiếu và cách ghi dữ liệu do những bên khác nhau quyết định. Nếu cùng một lớp vừa tính vừa in vừa lưu, sửa mẫu in có thể ảnh hưởng code tính lương. Tách chính sách, trình in và lưu trữ theo các trách nhiệm đó. Service điều phối có trách nhiệm riêng là thực hiện một use case từ đầu đến cuối. Số phương thức trong lớp không đo được số lý do thay đổi.</p>
+ <h3>O · Open/Closed</h3>
+ <p>Khi phát sinh cách tính có thưởng, thêm <code>BonusPay</code> thực thi cùng hợp đồng <code>PayPolicy</code>. Luồng kiểm tra giờ, tính lương và lưu kết quả trong <code>Checkout</code> tiếp tục dùng như cũ. Thêm biến thể chỉ thay cách cấu hình dependency. Điểm mở rộng hữu ích ở nơi có biến thể thực tế, ví dụ chính sách lương. Chia interface cho mọi class sẽ tăng số chỗ phải lần theo khi đọc code.</p>
+ <h3>L · Liskov Substitution</h3>
+ <p>Kiểu con phải giữ hành vi mà client của kiểu cha có quyền kỳ vọng. Xét <code>Rectangle</code> có <code>setWidth</code> và <code>setHeight</code> độc lập. Client đặt width=5 rồi height=4 và kỳ vọng diện tích 20. Nếu <code>Square</code> override cả hai setter để luôn đồng bộ cạnh, client nhận 16. Dù quan hệ hình học đúng, hợp đồng của hai setter đã bị phá. Có thể đặt cả hai dưới interface chỉ đọc <code>Shape { int area(); }</code>, với constructor riêng cho từng hình.</p>
+ <h3>I · Interface Segregation</h3>
+ <p>Nếu interface <code>Animal</code> buộc cả gà và cá có phương thức <code>fly()</code>, một số implementation phải ném lỗi hoặc làm rỗng. Khi flight planner chỉ nhận <code>Flyer</code>, compiler giúp loại những đối tượng thiếu hành vi bay. Chia interface theo nhóm hành vi client thực sự dùng, chẳng hạn <code>Flyer</code> và <code>Swimmer</code>.</p>
+ <h3>D · Dependency Inversion</h3>
+ <p><code>Checkout</code> chứa luật nghiệp vụ. Nó cần cổng <code>PayrollStore</code> và <code>PayPolicy</code>. Implementation lưu H2, lưu bộ nhớ hoặc ghi hệ thống khác đều đi từ chi tiết về hợp đồng. Dependency ở mã nguồn hướng về abstraction. Đưa một lớp cụ thể qua constructor giúp DI, còn tác dụng của DIP xuất hiện khi hợp đồng tách được chính sách khỏi chi tiết có thể thay.</p>
+      </section>
+      <section class="chapter" id="di">
+        <h2>IoC, DI và lỗi null</h2>
+<p>Trong Java thường, <code>main</code> có thể tạo <code>new Checkout(policy, store)</code>. Nó truyền dependency từ bên ngoài nên đã dùng DI. Trong Spring, <code>ApplicationContext</code> dựa trên bean definition để tạo và nối các đối tượng, quản lý lifecycle, và có thể đưa proxy vào thay object gốc. Việc chuyển trách nhiệm tạo và cấu hình object cho container là một dạng IoC. DIP quyết định hướng phụ thuộc ở mã nguồn, IoC quyết định ai điều khiển việc tạo và nối, DI là cách cung cấp dependency.</p>
+ <figure class="snippet"><figcaption>Java · field chưa được gán và constructor injection</figcaption><pre tabindex="0"><code>class BrokenCheckout {
+    PayrollStore store;
+
+    void save() {
+        store.save("An", 800000);  // null nếu chưa có ai gán
+    }
+}
+class Checkout {
+    private final PayrollStore store;
+
+    Checkout(PayrollStore store) {
+        this.store = java.util.Objects.requireNonNull(store);
+    }
+}</code></pre></figure>
+ <p>Khi chỉ <code>new BrokenCheckout()</code>, JVM khởi tạo field tham chiếu bằng <code>null</code>. Gọi save gây <code>NullPointerException</code>. Khi sửa controller, hãy kiểm tra service rồi đi tiếp xuống repository: tạo service bằng tay vẫn để các dependency sâu hơn thiếu nếu ta chưa truyền chúng. Trong Spring, chỉ object do container tạo hoặc xử lý mới được nối tự động. Constructor cho dependency bắt buộc giúp mọi instance được cấp dependency ngay khi tạo, và field có thể là <code>final</code>. Setter hữu ích khi cần cấu hình tùy chọn với mặc định rõ ràng. Field injection diễn ra sau khi gọi constructor và khiến unit test Java thuần phải tìm cách gán field.</p>
+ <p>Với đúng một constructor trên Spring bean, Spring tự dùng constructor đó. Lombok <code>@RequiredArgsConstructor</code> sinh constructor cho field <code>final</code> chưa khởi tạo và field <code>@NonNull</code> chưa khởi tạo. Nó sinh mã ở lúc compile. Spring giải dependency lúc tạo bean. Demo dùng constructor viết tay để thấy rõ hai bước.</p>
+      </section>
+      <section class="chapter" id="thuc-hanh">
+        <h2>Thực hành</h2>
+<p>Mở terminal tại <code>lessons/springboot/buoi-09/demo</code> và chạy với JDK 17+. Đây là Java thuần. Đọc demo để lần từ <code>main</code> đến <code>Checkout.run()</code> và xem nơi implementation được chọn. <a href="demo/PayrollDemo.java">PayrollDemo.java</a></p>
+ <figure class="snippet"><figcaption>JDK · chạy demo và đối chiếu kết quả</figcaption><pre tabindex="0"><code>java PayrollDemo.java
+# Kết quả
+800000
+850000
+[An=800000, An=850000]</code></pre></figure>
+ <ol><li>Tính bằng tay 8 × 100000 rồi cộng 50000. <code>Checkout</code> nhận <code>HourlyPay</code> ở lượt đầu và <code>BonusPay</code> ở lượt hai. Hai bản ghi cùng được đưa qua <code>PayrollStore</code>.</li>
+ <li>Trong bản sao, đổi giờ làm thành <code>-1</code>. Lần gọi đầu báo <code>IllegalArgumentException</code> tại <code>Checkout.run</code> trước khi tính và lưu. Đổi lại 8 để xem output ban đầu.</li>
+ <li>Thử thay dòng tạo <code>inMemory</code> bằng <code>PayrollStore inMemory = null;</code> và chạy. JVM báo NPE tại lời gọi <code>store.save</code> dù phép tính đã chạy xong. Khôi phục lambda và thử thêm <code>Objects.requireNonNull</code> vào constructor để bảo vệ ngay lúc tạo instance.</li>
+ <li>Đọc <code>MembershipRepository</code> ở demo Buổi 8. Trên bản sao của demo đó, đổi tên <code>existsByGroup_IdAndUser_Id</code> thành <code>existsByGroup_IdAndUser_UserId</code> ở cả khai báo và nơi gọi. Chạy Maven và đọc nguyên nhân sâu nhất. Mapping chỉ có <code>DirectoryUser.id</code>. Khôi phục tên ban đầu và gửi hai request PUT giống nhau để thấy một membership.</li></ol>
+      </section>
+      <section class="chapter" id="tu-kiem-tra">
+        <h2>Tự kiểm tra</h2>
+<details class="question"><summary>Cho màn hình chưa có schema, bắt đầu ở đâu?</summary><p>Chốt flow, contract và ca nghiệm thu trước. Từ các truy vấn cần phục vụ mới suy ra quan hệ, khóa và index.</p></details><details class="question"><summary>Tại sao xử lý cả tính lương, in phiếu, lưu DB trong một lớp dễ vỡ?</summary><p>Chúng thay đổi theo ba nguồn yêu cầu độc lập. Tách giúp giới hạn phạm vi khi sửa từng phần.</p></details><details class="question"><summary>Thêm chính sách lương mới mà không sửa Checkout thể hiện nguyên tắc nào?</summary><p>Open/Closed. Thêm implementation của PayPolicy và cung cấp qua constructor.</p></details><details class="question"><summary>Hình vuông thay vào hình chữ nhật có setter độc lập vi phạm điều gì?</summary><p>Liskov Substitution. Kiểu con thay đổi hiệu ứng mà client kỳ vọng sau khi chỉnh một cạnh.</p></details><details class="question"><summary>Vai trò của một interface Flyer riêng là gì?</summary><p>Giữ contract theo nhu cầu của client và loại khỏi kiểu đối số những đối tượng không có hành vi bay.</p></details><details class="question"><summary>Dùng DI có bắt buộc dùng Spring không?</summary><p>Không. Truyền dependency vào constructor từ main đã là DI. Spring tự động nối chúng và quản lý vòng đời.</p></details><details class="question"><summary>Nếu Spring service có @Service nhưng phía gọi dùng new thì sao?</summary><p>Instance tạo bằng new tách khỏi vòng đời container. Constructor hoặc code gọi phải tự cung cấp dependency cho instance ấy.</p></details>
+      </section>
+      <section class="chapter" id="moc-video">
+        <h2>Mốc xem lại và nguồn đối chiếu</h2>
+<p>Transcript có lời đến 3:08:26. Đầu buổi chữa bài user/group. Sau đó video bàn về thiết kế từ trên xuống và dưới lên, SOLID rồi thực hành IoC và DI. Ví dụ lương, hình học và Java ở trang này là bản dựng để học cơ chế.</p><ul><li><a class="time" href="https://drive.google.com/file/d/1dwJzfGIBXfsskU0fpZQe-QsHrQFEm8_w/view?t=1048" target="_blank" rel="noopener" aria-label="Xem video tại 17:28">17:28</a> Chữa thao tác thêm user vào group</li><li><a class="time" href="https://drive.google.com/file/d/1dwJzfGIBXfsskU0fpZQe-QsHrQFEm8_w/view?t=1133" target="_blank" rel="noopener" aria-label="Xem video tại 18:53">18:53</a> Thảo luận trường hợp user đã thuộc group</li><li><a class="time" href="https://drive.google.com/file/d/1dwJzfGIBXfsskU0fpZQe-QsHrQFEm8_w/view?t=1238" target="_blank" rel="noopener" aria-label="Xem video tại 20:38">20:38</a> Lọc user theo các trường tùy chọn</li><li><a class="time" href="https://drive.google.com/file/d/1dwJzfGIBXfsskU0fpZQe-QsHrQFEm8_w/view?t=1333" target="_blank" rel="noopener" aria-label="Xem video tại 22:13">22:13</a> Lỗi Spring Data không tìm thấy thuộc tính</li><li><a class="time" href="https://drive.google.com/file/d/1dwJzfGIBXfsskU0fpZQe-QsHrQFEm8_w/view?t=1559" target="_blank" rel="noopener" aria-label="Xem video tại 25:59">25:59</a> Viết truy vấn theo entity bảng nối</li><li><a class="time" href="https://drive.google.com/file/d/1dwJzfGIBXfsskU0fpZQe-QsHrQFEm8_w/view?t=1939" target="_blank" rel="noopener" aria-label="Xem video tại 32:19">32:19</a> Bottom-up và top-down</li><li><a class="time" href="https://drive.google.com/file/d/1dwJzfGIBXfsskU0fpZQe-QsHrQFEm8_w/view?t=2258" target="_blank" rel="noopener" aria-label="Xem video tại 37:38">37:38</a> Bắt đầu từ luồng màn hình</li><li><a class="time" href="https://drive.google.com/file/d/1dwJzfGIBXfsskU0fpZQe-QsHrQFEm8_w/view?t=2670" target="_blank" rel="noopener" aria-label="Xem video tại 44:30">44:30</a> Xác định input và output cho API</li><li><a class="time" href="https://drive.google.com/file/d/1dwJzfGIBXfsskU0fpZQe-QsHrQFEm8_w/view?t=3035" target="_blank" rel="noopener" aria-label="Xem video tại 50:35">50:35</a> Phối hợp theo yêu cầu nghiệp vụ</li><li><a class="time" href="https://drive.google.com/file/d/1dwJzfGIBXfsskU0fpZQe-QsHrQFEm8_w/view?t=3408" target="_blank" rel="noopener" aria-label="Xem video tại 56:48">56:48</a> Single Responsibility</li><li><a class="time" href="https://drive.google.com/file/d/1dwJzfGIBXfsskU0fpZQe-QsHrQFEm8_w/view?t=4136" target="_blank" rel="noopener" aria-label="Xem video tại 1:08:56">1:08:56</a> Open/Closed</li><li><a class="time" href="https://drive.google.com/file/d/1dwJzfGIBXfsskU0fpZQe-QsHrQFEm8_w/view?t=5254" target="_blank" rel="noopener" aria-label="Xem video tại 1:27:34">1:27:34</a> Liskov Substitution và ví dụ hình học</li><li><a class="time" href="https://drive.google.com/file/d/1dwJzfGIBXfsskU0fpZQe-QsHrQFEm8_w/view?t=6307" target="_blank" rel="noopener" aria-label="Xem video tại 1:45:07">1:45:07</a> Interface Segregation qua hành vi của động vật</li><li><a class="time" href="https://drive.google.com/file/d/1dwJzfGIBXfsskU0fpZQe-QsHrQFEm8_w/view?t=6788" target="_blank" rel="noopener" aria-label="Xem video tại 1:53:08">1:53:08</a> Dependency Inversion</li><li><a class="time" href="https://drive.google.com/file/d/1dwJzfGIBXfsskU0fpZQe-QsHrQFEm8_w/view?t=8688" target="_blank" rel="noopener" aria-label="Xem video tại 2:24:48">2:24:48</a> Lần theo dependency sâu hơn</li><li><a class="time" href="https://drive.google.com/file/d/1dwJzfGIBXfsskU0fpZQe-QsHrQFEm8_w/view?t=9515" target="_blank" rel="noopener" aria-label="Xem video tại 2:38:35">2:38:35</a> Vai trò IoC container</li><li><a class="time" href="https://drive.google.com/file/d/1dwJzfGIBXfsskU0fpZQe-QsHrQFEm8_w/view?t=9750" target="_blank" rel="noopener" aria-label="Xem video tại 2:42:30">2:42:30</a> Constructor injection</li><li><a class="time" href="https://drive.google.com/file/d/1dwJzfGIBXfsskU0fpZQe-QsHrQFEm8_w/view?t=10265" target="_blank" rel="noopener" aria-label="Xem video tại 2:51:05">2:51:05</a> Setter injection</li><li><a class="time" href="https://drive.google.com/file/d/1dwJzfGIBXfsskU0fpZQe-QsHrQFEm8_w/view?t=11036" target="_blank" rel="noopener" aria-label="Xem video tại 3:03:56">3:03:56</a> Field final và constructor sinh bởi Lombok</li></ul><h3>Tài liệu chính thức</h3><ul><li><a href="https://docs.spring.io/spring-framework/reference/6.2/core/beans/dependencies/factory-collaborators.html">Spring Framework 6.2 · Dependency Injection</a></li><li><a href="https://docs.spring.io/spring-data/jpa/reference/3.5/jpa/query-methods.html">Spring Data JPA 3.5 · Tạo truy vấn từ tên phương thức</a></li><li><a href="https://blog.cleancoder.com/uncle-bob/2014/05/08/SingleReponsibilityPrinciple.html">Robert C. Martin · Single Responsibility Principle</a></li><li><a href="https://www.cs.cmu.edu/~wing/publications/LiskovWing94.pdf">Barbara Liskov và Jeannette Wing · A Behavioral Notion of Subtyping</a></li><li><a href="https://projectlombok.org/features/constructor">Project Lombok · Constructor annotations</a></li></ul>
+      </section>
+      <nav aria-label="Bài liền kề"><a href="../buoi-08/index.html">← Buổi 8</a> · <a href="../index.html">Danh mục</a> · <a href="../buoi-10/index.html">Buổi 10 →</a> · <a href="#top">Về đầu trang ↑</a></nav>
+    </main>
+  </div>
+  
+</body>
+</html>
