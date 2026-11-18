@@ -13,7 +13,6 @@
   <header class="masthead">
     <div class="mast-inner">
       <a class="brand" href="../../../index.html"><span aria-hidden="true" class="mark">B</span> Backend Service</a>
-      <a class="source" href="https://drive.google.com/file/d/1cW61-1ARRNIeKo2WMezMz3IkfXkAJGsi/view" target="_blank" rel="noopener">Video gốc <span aria-hidden="true">↗</span></a>
     </div>
   </header>
   <div class="hero">
@@ -49,7 +48,7 @@
 
     <main id="noi-dung" tabindex="-1">
       <div class="callout intro"><strong>Mục tiêu của Buổi 1</strong><p>Sau bài này, bạn có thể dựng API đọc sản phẩm từ một bảng có sẵn, giải thích trách nhiệm của từng lớp và lần theo lỗi từ URL đến database. Bài giả định bạn biết class, interface trong Java và câu SQL <code>SELECT</code> cơ bản.</p><p>Bài toán là đọc một sản phẩm theo khóa chính. Với dữ liệu mẫu có sản phẩm ID <code>1</code>, <code>GET /products/1</code> trả 200 cùng JSON. Nếu khóa chính chưa tồn tại, API trả 404. Video thử <code>/products</code> với ID cố định trước.</p></div>
-<section class="chapter" id="khoi-tao" aria-labelledby="khoi-tao-heading"><header class="chapter-top"><h2 id="khoi-tao-heading">Khởi tạo Spring Boot</h2><a class="time" href="https://drive.google.com/file/d/1cW61-1ARRNIeKo2WMezMz3IkfXkAJGsi/view?t=1093" target="_blank" rel="noopener" aria-label="Xem video tại 18:13">18:13 <span aria-hidden="true">↗</span></a></header>
+<section class="chapter" id="khoi-tao" aria-labelledby="khoi-tao-heading"><header class="chapter-top"><h2 id="khoi-tao-heading">Khởi tạo Spring Boot</h2><span class="time">18:13</span></header>
 <p>Buổi học đặt REST API ở phía backend Java. Client gửi request, backend truy vấn dữ liệu và trả response. Spring Boot hỗ trợ khởi tạo dự án Spring bằng starter và cấu hình tự động dựa trên các thư viện có trong dự án. Ví dụ, có Spring Web thì ứng dụng có thể mở web server nhúng. Có Spring Data JPA và JDBC driver thì ứng dụng cần cấu hình kết nối database tương ứng.</p>
 <h3>Tạo project Maven</h3>
 <ol><li>Tạo dự án Spring Boot từ Spring Initializr trên web hoặc trong IDE. Chọn Maven, Java và cách đóng gói JAR.</li><li>Điền <code>groupId</code> của nhóm và <code>artifactId</code> của ứng dụng. Ví dụ dùng <code>vn.railway89</code> và <code>product-offerings-demo</code>.</li><li>Chọn các thư viện dưới đây, mở <code>pom.xml</code> và đợi Maven tải xong dependencies. Starter parent quản lý phiên bản cho các dependency phổ biến.</li></ol>
@@ -60,7 +59,7 @@
   <div><dt>Lombok</dt><dd>Sinh getter, setter và constructor lúc biên dịch. Ví dụ, <code>@Getter</code> sinh phương thức <code>getName()</code> để mã Java và Jackson có thể đọc thuộc tính.</dd></div>
   <div><dt>Spring Boot Starter Test</dt><dd>Hỗ trợ kiểm thử ứng dụng. Demo dùng JUnit và MockMvc.</dd></div>
 </dl>
-<p>Đặt class khởi động ở package gốc, bên trên các package con chứa controller, service, repository và entity để Spring tìm thấy chúng. <code>@SpringBootApplication</code> kích hoạt cấu hình tự động và quét các component. Hàm <code>main</code> gọi <code>SpringApplication.run</code> để tạo application context và khởi động ứng dụng. <a class="time" href="https://drive.google.com/file/d/1cW61-1ARRNIeKo2WMezMz3IkfXkAJGsi/view?t=2436" target="_blank" rel="noopener" aria-label="Xem video tại 40:36">40:36 <span aria-hidden="true">↗</span></a></p>
+<p>Đặt class khởi động ở package gốc, bên trên các package con chứa controller, service, repository và entity để Spring tìm thấy chúng. <code>@SpringBootApplication</code> kích hoạt cấu hình tự động và quét các component. Hàm <code>main</code> gọi <code>SpringApplication.run</code> để tạo application context và khởi động ứng dụng. <span class="time">40:36</span></p>
 <figure class="snippet"><figcaption>ProductApplication.java</figcaption><pre tabindex="0"><code>@SpringBootApplication
 public class ProductApplication {
     public static void main(String[] args) {
@@ -79,10 +78,10 @@ public class ProductApplication {
 └── entity      → ánh xạ đối tượng với bảng</code></pre></figure>
 <p class="reading"><a href="https://docs.spring.io/spring-boot/3.5/reference/using/auto-configuration.html">Spring Boot · Auto-configuration</a> · <a href="https://docs.spring.io/spring-boot/3.5/reference/using/structuring-your-code.html">Spring Boot · Cấu trúc package</a></p>
 </section>
-<section class="chapter" id="mysql" aria-labelledby="mysql-heading"><header class="chapter-top"><h2 id="mysql-heading">Kết nối MySQL</h2><a class="time" href="https://drive.google.com/file/d/1cW61-1ARRNIeKo2WMezMz3IkfXkAJGsi/view?t=2811" target="_blank" rel="noopener" aria-label="Xem video tại 46:51">46:51 <span aria-hidden="true">↗</span></a></header>
+<section class="chapter" id="mysql" aria-labelledby="mysql-heading"><header class="chapter-top"><h2 id="mysql-heading">Kết nối MySQL</h2><span class="time">46:51</span></header>
 <p>Khi ứng dụng có JPA và cần dùng MySQL, Spring Boot phải tạo <code>DataSource</code> để Hibernate lấy kết nối. Nếu thiếu JDBC URL và không có CSDL nhúng phù hợp trên classpath, bạn có thể gặp <code>Failed to configure a DataSource</code> ngay lúc khởi động. Để kết nối MySQL, cần MySQL Connector/J, JDBC URL chỉ tới schema đích và tài khoản được cấp quyền.</p>
 <h3>Tạo schema và bảng</h3>
-<p>Dùng IntelliJ Database, MySQL CLI hoặc Workbench để chạy SQL tạo bảng và kiểm tra dữ liệu. Kết nối thử thành công trong IDE chỉ xác nhận thông số của IDE. Spring Boot dùng cấu hình <code>spring.datasource</code> riêng, nên cần kiểm tra hai bên cùng trỏ tới đúng schema. <a class="time" href="https://drive.google.com/file/d/1cW61-1ARRNIeKo2WMezMz3IkfXkAJGsi/view?t=3254" target="_blank" rel="noopener" aria-label="Xem video tại 54:14">54:14 <span aria-hidden="true">↗</span></a></p>
+<p>Dùng IntelliJ Database, MySQL CLI hoặc Workbench để chạy SQL tạo bảng và kiểm tra dữ liệu. Kết nối thử thành công trong IDE chỉ xác nhận thông số của IDE. Spring Boot dùng cấu hình <code>spring.datasource</code> riêng, nên cần kiểm tra hai bên cùng trỏ tới đúng schema. <span class="time">54:14</span></p>
 <p>Schema của ví dụ là <code>product</code>. Bảng <code>product_offerings</code> dùng <code>id</code> làm khóa chính tự tăng, <code>name</code> bắt buộc, <code>price</code> lưu số nguyên VNĐ và <code>color</code> lưu tên màu. Demo dùng <code>BIGINT</code> để khớp <code>Long</code> trong entity.</p>
 <figure class="snippet"><figcaption>MySQL · cấu trúc và một dòng mẫu</figcaption><pre tabindex="0"><code>CREATE DATABASE IF NOT EXISTS product CHARACTER SET utf8mb4;
 USE product;
@@ -97,7 +96,7 @@ CREATE TABLE IF NOT EXISTS product_offerings (
 INSERT INTO product_offerings (id, name, price, color)
 VALUES (1, 'Product A', 100000, 'red');</code></pre></figure>
 <h3>Cấu hình datasource và cổng HTTP</h3>
-<p>Spring Boot đọc <code>application.yaml</code> hoặc <code>application.properties</code> từ <code>src/main/resources</code>. Hai định dạng biểu diễn cùng bộ thuộc tính. YAML nhóm theo cấp, còn Properties dùng khóa như <code>spring.datasource.url</code>. Căn lề YAML bằng dấu cách. <a class="time" href="https://drive.google.com/file/d/1cW61-1ARRNIeKo2WMezMz3IkfXkAJGsi/view?t=2858" target="_blank" rel="noopener" aria-label="Xem video tại 47:38">47:38 <span aria-hidden="true">↗</span></a></p>
+<p>Spring Boot đọc <code>application.yaml</code> hoặc <code>application.properties</code> từ <code>src/main/resources</code>. Hai định dạng biểu diễn cùng bộ thuộc tính. YAML nhóm theo cấp, còn Properties dùng khóa như <code>spring.datasource.url</code>. Căn lề YAML bằng dấu cách. <span class="time">47:38</span></p>
 <figure class="snippet"><figcaption>application.yaml</figcaption><pre tabindex="0"><code>spring:
   datasource:
     url: ${DB_URL:jdbc:mysql://localhost:3306/product}
@@ -112,9 +111,9 @@ VALUES (1, 'Product A', 100000, 'red');</code></pre></figure>
       mode: never
 server:
   port: ${SERVER_PORT:811}</code></pre></figure>
-<p><code>localhost:3306</code> là địa chỉ MySQL trong URL JDBC. <code>localhost:811</code> là địa chỉ HTTP của demo. Spring Boot thường dùng <code>8080</code> khi để cổng mặc định. Nếu <code>8080</code> đang bị chiếm, đặt <code>server.port: 811</code> và đổi URL gọi API sang cổng mới. Khi chạy MySQL cổng khác, sửa <code>DB_URL</code> theo đúng cổng. <a class="time" href="https://drive.google.com/file/d/1cW61-1ARRNIeKo2WMezMz3IkfXkAJGsi/view?t=4396" target="_blank" rel="noopener" aria-label="Xem video tại 1:13:16">1:13:16 <span aria-hidden="true">↗</span></a></p>
+<p><code>localhost:3306</code> là địa chỉ MySQL trong URL JDBC. <code>localhost:811</code> là địa chỉ HTTP của demo. Spring Boot thường dùng <code>8080</code> khi để cổng mặc định. Nếu <code>8080</code> đang bị chiếm, đặt <code>server.port: 811</code> và đổi URL gọi API sang cổng mới. Khi chạy MySQL cổng khác, sửa <code>DB_URL</code> theo đúng cổng. <span class="time">1:13:16</span></p>
 <p>Demo dùng <code>ddl-auto: validate</code> để kiểm tra bảng đã chuẩn bị sẵn. Chạy SQL khởi tạo trước khi khởi động ứng dụng.</p>
-<p>Nếu log báo không nạp được driver class, mở <code>pom.xml</code> và kiểm tra MySQL Connector/J đã có trong classpath sau khi Maven tải dependencies. Với URL <code>jdbc:mysql:</code>, Spring Boot có thể suy ra driver từ URL khi connector đã có sẵn. <a class="time" href="https://drive.google.com/file/d/1cW61-1ARRNIeKo2WMezMz3IkfXkAJGsi/view?t=4215" target="_blank" rel="noopener" aria-label="Xem video tại 1:10:15">1:10:15 <span aria-hidden="true">↗</span></a></p>
+<p>Nếu log báo không nạp được driver class, mở <code>pom.xml</code> và kiểm tra MySQL Connector/J đã có trong classpath sau khi Maven tải dependencies. Với URL <code>jdbc:mysql:</code>, Spring Boot có thể suy ra driver từ URL khi connector đã có sẵn. <span class="time">1:10:15</span></p>
 <p class="file-links"><a href="demo/src/main/resources/schema.sql">SQL tạo bảng</a> <a href="demo/src/main/resources/data.sql">SQL tạo dữ liệu mẫu</a> <a href="demo/src/main/resources/application.yaml">Cấu hình YAML đầy đủ</a></p>
 <h3>JDBC URL, driver và connection pool</h3>
 <p>Đọc <code>jdbc:mysql://localhost:3306/product</code> từ trái sang phải. <code>jdbc:mysql:</code> cho biết JDBC driver MySQL có thể xử lý URL này. <code>localhost:3306</code> là nơi driver mở kết nối. <code>product</code> là database được chọn mặc định. Username và password đến từ hai thuộc tính riêng.</p>
@@ -127,8 +126,8 @@ curl.exe -i http://localhost:812/products/1</code></pre></figure>
 <p>Với <code>ddl-auto: validate</code>, schema thực tế cần khớp với mapping Hibernate. Nếu thiếu bảng hoặc kiểu cột sai, ứng dụng có thể dừng khi khởi động. <code>update</code> cho phép Hibernate thử sửa schema. <code>create</code> có thể xóa dữ liệu khi tạo lại schema. Demo dùng script SQL làm nguồn tạo bảng và dùng Hibernate để kiểm tra.</p>
 <p class="reading"><a href="https://docs.spring.io/spring-boot/3.5/reference/data/sql.html">Spring Boot · SQL và DataSource</a> · <a href="https://docs.spring.io/spring-boot/3.5/reference/features/external-config.html">Spring Boot · Cấu hình bên ngoài</a> · <a href="https://docs.spring.io/spring-boot/3.5/how-to/data-initialization.html">Spring Boot · Khởi tạo schema</a></p>
 </section>
-<section class="chapter" id="entity" aria-labelledby="entity-heading"><header class="chapter-top"><h2 id="entity-heading">Ánh xạ entity</h2><a class="time" href="https://drive.google.com/file/d/1cW61-1ARRNIeKo2WMezMz3IkfXkAJGsi/view?t=5775" target="_blank" rel="noopener" aria-label="Xem video tại 1:36:15">1:36:15 <span aria-hidden="true">↗</span></a></header>
-<p>Entity biểu diễn một đối tượng có định danh trong JPA. Hibernate liên kết đối tượng <code>ProductOffering</code> với một dòng của bảng <code>product_offerings</code>. <code>@Entity</code> đánh dấu class, <code>@Table</code> chỉ bảng, <code>@Id</code> chỉ khóa chính và <code>@Column</code> khai báo tên hoặc ràng buộc của cột. <a class="time" href="https://drive.google.com/file/d/1cW61-1ARRNIeKo2WMezMz3IkfXkAJGsi/view?t=6113" target="_blank" rel="noopener" aria-label="Xem video tại 1:41:53">1:41:53 <span aria-hidden="true">↗</span></a></p>
+<section class="chapter" id="entity" aria-labelledby="entity-heading"><header class="chapter-top"><h2 id="entity-heading">Ánh xạ entity</h2><span class="time">1:36:15</span></header>
+<p>Entity biểu diễn một đối tượng có định danh trong JPA. Hibernate liên kết đối tượng <code>ProductOffering</code> với một dòng của bảng <code>product_offerings</code>. <code>@Entity</code> đánh dấu class, <code>@Table</code> chỉ bảng, <code>@Id</code> chỉ khóa chính và <code>@Column</code> khai báo tên hoặc ràng buộc của cột. <span class="time">1:41:53</span></p>
 <figure class="snippet"><figcaption>ProductOffering.java · phần ánh xạ</figcaption><pre tabindex="0"><code>@Entity
 @Table(name = "product_offerings")
 @Getter
@@ -150,7 +149,7 @@ public class ProductOffering {
 <li>Demo khai báo <code>IDENTITY</code> để MySQL sinh khóa từ <code>AUTO_INCREMENT</code> khi ghi một entity mới. Khi đọc, Hibernate lấy giá trị ID từ dòng có sẵn.</li>
 <li><code>Integer</code> giữ được <code>null</code> nếu cơ sở dữ liệu chưa có giá. <code>int</code> chỉ biểu diễn số nguyên. Tương tự, <code>Long</code> có thể để trống trước lúc lưu entity mới.</li>
 <li>Khai báo <code>@Column(name = "tên_cột")</code> khi cần ánh xạ sang tên khác. Ví dụ trường Java <code>displayName</code> có thể ánh xạ tới cột <code>name</code>.</li>
-<li>JPA cần constructor không tham số public hoặc protected để tạo entity. Ví dụ dùng <code>@NoArgsConstructor</code>. Các annotation Lombok sinh constructor, getter và setter cần thiết khi biên dịch. <a class="time" href="https://drive.google.com/file/d/1cW61-1ARRNIeKo2WMezMz3IkfXkAJGsi/view?t=6304" target="_blank" rel="noopener" aria-label="Xem video tại 1:45:04">1:45:04 <span aria-hidden="true">↗</span></a></li>
+<li>JPA cần constructor không tham số public hoặc protected để tạo entity. Ví dụ dùng <code>@NoArgsConstructor</code>. Các annotation Lombok sinh constructor, getter và setter cần thiết khi biên dịch. <span class="time">1:45:04</span></li>
 </ul>
 <p class="file-links"><a href="demo/src/main/java/vn/railway89/products/entity/ProductOffering.java">Xem entity đầy đủ</a></p>
 <p><code>Serializable</code> đánh dấu kiểu có thể dùng với cơ chế tuần tự hóa đối tượng của Java. Hibernate ánh xạ entity với dữ liệu JDBC, còn Jackson dựng JSON từ các thuộc tính Java. Hai thao tác trong demo không yêu cầu entity khai báo <code>Serializable</code>.</p>
@@ -163,14 +162,14 @@ SELECT LAST_INSERT_ID();</code></pre></figure>
 <p>Gọi <code>/products/{id}</code> với ID vừa sinh. Kỳ vọng nhận <code>200</code> và <code>"price": null</code>. H2 test trong dự án kiểm tra đúng trường hợp này với một dòng mẫu có cả giá và màu để trống.</p>
 <p class="reading"><a href="https://jakarta.ee/specifications/persistence/3.1/jakarta-persistence-spec-3.1#entities">Jakarta Persistence · Entities và access type</a> · <a href="https://dev.mysql.com/doc/refman/8.4/en/example-auto-increment.html">MySQL · AUTO_INCREMENT</a> · <a href="https://projectlombok.org/features/GetterSetter">Project Lombok · Getter và Setter</a></p>
 </section>
-<section class="chapter" id="repository" aria-labelledby="repository-heading"><header class="chapter-top"><h2 id="repository-heading">Repository và service</h2><a class="time" href="https://drive.google.com/file/d/1cW61-1ARRNIeKo2WMezMz3IkfXkAJGsi/view?t=7059" target="_blank" rel="noopener" aria-label="Xem video tại 1:57:39">1:57:39 <span aria-hidden="true">↗</span></a></header>
+<section class="chapter" id="repository" aria-labelledby="repository-heading"><header class="chapter-top"><h2 id="repository-heading">Repository và service</h2><span class="time">1:57:39</span></header>
 <h3>Repository đọc theo khóa chính</h3>
-<p><code>JpaRepository&lt;ProductOffering, Long&gt;</code> khai báo kiểu entity và kiểu ID. Spring Data tạo implementation cho interface lúc chạy, nên có thể gọi ngay <code>findById</code>. Ví dụ truy vấn theo khóa chính tận dụng phương thức có sẵn. <a class="time" href="https://drive.google.com/file/d/1cW61-1ARRNIeKo2WMezMz3IkfXkAJGsi/view?t=7113" target="_blank" rel="noopener" aria-label="Xem video tại 1:58:33">1:58:33 <span aria-hidden="true">↗</span></a></p>
+<p><code>JpaRepository&lt;ProductOffering, Long&gt;</code> khai báo kiểu entity và kiểu ID. Spring Data tạo implementation cho interface lúc chạy, nên có thể gọi ngay <code>findById</code>. Ví dụ truy vấn theo khóa chính tận dụng phương thức có sẵn. <span class="time">1:58:33</span></p>
 <figure class="snippet"><figcaption>ProductOfferingRepository.java</figcaption><pre tabindex="0"><code>public interface ProductOfferingRepository
         extends JpaRepository&lt;ProductOffering, Long&gt; {
 }</code></pre></figure>
 <h3>Service xử lý kết quả truy vấn</h3>
-<p>Khi nhận ID <code>1</code>, controller gọi interface service. Lớp triển khai có <code>@Service</code> được Spring đăng ký để controller có thể nhận qua constructor. Service gọi <code>repository.findById(1L)</code>. Khi repository trả <code>Optional.empty()</code>, service chuyển kết quả đó thành lỗi không tìm thấy sản phẩm. <a class="time" href="https://drive.google.com/file/d/1cW61-1ARRNIeKo2WMezMz3IkfXkAJGsi/view?t=7692" target="_blank" rel="noopener" aria-label="Xem video tại 2:08:12">2:08:12 <span aria-hidden="true">↗</span></a></p>
+<p>Khi nhận ID <code>1</code>, controller gọi interface service. Lớp triển khai có <code>@Service</code> được Spring đăng ký để controller có thể nhận qua constructor. Service gọi <code>repository.findById(1L)</code>. Khi repository trả <code>Optional.empty()</code>, service chuyển kết quả đó thành lỗi không tìm thấy sản phẩm. <span class="time">2:08:12</span></p>
 <figure class="snippet"><figcaption>ProductOfferingServiceImpl.java · tìm theo ID</figcaption><pre tabindex="0"><code>@Service
 public class ProductOfferingServiceImpl implements ProductOfferingService {
     private final ProductOfferingRepository repository;
@@ -185,7 +184,7 @@ public class ProductOfferingServiceImpl implements ProductOfferingService {
             .orElseThrow(() -&gt; new ProductOfferingNotFoundException(id));
     }
 }</code></pre></figure>
-<p><code>orElseThrow</code> trả entity khi có dữ liệu và tạo exception đã chỉ định khi <code>Optional</code> rỗng. Nếu viết bằng <code>isEmpty()</code> và <code>get()</code>, phải kiểm tra nhánh rỗng trước. Service nhận repository qua constructor. Spring tự chọn constructor khi bean chỉ khai báo một constructor. <a class="time" href="https://drive.google.com/file/d/1cW61-1ARRNIeKo2WMezMz3IkfXkAJGsi/view?t=7882" target="_blank" rel="noopener" aria-label="Xem video tại 2:11:22">2:11:22 <span aria-hidden="true">↗</span></a></p>
+<p><code>orElseThrow</code> trả entity khi có dữ liệu và tạo exception đã chỉ định khi <code>Optional</code> rỗng. Nếu viết bằng <code>isEmpty()</code> và <code>get()</code>, phải kiểm tra nhánh rỗng trước. Service nhận repository qua constructor. Spring tự chọn constructor khi bean chỉ khai báo một constructor. <span class="time">2:11:22</span></p>
 <p class="file-links"><a href="demo/src/main/java/vn/railway89/products/repository/ProductOfferingRepository.java">Repository đầy đủ</a> <a href="demo/src/main/java/vn/railway89/products/service/ProductOfferingServiceImpl.java">Service đầy đủ</a></p>
 <h3>Spring cung cấp implementation bằng cách nào?</h3>
 <p>Khi khởi động, Spring Data tìm interface repository rồi tạo một bean qua proxy. Spring truyền bean này vào constructor của service. Khi tạo controller, Spring tìm bean phù hợp với kiểu <code>ProductOfferingService</code> và truyền vào constructor của controller. Mỗi kiểu ở demo có một bean phù hợp, và mỗi class chỉ có một constructor nên Spring tự dùng constructor đó.</p>
@@ -198,9 +197,9 @@ List&lt;ProductOffering&gt; redProducts = repository.findByColor("red");</code><
 <p>Trong luồng theo ID, repository cung cấp trạng thái có hoặc không có bản ghi. Service quyết định việc thiếu sản phẩm có nghĩa gì với tác vụ hiện tại. Với <code>orElseThrow(() -&gt; ...)</code>, hàm tạo exception chỉ chạy khi <code>Optional</code> rỗng. Controller và Spring MVC quyết định cách thể hiện kết quả đó bằng HTTP.</p>
 <p class="reading"><a href="https://docs.spring.io/spring-framework/reference/6.2/core/beans/dependencies/factory-collaborators.html">Spring Framework · Dependency Injection</a> · <a href="https://docs.spring.io/spring-data/jpa/reference/3.5/jpa/query-methods.html">Spring Data JPA · Query methods</a> · <a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/util/Optional.html">Java 17 · Optional</a></p>
 </section>
-<section class="chapter" id="rest" aria-labelledby="rest-heading"><header class="chapter-top"><h2 id="rest-heading">Mở API REST</h2><a class="time" href="https://drive.google.com/file/d/1cW61-1ARRNIeKo2WMezMz3IkfXkAJGsi/view?t=8923" target="_blank" rel="noopener" aria-label="Xem video tại 2:28:43">2:28:43 <span aria-hidden="true">↗</span></a></header>
+<section class="chapter" id="rest" aria-labelledby="rest-heading"><header class="chapter-top"><h2 id="rest-heading">Mở API REST</h2><span class="time">2:28:43</span></header>
 <p>Controller tiếp nhận HTTP request, gọi service và trả về HTTP response. <code>@RestController</code> đánh dấu controller trả dữ liệu trực tiếp. <code>@GetMapping</code> ghép phương thức GET với đường dẫn. <code>ResponseEntity.ok(product)</code> đặt mã <code>200</code> và đưa sản phẩm vào body để Spring chuyển sang JSON.</p>
-<p>Đặt ID trong URI để mỗi sản phẩm có địa chỉ riêng. <code>GET /products/1</code> và <code>GET /products/2</code> dùng cùng handler. Spring MVC lấy phần <code>{id}</code> và chuyển sang kiểu <code>Long</code> trước khi gọi service. <a class="time" href="https://drive.google.com/file/d/1cW61-1ARRNIeKo2WMezMz3IkfXkAJGsi/view?t=9618" target="_blank" rel="noopener" aria-label="Xem video tại 2:40:18">2:40:18 <span aria-hidden="true">↗</span></a></p>
+<p>Đặt ID trong URI để mỗi sản phẩm có địa chỉ riêng. <code>GET /products/1</code> và <code>GET /products/2</code> dùng cùng handler. Spring MVC lấy phần <code>{id}</code> và chuyển sang kiểu <code>Long</code> trước khi gọi service. <span class="time">2:40:18</span></p>
 <figure class="snippet"><figcaption>ProductOfferingController.java · route theo ID</figcaption><pre tabindex="0"><code>@RestController
 @RequestMapping("/products")
 public class ProductOfferingController {
@@ -229,7 +228,7 @@ WHERE id = 1;</code></pre></figure>
 <p><code>/products/1</code> đặt định danh tài nguyên trong path. Trong ví dụ lọc <code>/products?color=red</code>, <code>color</code> là query parameter và có thể nhận bằng <code>@RequestParam</code>. Demo hiện thực route lấy chi tiết. Route lọc minh họa cách truyền đầu vào cho API danh sách.</p>
 <p class="reading"><a href="https://docs.spring.io/spring-framework/reference/6.2/web/webmvc/mvc-servlet.html">Spring MVC · DispatcherServlet</a> · <a href="https://docs.spring.io/spring-framework/reference/6.2/web/webmvc/mvc-controller/ann-requestmapping.html">Spring MVC · Mapping request</a> · <a href="https://docs.spring.io/spring-framework/reference/6.2/web/webmvc/mvc-controller/ann-methods/responseentity.html">Spring MVC · ResponseEntity</a></p>
 <h3>HTTP method và status code</h3>
-<p>HTTP dùng <code>GET</code> để đọc, <code>POST</code> để gửi dữ liệu cho xử lý hoặc tạo mới, <code>PUT</code> để thay thế biểu diễn tại URL đích và <code>DELETE</code> để xóa. Buổi này thực hành GET. <a class="time" href="https://drive.google.com/file/d/1cW61-1ARRNIeKo2WMezMz3IkfXkAJGsi/view?t=9276" target="_blank" rel="noopener" aria-label="Xem video tại 2:34:36">2:34:36 <span aria-hidden="true">↗</span></a></p>
+<p>HTTP dùng <code>GET</code> để đọc, <code>POST</code> để gửi dữ liệu cho xử lý hoặc tạo mới, <code>PUT</code> để thay thế biểu diễn tại URL đích và <code>DELETE</code> để xóa. Buổi này thực hành GET. <span class="time">2:34:36</span></p>
 <div class="table-wrap"><table><thead><tr><th scope="col">Mã</th><th scope="col">Khi nào gặp</th></tr></thead><tbody>
 <tr><td><code>200 OK</code></td><td>Có sản phẩm, response chứa JSON.</td></tr>
 <tr><td><code>400 Bad Request</code></td><td>ID trong URL không chuyển được sang kiểu số.</td></tr>
@@ -238,19 +237,19 @@ WHERE id = 1;</code></pre></figure>
 </tbody></table></div>
 <p class="file-links"><a href="demo/src/main/java/vn/railway89/products/controller/ProductOfferingController.java">Controller đầy đủ</a> <a href="demo/src/main/java/vn/railway89/products/service/ProductOfferingNotFoundException.java">Exception 404</a></p>
 <h3>Xem một request trong DevTools</h3>
-<p>Để kiểm tra trình duyệt thực sự gửi request nào, mở thẻ Network rồi gọi <code>http://localhost:811/products/1</code>. Chọn dòng request và đối chiếu <strong>Request URL</strong>, <strong>Request Method</strong>, <strong>Status Code</strong> trong Headers, sau đó đọc JSON trong Response. <a class="time" href="https://drive.google.com/file/d/1cW61-1ARRNIeKo2WMezMz3IkfXkAJGsi/view?t=9428" target="_blank" rel="noopener" aria-label="Xem video tại 2:37:08">2:37:08 <span aria-hidden="true">↗</span></a></p>
+<p>Để kiểm tra trình duyệt thực sự gửi request nào, mở thẻ Network rồi gọi <code>http://localhost:811/products/1</code>. Chọn dòng request và đối chiếu <strong>Request URL</strong>, <strong>Request Method</strong>, <strong>Status Code</strong> trong Headers, sau đó đọc JSON trong Response. <span class="time">2:37:08</span></p>
 </section>
-<section class="chapter" id="go-loi" aria-labelledby="go-loi-heading"><header class="chapter-top"><h2 id="go-loi-heading">Đọc lỗi và kiểm chứng</h2><a class="time" href="https://drive.google.com/file/d/1cW61-1ARRNIeKo2WMezMz3IkfXkAJGsi/view?t=9771" target="_blank" rel="noopener" aria-label="Xem video tại 2:42:51">2:42:51 <span aria-hidden="true">↗</span></a></header>
+<section class="chapter" id="go-loi" aria-labelledby="go-loi-heading"><header class="chapter-top"><h2 id="go-loi-heading">Đọc lỗi và kiểm chứng</h2><span class="time">2:42:51</span></header>
 <p>Buổi học có hai giai đoạn kiểm tra. Trước hết xác nhận ứng dụng đã mở cổng HTTP. Sau đó kiểm tra route, dòng dữ liệu và body. Một response <code>200</code> cần được kiểm tra cả nội dung JSON.</p>
 <div class="table-wrap"><table><thead><tr><th scope="col">Dấu hiệu</th><th scope="col">Kiểm tra</th></tr></thead><tbody>
-<tr><td>Failed to configure a DataSource</td><td>Kiểm tra file cấu hình trong <code>resources</code>, khóa <code>spring.datasource.url</code>, JDBC driver và cấu hình thực tế được nạp. <a class="time" href="https://drive.google.com/file/d/1cW61-1ARRNIeKo2WMezMz3IkfXkAJGsi/view?t=2817" target="_blank" rel="noopener" aria-label="Xem video tại 46:57">46:57 <span aria-hidden="true">↗</span></a></td></tr>
-<tr><td>Access denied hoặc lỗi kết nối MySQL</td><td>Kiểm tra host, port, user, password, quyền trên schema và trạng thái MySQL. So khớp chính xác cổng của MySQL trên máy. <a class="time" href="https://drive.google.com/file/d/1cW61-1ARRNIeKo2WMezMz3IkfXkAJGsi/view?t=4976" target="_blank" rel="noopener" aria-label="Xem video tại 1:22:56">1:22:56 <span aria-hidden="true">↗</span></a></td></tr>
-<tr><td>Port 8080 was already in use</td><td>Xem cổng nào đang bị chiếm. Đổi <code>server.port</code> rồi dùng đúng cổng mới trong browser hoặc curl. <a class="time" href="https://drive.google.com/file/d/1cW61-1ARRNIeKo2WMezMz3IkfXkAJGsi/view?t=4396" target="_blank" rel="noopener" aria-label="Xem video tại 1:13:16">1:13:16 <span aria-hidden="true">↗</span></a></td></tr>
-<tr><td>Connection refused</td><td>Kiểm tra đúng host và cổng, cùng log khởi động xem có tiến trình lắng nghe không. Lỗi này xảy ra trước khi nhận được HTTP status. <a class="time" href="https://drive.google.com/file/d/1cW61-1ARRNIeKo2WMezMz3IkfXkAJGsi/view?t=4477" target="_blank" rel="noopener" aria-label="Xem video tại 1:14:37">1:14:37 <span aria-hidden="true">↗</span></a></td></tr>
-<tr><td>Whitelabel 500 hoặc body <code>{}</code></td><td>Đọc stack trace và kiểm tra ID truyền xuống service. Nếu có dòng dữ liệu nhưng JSON thiếu trường, kiểm tra getter và annotation processing. Thử lại bằng ID <code>1</code> đã có trong dữ liệu mẫu để tách lỗi tìm bản ghi khỏi lỗi chuyển đối tượng sang JSON. <a class="time" href="https://drive.google.com/file/d/1cW61-1ARRNIeKo2WMezMz3IkfXkAJGsi/view?t=9793" target="_blank" rel="noopener" aria-label="Xem video tại 2:43:13">2:43:13 <span aria-hidden="true">↗</span></a></td></tr>
+<tr><td>Failed to configure a DataSource</td><td>Kiểm tra file cấu hình trong <code>resources</code>, khóa <code>spring.datasource.url</code>, JDBC driver và cấu hình thực tế được nạp. <span class="time">46:57</span></td></tr>
+<tr><td>Access denied hoặc lỗi kết nối MySQL</td><td>Kiểm tra host, port, user, password, quyền trên schema và trạng thái MySQL. So khớp chính xác cổng của MySQL trên máy. <span class="time">1:22:56</span></td></tr>
+<tr><td>Port 8080 was already in use</td><td>Xem cổng nào đang bị chiếm. Đổi <code>server.port</code> rồi dùng đúng cổng mới trong browser hoặc curl. <span class="time">1:13:16</span></td></tr>
+<tr><td>Connection refused</td><td>Kiểm tra đúng host và cổng, cùng log khởi động xem có tiến trình lắng nghe không. Lỗi này xảy ra trước khi nhận được HTTP status. <span class="time">1:14:37</span></td></tr>
+<tr><td>Whitelabel 500 hoặc body <code>{}</code></td><td>Đọc stack trace và kiểm tra ID truyền xuống service. Nếu có dòng dữ liệu nhưng JSON thiếu trường, kiểm tra getter và annotation processing. Thử lại bằng ID <code>1</code> đã có trong dữ liệu mẫu để tách lỗi tìm bản ghi khỏi lỗi chuyển đối tượng sang JSON. <span class="time">2:43:13</span></td></tr>
 </tbody></table></div>
 <h3>Kiểm tra getter Lombok</h3>
-<ol><li>Kiểm tra dependency Lombok và cấu hình annotation processor trong <code>pom.xml</code>.</li><li>Khi build từ IntelliJ, mở Settings → Build, Execution, Deployment → Compiler → Annotation Processors và kiểm tra <strong>Enable annotation processing</strong>. <a class="time" href="https://drive.google.com/file/d/1cW61-1ARRNIeKo2WMezMz3IkfXkAJGsi/view?t=12091" target="_blank" rel="noopener" aria-label="Xem video tại 3:21:31">3:21:31 <span aria-hidden="true">↗</span></a></li><li>Build lại và gọi lại API. Có thể dùng getter viết tay để khoanh vùng nguyên nhân. Jackson cần nhận diện thuộc tính JSON, ví dụ qua các getter public như <code>getName()</code>. <a class="time" href="https://drive.google.com/file/d/1cW61-1ARRNIeKo2WMezMz3IkfXkAJGsi/view?t=10957" target="_blank" rel="noopener" aria-label="Xem video tại 3:02:37">3:02:37 <span aria-hidden="true">↗</span></a></li></ol>
+<ol><li>Kiểm tra dependency Lombok và cấu hình annotation processor trong <code>pom.xml</code>.</li><li>Khi build từ IntelliJ, mở Settings → Build, Execution, Deployment → Compiler → Annotation Processors và kiểm tra <strong>Enable annotation processing</strong>. <span class="time">3:21:31</span></li><li>Build lại và gọi lại API. Có thể dùng getter viết tay để khoanh vùng nguyên nhân. Jackson cần nhận diện thuộc tính JSON, ví dụ qua các getter public như <code>getName()</code>. <span class="time">3:02:37</span></li></ol>
 <p>Kiểm tra thêm dữ liệu thực tế bằng <code>SELECT id, name, price, color FROM product_offerings WHERE id = 1;</code>. Khi SQL đã trả về đúng dòng, kiểm tra tiếp ánh xạ entity, ID mà service nhận được và dữ liệu trước lúc controller trả response.</p>
 <h3>Dừng ở biên đầu tiên bị hỏng</h3>
 <ol class="steps">
@@ -290,8 +289,7 @@ curl.exe -i http://localhost:811/products/abc</code></pre></figure>
 </section>
       <footer class="references">
         <h2>Nguồn đối chiếu</h2>
-        <ul><li><a href="https://drive.google.com/file/d/1cW61-1ARRNIeKo2WMezMz3IkfXkAJGsi/view" target="_blank" rel="noopener">Railway 89 · Buổi 1 · Video và Transcript trên Google Drive</a></li>
-        <li><a href="https://docs.spring.io/spring-boot/3.5/reference/data/sql.html">Spring Boot · SQL Databases</a></li>
+        <ul><li><a href="https://docs.spring.io/spring-boot/3.5/reference/data/sql.html">Spring Boot · SQL Databases</a></li>
         <li><a href="https://docs.spring.io/spring-data/jpa/reference/3.5/repositories/core-concepts.html">Spring Data JPA · Core concepts</a></li>
         <li><a href="https://www.rfc-editor.org/rfc/rfc9110.html">RFC 9110 · HTTP Semantics</a></li>
         <li><a href="https://projectlombok.org/setup/maven">Project Lombok · Cấu hình Maven</a></li></ul>

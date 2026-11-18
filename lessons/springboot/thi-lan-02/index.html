@@ -3,7 +3,7 @@
 <title>Buổi thi lần 2 · Tự thi thực hành API account và group</title><meta name="description" content="Tự chạy một lượt CRUD, kiểm tra dữ liệu sau lỗi và giải thích code theo dấu vết của request.">
 <link rel="stylesheet" href="../../../assets/styles.css"><script src="../../../assets/site.js" defer></script></head>
 <body id="top"><a class="skip" href="#noi-dung">Đến nội dung</a>
-<header class="masthead"><div class="mast-inner"><a class="brand" href="../../../index.html"><span class="mark" aria-hidden="true">B</span> Backend Service</a><a class="source" href="https://drive.google.com/file/d/1hr4o6FoVivFnbpQqammJLK8p8O4NZpdR/view" target="_blank" rel="noopener">Video gốc ↗</a></div></header>
+<header class="masthead"><div class="mast-inner"><a class="brand" href="../../../index.html"><span class="mark" aria-hidden="true">B</span> Backend Service</a></div></header>
 <div class="hero"><div class="hero-inner"><div><nav class="crumbs" aria-label="Vị trí hiện tại"><a href="../../../index.html">Khóa học</a> / <a href="../index.html">Spring Boot</a> / Buổi thi lần 2</nav>
 <p class="kicker">Railway 89 <span></span> Buổi thi lần 2</p><h1>Tự thi thực hành API account và group</h1><p class="lead">Tự chạy một lượt CRUD, kiểm tra dữ liệu sau lỗi và giải thích code theo dấu vết của request.</p>
 <div class="hero-actions"><a class="button" href="#de">Bắt đầu bài học ↓</a><a class="button secondary" href="#thuc-hanh">Thực hành</a></div></div>
@@ -103,18 +103,18 @@ ORDER BY g.id;</code></pre>
 <details><summary>Sửa cùng groupIds hai lần có thể phát sinh liên kết trùng?</summary><p>Phép hiệu tập không tạo thêm hàng ở lượt thứ hai. Khóa ghép tại DB là hàng rào cuối cùng cho dữ liệu. Các thao tác ghi đồng thời còn cần chính sách khóa hoặc xử lý xung đột nhất quán.</p></details>
 </section>
 <section id="moc-video"><h2>Mốc xem lại và tài liệu đối chiếu</h2>
-<p>Video là các lượt trình bày và vấn đáp của nhiều project. Các mốc dưới chỉ tới thao tác hoặc câu hỏi cụ thể. Đề, tự chấm và đáp án trên được dựng cho demo chung để làm độc lập.</p><ul><li><a href="https://drive.google.com/file/d/1hr4o6FoVivFnbpQqammJLK8p8O4NZpdR/view?t=748" target="_blank" rel="noopener">12:28</a> · Khởi chạy project và kiểm thử trước khi trình bày</li>
-<li><a href="https://drive.google.com/file/d/1hr4o6FoVivFnbpQqammJLK8p8O4NZpdR/view?t=2915" target="_blank" rel="noopener">48:35</a> · Demo API user/group bằng Postman</li>
-<li><a href="https://drive.google.com/file/d/1hr4o6FoVivFnbpQqammJLK8p8O4NZpdR/view?t=2937" target="_blank" rel="noopener">48:57</a> · Trình bày phân trang user</li>
-<li><a href="https://drive.google.com/file/d/1hr4o6FoVivFnbpQqammJLK8p8O4NZpdR/view?t=3046" target="_blank" rel="noopener">50:46</a> · Giải thích group đích không tồn tại</li>
-<li><a href="https://drive.google.com/file/d/1hr4o6FoVivFnbpQqammJLK8p8O4NZpdR/view?t=3087" target="_blank" rel="noopener">51:27</a> · Gỡ user khỏi group</li>
-<li><a href="https://drive.google.com/file/d/1hr4o6FoVivFnbpQqammJLK8p8O4NZpdR/view?t=3256" target="_blank" rel="noopener">54:16</a> · Hỏi về constructor và annotation</li>
-<li><a href="https://drive.google.com/file/d/1hr4o6FoVivFnbpQqammJLK8p8O4NZpdR/view?t=3763" target="_blank" rel="noopener">1:02:43</a> · Hỏi về validation và bắt trùng username</li>
-<li><a href="https://drive.google.com/file/d/1hr4o6FoVivFnbpQqammJLK8p8O4NZpdR/view?t=4347" target="_blank" rel="noopener">1:12:27</a> · Giải thích luồng gọi controller</li>
-<li><a href="https://drive.google.com/file/d/1hr4o6FoVivFnbpQqammJLK8p8O4NZpdR/view?t=4987" target="_blank" rel="noopener">1:23:07</a> · Thảo luận giới hạn dữ liệu trả về</li>
-<li><a href="https://drive.google.com/file/d/1hr4o6FoVivFnbpQqammJLK8p8O4NZpdR/view?t=5449" target="_blank" rel="noopener">1:30:49</a> · Giải thích ModelMapper</li>
-<li><a href="https://drive.google.com/file/d/1hr4o6FoVivFnbpQqammJLK8p8O4NZpdR/view?t=6160" target="_blank" rel="noopener">1:42:40</a> · Hỏi cách khởi tạo bean</li>
-<li><a href="https://drive.google.com/file/d/1hr4o6FoVivFnbpQqammJLK8p8O4NZpdR/view?t=6914" target="_blank" rel="noopener">1:55:14</a> · Đối chiếu mật khẩu và tìm username</li>
-<li><a href="https://drive.google.com/file/d/1hr4o6FoVivFnbpQqammJLK8p8O4NZpdR/view?t=8973" target="_blank" rel="noopener">2:29:33</a> · Các câu hỏi tổng kết về ORM và Spring Data</li></ul><h3>Tài liệu chính thức</h3><ul><li><a href="https://www.rfc-editor.org/rfc/rfc9110.html" target="_blank" rel="noopener">RFC 9110 · Semantics and Status Codes</a></li><li><a href="https://docs.spring.io/spring-security/reference/6.5/servlet/authentication/passwords/dao-authentication-provider.html" target="_blank" rel="noopener">Spring Security 6.5 · DaoAuthenticationProvider</a></li><li><a href="https://docs.spring.io/spring-framework/reference/6.2/data-access/jdbc/core.html" target="_blank" rel="noopener">Spring Framework 6.2 · JDBC</a></li><li><a href="https://docs.spring.io/spring-framework/reference/6.2/data-access/transaction/declarative/rolling-back.html" target="_blank" rel="noopener">Spring Framework 6.2 · Rollback</a></li></ul>
+<p>Video là các lượt trình bày và vấn đáp của nhiều project. Các mốc dưới chỉ tới thao tác hoặc câu hỏi cụ thể. Đề, tự chấm và đáp án trên được dựng cho demo chung để làm độc lập.</p><ul><li>12:28 · Khởi chạy project và kiểm thử trước khi trình bày</li>
+<li>48:35 · Demo API user/group bằng Postman</li>
+<li>48:57 · Trình bày phân trang user</li>
+<li>50:46 · Giải thích group đích không tồn tại</li>
+<li>51:27 · Gỡ user khỏi group</li>
+<li>54:16 · Hỏi về constructor và annotation</li>
+<li>1:02:43 · Hỏi về validation và bắt trùng username</li>
+<li>1:12:27 · Giải thích luồng gọi controller</li>
+<li>1:23:07 · Thảo luận giới hạn dữ liệu trả về</li>
+<li>1:30:49 · Giải thích ModelMapper</li>
+<li>1:42:40 · Hỏi cách khởi tạo bean</li>
+<li>1:55:14 · Đối chiếu mật khẩu và tìm username</li>
+<li>2:29:33 · Các câu hỏi tổng kết về ORM và Spring Data</li></ul><h3>Tài liệu chính thức</h3><ul><li><a href="https://www.rfc-editor.org/rfc/rfc9110.html" target="_blank" rel="noopener">RFC 9110 · Semantics and Status Codes</a></li><li><a href="https://docs.spring.io/spring-security/reference/6.5/servlet/authentication/passwords/dao-authentication-provider.html" target="_blank" rel="noopener">Spring Security 6.5 · DaoAuthenticationProvider</a></li><li><a href="https://docs.spring.io/spring-framework/reference/6.2/data-access/jdbc/core.html" target="_blank" rel="noopener">Spring Framework 6.2 · JDBC</a></li><li><a href="https://docs.spring.io/spring-framework/reference/6.2/data-access/transaction/declarative/rolling-back.html" target="_blank" rel="noopener">Spring Framework 6.2 · Rollback</a></li></ul>
 </section>
 <nav class="hero-actions" aria-label="Điều hướng bài học"><a href="../on-tap-02/index.html">← Ôn tập 02</a><a href="../index.html">Về danh mục →</a><a href="#top">Lên đầu trang ↑</a></nav></main></div></body></html>

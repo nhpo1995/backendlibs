@@ -12,7 +12,6 @@
   <header class="masthead">
     <div class="mast-inner">
       <a class="brand" href="../../../index.html"><span aria-hidden="true" class="mark">B</span> Backend Service</a>
-      <a class="source" href="https://drive.google.com/file/d/13XuT5Y9OeXAC9FszT8RLwBxqDkiiSkDU/view" target="_blank" rel="noopener">Video gốc <span aria-hidden="true">↗</span></a>
     </div>
   </header>
   <div class="hero">
@@ -49,7 +48,7 @@
         <p>Một offering có thể chưa có chi tiết kỹ thuật, nhưng nếu đã gắn thì chi tiết ấy chỉ thuộc về một offering. Demo dùng hai bảng H2 và cùng một DTO để so sánh các truy vấn đọc quan hệ một–một.</p>
       </div>
       <section class="chapter" id="cardinality" aria-labelledby="cardinality-heading">
-        <header class="chapter-top"><h2 id="cardinality-heading">Đưa quan hệ một–một vào SQL</h2><a class="time" href="https://drive.google.com/file/d/13XuT5Y9OeXAC9FszT8RLwBxqDkiiSkDU/view?t=1141" target="_blank" rel="noopener" aria-label="Xem video tại 19:01">19:01 <span aria-hidden="true">↗</span></a></header>
+        <header class="chapter-top"><h2 id="cardinality-heading">Đưa quan hệ một–một vào SQL</h2><span class="time">19:01</span></header>
 
         <p>Đầu buổi lớp phân loại quan hệ qua sản phẩm, danh mục và ví dụ người với hồ sơ. Quy tắc nghiệp vụ quyết định bội số. Một–một nghĩa là mỗi bản ghi ở một phía liên kết nhiều nhất một bản ghi ở phía kia. Schema dưới đây cho phép offering tạm thời chưa có detail. Để bắt buộc mọi offering có detail, đặt <code>NOT NULL</code> trên <code>single_offering.detail_id</code> và khai báo <code>@OneToOne(optional = false)</code> tương ứng. Nếu dời FK sang bảng detail, <code>NOT NULL</code> ở đó buộc mỗi detail có offering. Một offering trong thiết kế đó vẫn có thể chưa được detail nào tham chiếu.</p>
 <figure class="snippet"><figcaption>Ràng buộc trong schema của demo</figcaption><pre tabindex="0"><code>CREATE TABLE single_detail (
@@ -61,28 +60,28 @@ CREATE TABLE single_offering (
     name VARCHAR(100) NOT NULL,
     detail_id BIGINT UNIQUE REFERENCES single_detail(id)
 );</code></pre></figure>
-<p><code>REFERENCES</code> từ chối ID detail vắng. <code>UNIQUE</code> từ chối hai offering trỏ cùng detail. Có thể dùng chung khóa chính, chẳng hạn <code>product_detail.id</code> đồng thời là PK và FK đến product, và cách đặt FK ở phía detail kèm UNIQUE. Dùng <code>@MapsId</code> nếu chọn khóa chung cho entity phụ thuộc. Tách bảng giúp biểu diễn lifecycle hoặc dữ liệu tùy chọn, nhưng khi muốn đọc đủ hai phía thì vẫn cần join hoặc thêm lượt query. <a class="time" href="https://drive.google.com/file/d/13XuT5Y9OeXAC9FszT8RLwBxqDkiiSkDU/view?t=4969" target="_blank" rel="noopener" aria-label="Xem video tại 1:22:49">1:22:49 <span aria-hidden="true">↗</span></a> <a class="time" href="https://drive.google.com/file/d/13XuT5Y9OeXAC9FszT8RLwBxqDkiiSkDU/view?t=5284" target="_blank" rel="noopener" aria-label="Xem video tại 1:28:04">1:28:04 <span aria-hidden="true">↗</span></a></p>
+<p><code>REFERENCES</code> từ chối ID detail vắng. <code>UNIQUE</code> từ chối hai offering trỏ cùng detail. Có thể dùng chung khóa chính, chẳng hạn <code>product_detail.id</code> đồng thời là PK và FK đến product, và cách đặt FK ở phía detail kèm UNIQUE. Dùng <code>@MapsId</code> nếu chọn khóa chung cho entity phụ thuộc. Tách bảng giúp biểu diễn lifecycle hoặc dữ liệu tùy chọn, nhưng khi muốn đọc đủ hai phía thì vẫn cần join hoặc thêm lượt query. <span class="time">1:22:49</span> <span class="time">1:28:04</span></p>
       </section>
       <section class="chapter" id="mapping" aria-labelledby="mapping-heading">
-        <header class="chapter-top"><h2 id="mapping-heading">Ánh xạ cột join và phía sở hữu</h2><a class="time" href="https://drive.google.com/file/d/13XuT5Y9OeXAC9FszT8RLwBxqDkiiSkDU/view?t=6039" target="_blank" rel="noopener" aria-label="Xem video tại 1:40:39">1:40:39 <span aria-hidden="true">↗</span></a></header>
+        <header class="chapter-top"><h2 id="mapping-heading">Ánh xạ cột join và phía sở hữu</h2><span class="time">1:40:39</span></header>
 
         <figure class="snippet"><figcaption>SingleOffering.java</figcaption><pre tabindex="0"><code>@OneToOne(fetch = FetchType.LAZY)
 @JoinColumn(name = "detail_id", unique = true)
 SingleDetail detail;</code></pre></figure>
 <p><code>name</code> chỉ cột FK tại bảng offering. <code>referencedColumnName</code> mặc định là cột PK của đối tượng <code>SingleDetail</code>. Nếu thêm chiều ngược, phía detail dùng <code>@OneToOne(mappedBy = "detail")</code>. Giá trị này là tên thuộc tính Java ở phía giữ FK. Thay field chỉ đọc ở phía ngược sẽ không tự đổi cột FK trong DB.</p>
-<p>Trong live coding có trường hợp offering trỏ đến detail không có dữ liệu hoặc bảng thiếu FK, và tên cột Java/DB không khớp. Lần từ log tới cột <code>detail_id</code>, kiểm tra giá trị và tồn tại của dòng detail trước khi sửa mapping. <a class="time" href="https://drive.google.com/file/d/13XuT5Y9OeXAC9FszT8RLwBxqDkiiSkDU/view?t=8075" target="_blank" rel="noopener" aria-label="Xem video tại 2:14:35">2:14:35 <span aria-hidden="true">↗</span></a> <a class="time" href="https://drive.google.com/file/d/13XuT5Y9OeXAC9FszT8RLwBxqDkiiSkDU/view?t=8385" target="_blank" rel="noopener" aria-label="Xem video tại 2:19:45">2:19:45 <span aria-hidden="true">↗</span></a> <a href="../buoi-06/demo/src/main/java/vn/railway89/catalog/SingleOffering.java">Xem entity</a>.</p>
+<p>Trong live coding có trường hợp offering trỏ đến detail không có dữ liệu hoặc bảng thiếu FK, và tên cột Java/DB không khớp. Lần từ log tới cột <code>detail_id</code>, kiểm tra giá trị và tồn tại của dòng detail trước khi sửa mapping. <span class="time">2:14:35</span> <span class="time">2:19:45</span> <a href="../buoi-06/demo/src/main/java/vn/railway89/catalog/SingleOffering.java">Xem entity</a>.</p>
       </section>
       <section class="chapter" id="fetch" aria-labelledby="fetch-heading">
-        <header class="chapter-top"><h2 id="fetch-heading">Theo dõi EAGER, LAZY và fetch join</h2><a class="time" href="https://drive.google.com/file/d/13XuT5Y9OeXAC9FszT8RLwBxqDkiiSkDU/view?t=9369" target="_blank" rel="noopener" aria-label="Xem video tại 2:36:09">2:36:09 <span aria-hidden="true">↗</span></a></header>
+        <header class="chapter-top"><h2 id="fetch-heading">Theo dõi EAGER, LAZY và fetch join</h2><span class="time">2:36:09</span></header>
 
         <p>Mặc định JPA dùng EAGER cho <code>@OneToOne</code>. EAGER yêu cầu quan hệ được nạp sẵn, còn LAZY là gợi ý cho provider. Hibernate có thể dùng JOIN hoặc thêm SELECT để đáp ứng yêu cầu fetch tùy truy vấn và mapping. Phía ngược của quan hệ một–một có thể cần truy vấn để xác định có detail hay không. Demo dùng LAZY ở phía có FK, nơi Hibernate có sẵn ID của detail để tạo proxy.</p>
-<p>Với ID 1, đọc offering mà không truy cập detail chỉ cần SELECT đầu. Gọi <code>getSpecification()</code> trong transaction làm proxy nạp dữ liệu bằng SELECT thứ hai. <code>Hibernate.isInitialized</code> quan sát trạng thái trước và sau lúc gọi getter. Sau khi persistence context đóng, đọc proxy chưa nạp có thể gây <code>LazyInitializationException</code>. Demo chuyển sang DTO bên trong transaction và tắt Open EntityManager in View. <a class="time" href="https://drive.google.com/file/d/13XuT5Y9OeXAC9FszT8RLwBxqDkiiSkDU/view?t=10013" target="_blank" rel="noopener" aria-label="Xem video tại 2:46:53">2:46:53 <span aria-hidden="true">↗</span></a> <a class="time" href="https://drive.google.com/file/d/13XuT5Y9OeXAC9FszT8RLwBxqDkiiSkDU/view?t=10420" target="_blank" rel="noopener" aria-label="Xem video tại 2:53:40">2:53:40 <span aria-hidden="true">↗</span></a></p>
+<p>Với ID 1, đọc offering mà không truy cập detail chỉ cần SELECT đầu. Gọi <code>getSpecification()</code> trong transaction làm proxy nạp dữ liệu bằng SELECT thứ hai. <code>Hibernate.isInitialized</code> quan sát trạng thái trước và sau lúc gọi getter. Sau khi persistence context đóng, đọc proxy chưa nạp có thể gây <code>LazyInitializationException</code>. Demo chuyển sang DTO bên trong transaction và tắt Open EntityManager in View. <span class="time">2:46:53</span> <span class="time">2:53:40</span></p>
 <figure class="snippet"><figcaption>Nạp detail trong cùng truy vấn, giữ offering thiếu detail</figcaption><pre tabindex="0"><code>@Query("select o from SingleOffering o left join fetch o.detail where o.id = :id")
 Optional&lt;SingleOffering&gt; findWithDetail(@Param("id") Long id);</code></pre></figure>
 <p>LEFT JOIN FETCH giữ offering số 2 dù <code>detail_id</code> là NULL và bảo Hibernate nạp quan hệ từ kết quả. JOIN thường dùng để điều kiện hóa dữ liệu. FETCH JOIN còn yêu cầu nạp association. <a href="../buoi-06/demo/src/main/java/vn/railway89/catalog/SingleOfferingRepository.java">Xem repository</a> · <a href="../buoi-06/demo/src/main/java/vn/railway89/catalog/SingleOfferingService.java">Xem thí nghiệm Hibernate.isInitialized</a>.</p>
       </section>
       <section class="chapter" id="thuc-hanh" aria-labelledby="thuc-hanh-heading">
-        <header class="chapter-top"><h2 id="thuc-hanh-heading">Thực hành</h2><a class="time" href="https://drive.google.com/file/d/13XuT5Y9OeXAC9FszT8RLwBxqDkiiSkDU/view?t=8987" target="_blank" rel="noopener" aria-label="Xem video tại 2:29:47">2:29:47 <span aria-hidden="true">↗</span></a></header>
+        <header class="chapter-top"><h2 id="thuc-hanh-heading">Thực hành</h2><span class="time">2:29:47</span></header>
         <p>Chuẩn bị JDK 17 trở lên và Maven. Chạy lệnh dưới đây từ thư mục <code>backend-service</code>. Demo dùng H2 trong bộ nhớ và nạp lại bộ dữ liệu ban đầu mỗi lần khởi động. Dừng bằng Ctrl+C khi thực hành xong.</p>
         <figure class="snippet"><figcaption>PowerShell · khởi động trước khi gọi API</figcaption><pre tabindex="0"><code>mvn -f lessons/springboot/buoi-06/demo/pom.xml spring-boot:run</code></pre></figure>
         <p class="file-links"><a href="../buoi-06/demo/pom.xml">Maven</a> <a href="../buoi-06/demo/src/main/resources/schema.sql">Schema</a> <a href="../buoi-06/demo/src/main/resources/data.sql">Dữ liệu mẫu</a> <a href="../buoi-06/demo/src/main/resources/application.yaml">Cấu hình</a></p>
@@ -109,22 +108,21 @@ VALUES (3, 'Duplicate reference', 10);</code></pre></figure>
       <section class="chapter" id="moc-video" aria-labelledby="moc-video-heading">
         <header class="chapter-top"><h2 id="moc-video-heading">Mốc xem lại</h2></header>
         <ul>
-          <li><a class="time" href="https://drive.google.com/file/d/13XuT5Y9OeXAC9FszT8RLwBxqDkiiSkDU/view?t=1141" target="_blank" rel="noopener" aria-label="Xem video tại 19:01">19:01 <span aria-hidden="true">↗</span></a> Phân loại quan hệ dữ liệu.</li>
-          <li><a class="time" href="https://drive.google.com/file/d/13XuT5Y9OeXAC9FszT8RLwBxqDkiiSkDU/view?t=2889" target="_blank" rel="noopener" aria-label="Xem video tại 48:09">48:09 <span aria-hidden="true">↗</span></a> Cân nhắc tách bảng và chi phí JOIN.</li>
-          <li><a class="time" href="https://drive.google.com/file/d/13XuT5Y9OeXAC9FszT8RLwBxqDkiiSkDU/view?t=4048" target="_blank" rel="noopener" aria-label="Xem video tại 1:07:28">1:07:28 <span aria-hidden="true">↗</span></a> Mô hình product và product detail.</li>
-          <li><a class="time" href="https://drive.google.com/file/d/13XuT5Y9OeXAC9FszT8RLwBxqDkiiSkDU/view?t=4969" target="_blank" rel="noopener" aria-label="Xem video tại 1:22:49">1:22:49 <span aria-hidden="true">↗</span></a> Sửa thiết kế khóa dùng chung.</li>
-          <li><a class="time" href="https://drive.google.com/file/d/13XuT5Y9OeXAC9FszT8RLwBxqDkiiSkDU/view?t=5284" target="_blank" rel="noopener" aria-label="Xem video tại 1:28:04">1:28:04 <span aria-hidden="true">↗</span></a> Vai trò của UNIQUE.</li>
-          <li><a class="time" href="https://drive.google.com/file/d/13XuT5Y9OeXAC9FszT8RLwBxqDkiiSkDU/view?t=6080" target="_blank" rel="noopener" aria-label="Xem video tại 1:41:20">1:41:20 <span aria-hidden="true">↗</span></a> Khai báo @OneToOne và @JoinColumn.</li>
-          <li><a class="time" href="https://drive.google.com/file/d/13XuT5Y9OeXAC9FszT8RLwBxqDkiiSkDU/view?t=8075" target="_blank" rel="noopener" aria-label="Xem video tại 2:14:35">2:14:35 <span aria-hidden="true">↗</span></a> Kiểm tra detail được tham chiếu.</li>
-          <li><a class="time" href="https://drive.google.com/file/d/13XuT5Y9OeXAC9FszT8RLwBxqDkiiSkDU/view?t=8987" target="_blank" rel="noopener" aria-label="Xem video tại 2:29:47">2:29:47 <span aria-hidden="true">↗</span></a> Bật log SQL.</li>
-          <li><a class="time" href="https://drive.google.com/file/d/13XuT5Y9OeXAC9FszT8RLwBxqDkiiSkDU/view?t=9369" target="_blank" rel="noopener" aria-label="Xem video tại 2:36:09">2:36:09 <span aria-hidden="true">↗</span></a> Chuyển sang LAZY để so sánh.</li>
-          <li><a class="time" href="https://drive.google.com/file/d/13XuT5Y9OeXAC9FszT8RLwBxqDkiiSkDU/view?t=10420" target="_blank" rel="noopener" aria-label="Xem video tại 2:53:40">2:53:40 <span aria-hidden="true">↗</span></a> Đọc SQL trước và sau khi truy cập detail.</li>
+          <li><span class="time">19:01</span> Phân loại quan hệ dữ liệu.</li>
+          <li><span class="time">48:09</span> Cân nhắc tách bảng và chi phí JOIN.</li>
+          <li><span class="time">1:07:28</span> Mô hình product và product detail.</li>
+          <li><span class="time">1:22:49</span> Sửa thiết kế khóa dùng chung.</li>
+          <li><span class="time">1:28:04</span> Vai trò của UNIQUE.</li>
+          <li><span class="time">1:41:20</span> Khai báo @OneToOne và @JoinColumn.</li>
+          <li><span class="time">2:14:35</span> Kiểm tra detail được tham chiếu.</li>
+          <li><span class="time">2:29:47</span> Bật log SQL.</li>
+          <li><span class="time">2:36:09</span> Chuyển sang LAZY để so sánh.</li>
+          <li><span class="time">2:53:40</span> Đọc SQL trước và sau khi truy cập detail.</li>
         </ul>
       </section>
       <footer class="references">
         <h2>Nguồn đối chiếu</h2>
         <ul>
-          <li><a href="https://drive.google.com/file/d/13XuT5Y9OeXAC9FszT8RLwBxqDkiiSkDU/view" target="_blank" rel="noopener">Railway 89 · Buổi 4 · Video và transcript trên Google Drive</a></li>
           <li><a href="https://jakarta.ee/specifications/persistence/3.1/jakarta-persistence-spec-3.1">Jakarta Persistence 3.1 · Mapping, vòng đời và truy vấn</a></li>
           <li><a href="https://docs.hibernate.org/orm/6.6/userguide/html_single/">Hibernate ORM 6.6 · Associations, fetching và HQL</a></li>
         </ul>

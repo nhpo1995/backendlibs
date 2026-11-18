@@ -12,7 +12,6 @@
   <header class="masthead">
     <div class="mast-inner">
       <a class="brand" href="../../../index.html"><span aria-hidden="true" class="mark">B</span> Backend Service</a>
-      <a class="source" href="https://drive.google.com/file/d/1j6FnHakgEx10OFEh-1Tj7JH9TZ73DiSS/view" target="_blank" rel="noopener">Video gốc <span aria-hidden="true">↗</span></a>
     </div>
   </header>
   <div class="hero">
@@ -49,13 +48,13 @@
         <p>Số lượng chi tiết trên mỗi offering và khả năng dùng chung chi tiết là hai quy tắc quyết định cách đặt khóa ngoại. Bài dùng hai quy tắc ấy để chọn giữa một–một, một–nhiều và nhiều–nhiều, rồi truy vấn mô hình nhiều–nhiều bằng JPQL.</p>
       </div>
       <section class="chapter" id="chieu-nguoc" aria-labelledby="chieu-nguoc-heading">
-        <header class="chapter-top"><h2 id="chieu-nguoc-heading">Bên sở hữu và vòng lặp JSON</h2><a class="time" href="https://drive.google.com/file/d/1j6FnHakgEx10OFEh-1Tj7JH9TZ73DiSS/view?t=2171" target="_blank" rel="noopener" aria-label="Xem video tại 36:11">36:11 <span aria-hidden="true">↗</span></a></header>
+        <header class="chapter-top"><h2 id="chieu-nguoc-heading">Bên sở hữu và vòng lặp JSON</h2><span class="time">36:11</span></header>
 
         <p>Sau khi ôn LAZY và EAGER, lớp đi từ offering sang detail rồi thử đi ngược lại. Phía sở hữu khai báo <code>@JoinColumn</code> tại FK. Phía ngược dùng <code>mappedBy</code> trỏ tới tên field của phía sở hữu. Khi thay đổi quan hệ hai chiều trong bộ nhớ, đồng bộ cả hai đầu để code đọc nhất quán. Phía sở hữu quyết định giá trị FK khi flush.</p>
-<p>Nếu Jackson duyệt cả hai chiều, cây JSON có thể lặp offering → detail → offering. Có thể dùng <code>@JsonIgnore</code> trên thuộc tính ngược để Jackson chỉ serialize một chiều. Với Lombok, kiểm tra thêm <code>toString</code> và <code>equals/hashCode</code> vì các hàm này cũng có thể lần theo quan hệ vòng. Demo trả DTO với ID, tên, giá, màu và trạng thái, giúp API kiểm soát dữ liệu trả ra. <a class="time" href="https://drive.google.com/file/d/1j6FnHakgEx10OFEh-1Tj7JH9TZ73DiSS/view?t=2828" target="_blank" rel="noopener" aria-label="Xem video tại 47:08">47:08 <span aria-hidden="true">↗</span></a> <a class="time" href="https://drive.google.com/file/d/1j6FnHakgEx10OFEh-1Tj7JH9TZ73DiSS/view?t=7347" target="_blank" rel="noopener" aria-label="Xem video tại 2:02:27">2:02:27 <span aria-hidden="true">↗</span></a></p>
+<p>Nếu Jackson duyệt cả hai chiều, cây JSON có thể lặp offering → detail → offering. Có thể dùng <code>@JsonIgnore</code> trên thuộc tính ngược để Jackson chỉ serialize một chiều. Với Lombok, kiểm tra thêm <code>toString</code> và <code>equals/hashCode</code> vì các hàm này cũng có thể lần theo quan hệ vòng. Demo trả DTO với ID, tên, giá, màu và trạng thái, giúp API kiểm soát dữ liệu trả ra. <span class="time">47:08</span> <span class="time">2:02:27</span></p>
       </section>
       <section class="chapter" id="one-many" aria-labelledby="one-many-heading">
-        <header class="chapter-top"><h2 id="one-many-heading">Từ một–một sang một–nhiều</h2><a class="time" href="https://drive.google.com/file/d/1j6FnHakgEx10OFEh-1Tj7JH9TZ73DiSS/view?t=3383" target="_blank" rel="noopener" aria-label="Xem video tại 56:23">56:23 <span aria-hidden="true">↗</span></a></header>
+        <header class="chapter-top"><h2 id="one-many-heading">Từ một–một sang một–nhiều</h2><span class="time">56:23</span></header>
 
         <p>Nếu một offering có nhiều detail và mỗi detail thuộc một offering, đặt FK <code>offering_id</code> ở các dòng detail. Nhiều dòng được dùng chung giá trị FK, nên FK này bỏ UNIQUE. Dùng NOT NULL nếu detail bắt buộc thuộc một offering.</p>
 <figure class="snippet"><figcaption>Hai đầu mapping một–nhiều, minh họa bước chuyển tiếp</figcaption><pre tabindex="0"><code>// Trong ProductDetail
@@ -69,7 +68,7 @@ List&lt;ProductDetail&gt; details = new ArrayList&lt;&gt;();</code></pre></figur
 <p>Nếu detail B đồng thời thuộc offering 1 và 2, một FK không đủ để biểu diễn các quan hệ. Thêm một dòng cho mỗi cặp trong bảng nối.</p>
       </section>
       <section class="chapter" id="many-many" aria-labelledby="many-many-heading">
-        <header class="chapter-top"><h2 id="many-many-heading">Entity bảng nối với hai khóa ngoại</h2><a class="time" href="https://drive.google.com/file/d/1j6FnHakgEx10OFEh-1Tj7JH9TZ73DiSS/view?t=5529" target="_blank" rel="noopener" aria-label="Xem video tại 1:32:09">1:32:09 <span aria-hidden="true">↗</span></a></header>
+        <header class="chapter-top"><h2 id="many-many-heading">Entity bảng nối với hai khóa ngoại</h2><span class="time">1:32:09</span></header>
 
         <p>Ánh xạ mỗi hàng nối thành <code>ProductOfferingDetail</code> có ID riêng và hai <code>@ManyToOne</code> trỏ tới offering và detail. Phía offering có collection link với <code>@OneToMany(mappedBy = "offering")</code>. Nếu cần đi ngược từ detail, thêm collection với <code>mappedBy = "detail"</code>. Hai field trên entity nối là những field sở hữu FK.</p>
 <figure class="snippet"><figcaption>ProductOfferingDetail.java · trích hai quan hệ</figcaption><pre tabindex="0"><code>@ManyToOne(fetch = FetchType.LAZY, optional = false)
@@ -79,11 +78,11 @@ private ProductOffering offering;
 @ManyToOne(fetch = FetchType.LAZY, optional = false)
 @JoinColumn(name = "product_detail_id", nullable = false)
 private ProductDetail detail;</code></pre></figure>
-<p><code>UNIQUE(product_offering_id, product_detail_id)</code> cấm lặp đúng một cặp. UNIQUE riêng trên từng FK sẽ cản việc dùng chung. Có thể dùng cặp FK làm khóa chính ghép. Với bảng nối thuần, JPA còn có <code>@ManyToMany</code> và <code>@JoinTable</code>. Entity nối tiện khi cần thêm thuộc tính riêng như thời điểm gán. Seed gồm <code>(1,1), (1,2), (2,2)</code>; detail 2 được dùng ở hai offering. <a class="time" href="https://drive.google.com/file/d/1j6FnHakgEx10OFEh-1Tj7JH9TZ73DiSS/view?t=6714" target="_blank" rel="noopener" aria-label="Xem video tại 1:51:54">1:51:54 <span aria-hidden="true">↗</span></a> <a class="time" href="https://drive.google.com/file/d/1j6FnHakgEx10OFEh-1Tj7JH9TZ73DiSS/view?t=7158" target="_blank" rel="noopener" aria-label="Xem video tại 1:59:18">1:59:18 <span aria-hidden="true">↗</span></a></p>
+<p><code>UNIQUE(product_offering_id, product_detail_id)</code> cấm lặp đúng một cặp. UNIQUE riêng trên từng FK sẽ cản việc dùng chung. Có thể dùng cặp FK làm khóa chính ghép. Với bảng nối thuần, JPA còn có <code>@ManyToMany</code> và <code>@JoinTable</code>. Entity nối tiện khi cần thêm thuộc tính riêng như thời điểm gán. Seed gồm <code>(1,1), (1,2), (2,2)</code>; detail 2 được dùng ở hai offering. <span class="time">1:51:54</span> <span class="time">1:59:18</span></p>
 <p><a href="../buoi-06/demo/src/main/java/vn/railway89/catalog/ProductOfferingDetail.java">Xem entity nối</a> · <a href="../buoi-06/demo/src/main/java/vn/railway89/catalog/ProductOffering.java">Xem phía mappedBy</a>.</p>
       </section>
       <section class="chapter" id="jpql" aria-labelledby="jpql-heading">
-        <header class="chapter-top"><h2 id="jpql-heading">JPQL theo entity và thuộc tính</h2><a class="time" href="https://drive.google.com/file/d/1j6FnHakgEx10OFEh-1Tj7JH9TZ73DiSS/view?t=10424" target="_blank" rel="noopener" aria-label="Xem video tại 2:53:44">2:53:44 <span aria-hidden="true">↗</span></a></header>
+        <header class="chapter-top"><h2 id="jpql-heading">JPQL theo entity và thuộc tính</h2><span class="time">2:53:44</span></header>
 
         <p>Nếu khai báo <code>findByDetailId</code> trên repository của offering, Spring Data sẽ cố phân giải đường dẫn thuộc tính từ <code>ProductOffering</code>. Entity này có collection <code>links</code> và không có thuộc tính <code>detailId</code>. Hãy JOIN qua collection hoặc lấy tập ID offering từ entity bảng nối rồi dùng <code>IN</code>. JPQL dùng tên entity và thuộc tính Java. HQL của Hibernate hỗ trợ thêm cú pháp ngoài JPQL.</p>
 <figure class="snippet"><figcaption>Truy vấn con IN · dựng lại theo đoạn chữa bài 3:05:08</figcaption><pre tabindex="0"><code>select o from ProductOffering o
@@ -92,7 +91,7 @@ where o.id in (
     where link.detail.id = :detailId
 )
 order by o.id</code></pre></figure>
-<p>Truy vấn trong lấy các ID offering có liên kết với detail đã chọn. Truy vấn ngoài lấy các offering thuộc tập ID đó. Bản chạy mặc định dùng JPQL JOIN qua thuộc tính <code>links</code> và trả cùng tập kết quả cho bài này. <a class="time" href="https://drive.google.com/file/d/1j6FnHakgEx10OFEh-1Tj7JH9TZ73DiSS/view?t=11108" target="_blank" rel="noopener" aria-label="Xem video tại 3:05:08">3:05:08 <span aria-hidden="true">↗</span></a></p>
+<p>Truy vấn trong lấy các ID offering có liên kết với detail đã chọn. Truy vấn ngoài lấy các offering thuộc tập ID đó. Bản chạy mặc định dùng JPQL JOIN qua thuộc tính <code>links</code> và trả cùng tập kết quả cho bài này. <span class="time">3:05:08</span></p>
 <figure class="snippet"><figcaption>OfferingRepository.java</figcaption><pre tabindex="0"><code>@Query("""
         select distinct o from ProductOffering o
         join o.links link
@@ -106,10 +105,10 @@ FROM product_offerings o
 JOIN product_offering_detail link ON link.product_offering_id = o.id
 WHERE link.product_detail_id = 2
 ORDER BY o.id;</code></pre></figure>
-<p><a class="time" href="https://drive.google.com/file/d/1j6FnHakgEx10OFEh-1Tj7JH9TZ73DiSS/view?t=10780" target="_blank" rel="noopener" aria-label="Xem video tại 2:59:40">2:59:40 <span aria-hidden="true">↗</span></a> <a class="time" href="https://drive.google.com/file/d/1j6FnHakgEx10OFEh-1Tj7JH9TZ73DiSS/view?t=11040" target="_blank" rel="noopener" aria-label="Xem video tại 3:04:00">3:04:00 <span aria-hidden="true">↗</span></a> <a class="time" href="https://drive.google.com/file/d/1j6FnHakgEx10OFEh-1Tj7JH9TZ73DiSS/view?t=11328" target="_blank" rel="noopener" aria-label="Xem video tại 3:08:48">3:08:48 <span aria-hidden="true">↗</span></a> <a href="../buoi-06/demo/src/main/java/vn/railway89/catalog/OfferingRepository.java">Xem repository</a>.</p>
+<p><span class="time">2:59:40</span> <span class="time">3:04:00</span> <span class="time">3:08:48</span> <a href="../buoi-06/demo/src/main/java/vn/railway89/catalog/OfferingRepository.java">Xem repository</a>.</p>
       </section>
       <section class="chapter" id="thuc-hanh" aria-labelledby="thuc-hanh-heading">
-        <header class="chapter-top"><h2 id="thuc-hanh-heading">Thực hành</h2><a class="time" href="https://drive.google.com/file/d/1j6FnHakgEx10OFEh-1Tj7JH9TZ73DiSS/view?t=10232" target="_blank" rel="noopener" aria-label="Xem video tại 2:50:32">2:50:32 <span aria-hidden="true">↗</span></a></header>
+        <header class="chapter-top"><h2 id="thuc-hanh-heading">Thực hành</h2><span class="time">2:50:32</span></header>
         <p>Chuẩn bị JDK 17 trở lên và Maven. Chạy lệnh dưới đây từ thư mục <code>backend-service</code>. Demo dùng H2 trong bộ nhớ và nạp lại bộ dữ liệu ban đầu mỗi lần khởi động. Dừng bằng Ctrl+C khi thực hành xong.</p>
         <figure class="snippet"><figcaption>PowerShell · khởi động trước khi gọi API</figcaption><pre tabindex="0"><code>mvn -f lessons/springboot/buoi-06/demo/pom.xml spring-boot:run</code></pre></figure>
         <p class="file-links"><a href="../buoi-06/demo/pom.xml">Maven</a> <a href="../buoi-06/demo/src/main/resources/schema.sql">Schema</a> <a href="../buoi-06/demo/src/main/resources/data.sql">Dữ liệu mẫu</a> <a href="../buoi-06/demo/src/main/resources/application.yaml">Cấu hình</a></p>
@@ -136,24 +135,23 @@ curl.exe -i "${api}?detailId=abc"</code></pre></figure>
       <section class="chapter" id="moc-video" aria-labelledby="moc-video-heading">
         <header class="chapter-top"><h2 id="moc-video-heading">Mốc xem lại</h2></header>
         <ul>
-          <li><a class="time" href="https://drive.google.com/file/d/1j6FnHakgEx10OFEh-1Tj7JH9TZ73DiSS/view?t=1160" target="_blank" rel="noopener" aria-label="Xem video tại 19:20">19:20 <span aria-hidden="true">↗</span></a> Ôn SQL khi nạp quan hệ.</li>
-          <li><a class="time" href="https://drive.google.com/file/d/1j6FnHakgEx10OFEh-1Tj7JH9TZ73DiSS/view?t=2171" target="_blank" rel="noopener" aria-label="Xem video tại 36:11">36:11 <span aria-hidden="true">↗</span></a> Thử đi ngược từ detail đến offering.</li>
-          <li><a class="time" href="https://drive.google.com/file/d/1j6FnHakgEx10OFEh-1Tj7JH9TZ73DiSS/view?t=2828" target="_blank" rel="noopener" aria-label="Xem video tại 47:08">47:08 <span aria-hidden="true">↗</span></a> Cắt vòng lặp JSON.</li>
-          <li><a class="time" href="https://drive.google.com/file/d/1j6FnHakgEx10OFEh-1Tj7JH9TZ73DiSS/view?t=3383" target="_blank" rel="noopener" aria-label="Xem video tại 56:23">56:23 <span aria-hidden="true">↗</span></a> Đổi mô hình thành một–nhiều.</li>
-          <li><a class="time" href="https://drive.google.com/file/d/1j6FnHakgEx10OFEh-1Tj7JH9TZ73DiSS/view?t=5529" target="_blank" rel="noopener" aria-label="Xem video tại 1:32:09">1:32:09 <span aria-hidden="true">↗</span></a> Thêm bảng nối nhiều–nhiều.</li>
-          <li><a class="time" href="https://drive.google.com/file/d/1j6FnHakgEx10OFEh-1Tj7JH9TZ73DiSS/view?t=6714" target="_blank" rel="noopener" aria-label="Xem video tại 1:51:54">1:51:54 <span aria-hidden="true">↗</span></a> Đọc các cặp ID.</li>
-          <li><a class="time" href="https://drive.google.com/file/d/1j6FnHakgEx10OFEh-1Tj7JH9TZ73DiSS/view?t=7158" target="_blank" rel="noopener" aria-label="Xem video tại 1:59:18">1:59:18 <span aria-hidden="true">↗</span></a> Hai JoinColumn và mappedBy.</li>
-          <li><a class="time" href="https://drive.google.com/file/d/1j6FnHakgEx10OFEh-1Tj7JH9TZ73DiSS/view?t=7347" target="_blank" rel="noopener" aria-label="Xem video tại 2:02:27">2:02:27 <span aria-hidden="true">↗</span></a> Đề cập DTO phản hồi.</li>
-          <li><a class="time" href="https://drive.google.com/file/d/1j6FnHakgEx10OFEh-1Tj7JH9TZ73DiSS/view?t=10424" target="_blank" rel="noopener" aria-label="Xem video tại 2:53:44">2:53:44 <span aria-hidden="true">↗</span></a> Lỗi suy truy vấn theo detailId.</li>
-          <li><a class="time" href="https://drive.google.com/file/d/1j6FnHakgEx10OFEh-1Tj7JH9TZ73DiSS/view?t=11040" target="_blank" rel="noopener" aria-label="Xem video tại 3:04:00">3:04:00 <span aria-hidden="true">↗</span></a> Viết @Query.</li>
-          <li><a class="time" href="https://drive.google.com/file/d/1j6FnHakgEx10OFEh-1Tj7JH9TZ73DiSS/view?t=11328" target="_blank" rel="noopener" aria-label="Xem video tại 3:08:48">3:08:48 <span aria-hidden="true">↗</span></a> So sánh native query.</li>
-          <li><a class="time" href="https://drive.google.com/file/d/1j6FnHakgEx10OFEh-1Tj7JH9TZ73DiSS/view?t=11498" target="_blank" rel="noopener" aria-label="Xem video tại 3:11:38">3:11:38 <span aria-hidden="true">↗</span></a> Bài tập gọi truy vấn qua API.</li>
+          <li><span class="time">19:20</span> Ôn SQL khi nạp quan hệ.</li>
+          <li><span class="time">36:11</span> Thử đi ngược từ detail đến offering.</li>
+          <li><span class="time">47:08</span> Cắt vòng lặp JSON.</li>
+          <li><span class="time">56:23</span> Đổi mô hình thành một–nhiều.</li>
+          <li><span class="time">1:32:09</span> Thêm bảng nối nhiều–nhiều.</li>
+          <li><span class="time">1:51:54</span> Đọc các cặp ID.</li>
+          <li><span class="time">1:59:18</span> Hai JoinColumn và mappedBy.</li>
+          <li><span class="time">2:02:27</span> Đề cập DTO phản hồi.</li>
+          <li><span class="time">2:53:44</span> Lỗi suy truy vấn theo detailId.</li>
+          <li><span class="time">3:04:00</span> Viết @Query.</li>
+          <li><span class="time">3:08:48</span> So sánh native query.</li>
+          <li><span class="time">3:11:38</span> Bài tập gọi truy vấn qua API.</li>
         </ul>
       </section>
       <footer class="references">
         <h2>Nguồn đối chiếu</h2>
         <ul>
-          <li><a href="https://drive.google.com/file/d/1j6FnHakgEx10OFEh-1Tj7JH9TZ73DiSS/view" target="_blank" rel="noopener">Railway 89 · Buổi 5 · Video và transcript trên Google Drive</a></li>
           <li><a href="https://jakarta.ee/specifications/persistence/3.1/jakarta-persistence-spec-3.1">Jakarta Persistence 3.1 · Quan hệ và JPQL</a></li>
           <li><a href="https://docs.hibernate.org/orm/6.6/userguide/html_single/">Hibernate ORM 6.6 · Mapping và HQL</a></li>
           <li><a href="https://docs.spring.io/spring-data/jpa/reference/3.5/jpa/query-methods.html">Spring Data JPA 3.5 · @Query và tham số</a></li>

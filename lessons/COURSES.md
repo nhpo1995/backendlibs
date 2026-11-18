@@ -5,3 +5,4 @@ Mỗi khóa có một định danh ổn định, một trang danh mục và mộ
 | Khóa | Định danh | Nguồn đã biết | Trang khóa | Tiến độ |
 | --- | --- | --- | --- | --- |
 | Spring Boot | springboot | [Record-Spring · Railway 89](https://drive.google.com/drive/folders/1HX18CWQShml5hZyAwlfGY7ijznzm5dTz) | [Trang Spring Boot](springboot/index.html) | [Tiến độ Spring Boot](springboot/PROGRESS.md) |
+| Spring Security | spring-security | [SPRING-SECURITY · Railway 97](https://drive.google.com/drive/folders/1bPIpScT0yNa5YPr5YzXw3_IiD_Hfei9G) | [Trang Spring Security](spring-security/index.html) | [Tiến độ Spring Security](spring-security/PROGRESS.md) |

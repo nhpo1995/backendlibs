@@ -1,6 +1,8 @@
 # Backend Service
 
-[Trang chủ](index.html) dẫn tới danh mục các khóa học. [Spring Boot](lessons/springboot/index.html) là khóa đầu tiên, dựa trên video Railway 89. Bài đọc, mã nguồn tham khảo và bài tự kiểm tra nằm trong từng buổi. Muốn xem lại video theo mốc thời gian, dùng tài khoản có quyền trên Google Drive.
+[Trang chủ](index.html) dẫn tới danh mục các khóa học. [Spring Boot](lessons/springboot/index.html) là khóa đầu tiên, dựa trên video Railway 89. Bài đọc, mã nguồn tham khảo và bài tự kiểm tra nằm trong từng buổi. Các mốc thời gian được giữ để tham khảo; website không đặt liên kết đến Google Drive.
+
+[Spring Security · Railway 97](lessons/spring-security/index.html) có bài HTTP Basic, BCrypt, tài khoản database, CSRF và demo độc lập trên H2.
 
 Website dùng HTML, CSS và JavaScript thuần. [Buổi 1](lessons/springboot/buoi-01/index.html) hướng dẫn xây dựng API đọc sản phẩm với Spring Boot, MySQL, JPA và Lombok. Dự án Maven của buổi này nằm trong `lessons/springboot/buoi-01/demo/`. Demo dựng lại phần GET với dữ liệu mẫu, URL `/products/{id}` và phản hồi `404` khi không tìm thấy sản phẩm.
 

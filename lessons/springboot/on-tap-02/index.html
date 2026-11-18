@@ -3,7 +3,7 @@
 <title>Ôn tập 02 · Theo dấu một request qua Spring, JPA và Security</title><meta name="description" content="Giải thích từng tầng bằng dấu hiệu quan sát được, từ bean được tạo lúc khởi động đến dữ liệu được commit.">
 <link rel="stylesheet" href="../../../assets/styles.css"><script src="../../../assets/site.js" defer></script></head>
 <body id="top"><a class="skip" href="#noi-dung">Đến nội dung</a>
-<header class="masthead"><div class="mast-inner"><a class="brand" href="../../../index.html"><span class="mark" aria-hidden="true">B</span> Backend Service</a><a class="source" href="https://drive.google.com/file/d/1vtaB8p0wJyGBuq_ARPg-sWwcJEpqnQeB/view" target="_blank" rel="noopener">Video gốc ↗</a></div></header>
+<header class="masthead"><div class="mast-inner"><a class="brand" href="../../../index.html"><span class="mark" aria-hidden="true">B</span> Backend Service</a></div></header>
 <div class="hero"><div class="hero-inner"><div><nav class="crumbs" aria-label="Vị trí hiện tại"><a href="../../../index.html">Khóa học</a> / <a href="../index.html">Spring Boot</a> / Ôn tập 02</nav>
 <p class="kicker">Railway 89 <span></span> Ôn tập 02</p><h1>Theo dấu một request qua Spring, JPA và Security</h1><p class="lead">Giải thích từng tầng bằng dấu hiệu quan sát được, từ bean được tạo lúc khởi động đến dữ liệu được commit.</p>
 <div class="hero-actions"><a class="button" href="#bean">Bắt đầu bài học ↓</a><a class="button secondary" href="#thuc-hanh">Thực hành</a></div></div>
@@ -85,20 +85,20 @@ $path = [string]($fixed.Headers.Location | Select-Object -First 1)
 <details><summary>Sửa một field rồi lỗi ở bước thêm membership, kiểm chứng rollback thế nào?</summary><p>Đọc lại cả field đã thay và tập liên kết bằng request GET riêng. Cả hai phải giữ giá trị cũ nếu request bị rollback.</p></details>
 </section>
 <section id="moc-video"><h2>Mốc xem lại và tài liệu đối chiếu</h2>
-<p>Bản ghi ôn phỏng vấn dựa trên project, đi qua JPA, API, SOLID/DI, CORS, query, validation, Swagger, advice và Security. Video có đoạn cấu hình Security kiểu cũ. Demo dùng Spring Boot 3.5 và SecurityFilterChain.</p><ul><li><a href="https://drive.google.com/file/d/1vtaB8p0wJyGBuq_ARPg-sWwcJEpqnQeB/view?t=2316" target="_blank" rel="noopener">38:36</a> · Các chức năng cần trình bày</li>
-<li><a href="https://drive.google.com/file/d/1vtaB8p0wJyGBuq_ARPg-sWwcJEpqnQeB/view?t=2677" target="_blank" rel="noopener">44:37</a> · Spring Data JPA</li>
-<li><a href="https://drive.google.com/file/d/1vtaB8p0wJyGBuq_ARPg-sWwcJEpqnQeB/view?t=3267" target="_blank" rel="noopener">54:27</a> · Ánh xạ quan hệ bảng</li>
-<li><a href="https://drive.google.com/file/d/1vtaB8p0wJyGBuq_ARPg-sWwcJEpqnQeB/view?t=3614" target="_blank" rel="noopener">1:00:14</a> · Nạp quan hệ và fetch</li>
-<li><a href="https://drive.google.com/file/d/1vtaB8p0wJyGBuq_ARPg-sWwcJEpqnQeB/view?t=4567" target="_blank" rel="noopener">1:16:07</a> · Tham số API</li>
-<li><a href="https://drive.google.com/file/d/1vtaB8p0wJyGBuq_ARPg-sWwcJEpqnQeB/view?t=5793" target="_blank" rel="noopener">1:36:33</a> · SOLID qua ví dụ project</li>
-<li><a href="https://drive.google.com/file/d/1vtaB8p0wJyGBuq_ARPg-sWwcJEpqnQeB/view?t=6503" target="_blank" rel="noopener">1:48:23</a> · Dependency inversion và dependency injection</li>
-<li><a href="https://drive.google.com/file/d/1vtaB8p0wJyGBuq_ARPg-sWwcJEpqnQeB/view?t=7617" target="_blank" rel="noopener">2:06:57</a> · Component và đăng ký bean</li>
-<li><a href="https://drive.google.com/file/d/1vtaB8p0wJyGBuq_ARPg-sWwcJEpqnQeB/view?t=8023" target="_blank" rel="noopener">2:13:43</a> · CORS theo host và port</li>
-<li><a href="https://drive.google.com/file/d/1vtaB8p0wJyGBuq_ARPg-sWwcJEpqnQeB/view?t=8276" target="_blank" rel="noopener">2:17:56</a> · Query cập nhật</li>
-<li><a href="https://drive.google.com/file/d/1vtaB8p0wJyGBuq_ARPg-sWwcJEpqnQeB/view?t=8804" target="_blank" rel="noopener">2:26:44</a> · Kích hoạt validation</li>
-<li><a href="https://drive.google.com/file/d/1vtaB8p0wJyGBuq_ARPg-sWwcJEpqnQeB/view?t=9017" target="_blank" rel="noopener">2:30:17</a> · Swagger UI</li>
-<li><a href="https://drive.google.com/file/d/1vtaB8p0wJyGBuq_ARPg-sWwcJEpqnQeB/view?t=9351" target="_blank" rel="noopener">2:35:51</a> · Global exception handling</li>
-<li><a href="https://drive.google.com/file/d/1vtaB8p0wJyGBuq_ARPg-sWwcJEpqnQeB/view?t=10163" target="_blank" rel="noopener">2:49:23</a> · Basic authentication và password</li>
-<li><a href="https://drive.google.com/file/d/1vtaB8p0wJyGBuq_ARPg-sWwcJEpqnQeB/view?t=10676" target="_blank" rel="noopener">2:57:56</a> · Phân quyền cho từng role</li></ul><h3>Tài liệu chính thức</h3><ul><li><a href="https://jakarta.ee/specifications/persistence/3.1/" target="_blank" rel="noopener">Jakarta Persistence 3.1</a></li><li><a href="https://docs.spring.io/spring-framework/reference/6.2/core/beans/dependencies/factory-collaborators.html" target="_blank" rel="noopener">Spring Framework 6.2 · Dependency Injection</a></li><li><a href="https://docs.spring.io/spring-framework/reference/6.2/data-access/transaction/declarative/rolling-back.html" target="_blank" rel="noopener">Spring Framework 6.2 · Rollback</a></li><li><a href="https://docs.spring.io/spring-framework/reference/6.2/web/webmvc/mvc-controller/ann-methods/requestbody.html" target="_blank" rel="noopener">Spring MVC 6.2 · RequestBody</a></li><li><a href="https://docs.spring.io/spring-security/reference/6.5/servlet/authentication/passwords/dao-authentication-provider.html" target="_blank" rel="noopener">Spring Security 6.5 · DaoAuthenticationProvider</a></li><li><a href="https://spec.openapis.org/oas/v3.1.1.html" target="_blank" rel="noopener">OpenAPI Specification 3.1.1</a></li></ul>
+<p>Bản ghi ôn phỏng vấn dựa trên project, đi qua JPA, API, SOLID/DI, CORS, query, validation, Swagger, advice và Security. Video có đoạn cấu hình Security kiểu cũ. Demo dùng Spring Boot 3.5 và SecurityFilterChain.</p><ul><li>38:36 · Các chức năng cần trình bày</li>
+<li>44:37 · Spring Data JPA</li>
+<li>54:27 · Ánh xạ quan hệ bảng</li>
+<li>1:00:14 · Nạp quan hệ và fetch</li>
+<li>1:16:07 · Tham số API</li>
+<li>1:36:33 · SOLID qua ví dụ project</li>
+<li>1:48:23 · Dependency inversion và dependency injection</li>
+<li>2:06:57 · Component và đăng ký bean</li>
+<li>2:13:43 · CORS theo host và port</li>
+<li>2:17:56 · Query cập nhật</li>
+<li>2:26:44 · Kích hoạt validation</li>
+<li>2:30:17 · Swagger UI</li>
+<li>2:35:51 · Global exception handling</li>
+<li>2:49:23 · Basic authentication và password</li>
+<li>2:57:56 · Phân quyền cho từng role</li></ul><h3>Tài liệu chính thức</h3><ul><li><a href="https://jakarta.ee/specifications/persistence/3.1/" target="_blank" rel="noopener">Jakarta Persistence 3.1</a></li><li><a href="https://docs.spring.io/spring-framework/reference/6.2/core/beans/dependencies/factory-collaborators.html" target="_blank" rel="noopener">Spring Framework 6.2 · Dependency Injection</a></li><li><a href="https://docs.spring.io/spring-framework/reference/6.2/data-access/transaction/declarative/rolling-back.html" target="_blank" rel="noopener">Spring Framework 6.2 · Rollback</a></li><li><a href="https://docs.spring.io/spring-framework/reference/6.2/web/webmvc/mvc-controller/ann-methods/requestbody.html" target="_blank" rel="noopener">Spring MVC 6.2 · RequestBody</a></li><li><a href="https://docs.spring.io/spring-security/reference/6.5/servlet/authentication/passwords/dao-authentication-provider.html" target="_blank" rel="noopener">Spring Security 6.5 · DaoAuthenticationProvider</a></li><li><a href="https://spec.openapis.org/oas/v3.1.1.html" target="_blank" rel="noopener">OpenAPI Specification 3.1.1</a></li></ul>
 </section>
 <nav class="hero-actions" aria-label="Điều hướng bài học"><a href="../on-tap-java-advanced/index.html">← Ôn tập Java advanced</a><a href="../thi-lan-02/index.html">Buổi thi lần 2 →</a><a href="#top">Lên đầu trang ↑</a></nav></main></div></body></html>

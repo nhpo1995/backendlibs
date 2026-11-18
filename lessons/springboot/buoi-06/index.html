@@ -12,7 +12,6 @@
   <header class="masthead">
     <div class="mast-inner">
       <a class="brand" href="../../../index.html"><span aria-hidden="true" class="mark">B</span> Backend Service</a>
-      <a class="source" href="https://drive.google.com/file/d/1MpU2daNue6AIHFLCKBFLPIWDFjgeCmX-/view" target="_blank" rel="noopener">Video gốc <span aria-hidden="true">↗</span></a>
     </div>
   </header>
   <div class="hero">
@@ -49,9 +48,9 @@
         <p>Tạo offering, tạo chi tiết và thay danh sách chi tiết của một offering là ba thao tác riêng. Bài định nghĩa dữ liệu cho từng thao tác, sau đó dùng PUT để lưu tập liên kết mong muốn và GET để kiểm tra dữ liệu đã lưu.</p>
       </div>
       <section class="chapter" id="dto" aria-labelledby="dto-heading">
-        <header class="chapter-top"><h2 id="dto-heading">DTO theo thao tác và trạng thái mặc định</h2><a class="time" href="https://drive.google.com/file/d/1MpU2daNue6AIHFLCKBFLPIWDFjgeCmX-/view?t=3260" target="_blank" rel="noopener" aria-label="Xem video tại 54:20">54:20 <span aria-hidden="true">↗</span></a></header>
+        <header class="chapter-top"><h2 id="dto-heading">DTO theo thao tác và trạng thái mặc định</h2><span class="time">54:20</span></header>
 
-        <p>Khi tạo offering, client gửi tên, giá và màu. Khi tạo chi tiết, client gửi nhãn hiệu và công suất. Khi chỉnh liên kết, client gửi các ID chi tiết đã tồn tại. Mỗi thao tác có một DTO riêng để xác định các trường client được phép nhập. Trạng thái ban đầu thuộc về quy tắc của server: offering mới luôn được tạo ở <code>ACTIVE</code>. <a class="time" href="https://drive.google.com/file/d/1MpU2daNue6AIHFLCKBFLPIWDFjgeCmX-/view?t=2778" target="_blank" rel="noopener" aria-label="Xem video tại 46:18">46:18 <span aria-hidden="true">↗</span></a> <a class="time" href="https://drive.google.com/file/d/1MpU2daNue6AIHFLCKBFLPIWDFjgeCmX-/view?t=5138" target="_blank" rel="noopener" aria-label="Xem video tại 1:25:38">1:25:38 <span aria-hidden="true">↗</span></a></p>
+        <p>Khi tạo offering, client gửi tên, giá và màu. Khi tạo chi tiết, client gửi nhãn hiệu và công suất. Khi chỉnh liên kết, client gửi các ID chi tiết đã tồn tại. Mỗi thao tác có một DTO riêng để xác định các trường client được phép nhập. Trạng thái ban đầu thuộc về quy tắc của server: offering mới luôn được tạo ở <code>ACTIVE</code>. <span class="time">46:18</span> <span class="time">1:25:38</span></p>
 <figure class="snippet"><figcaption>DTO tạo offering</figcaption><pre tabindex="0"><code>public record CreateOfferingRequest(
         @NotBlank @Size(max = 100) String name,
         @NotNull @Positive Long price,
@@ -59,7 +58,7 @@
 <p>Jackson chuyển JSON thành record. MVC dùng <code>@Valid</code> để kiểm tra các ràng buộc rồi chuyển các trường hợp lệ tới service. Demo dùng cấu hình Boot mặc định bỏ qua thuộc tính JSON dư. DTO tạo detail có <code>brand</code> và <code>power</code>. Hai API trả ID từ bản ghi đã lưu. <a href="demo/src/main/java/vn/railway89/catalog/CatalogController.java">Xem controller và DTO</a>.</p>
       </section>
       <section class="chapter" id="validate" aria-labelledby="validate-heading">
-        <header class="chapter-top"><h2 id="validate-heading">Kiểm tra request và sự tồn tại của ID</h2><a class="time" href="https://drive.google.com/file/d/1MpU2daNue6AIHFLCKBFLPIWDFjgeCmX-/view?t=6671" target="_blank" rel="noopener" aria-label="Xem video tại 1:51:11">1:51:11 <span aria-hidden="true">↗</span></a></header>
+        <header class="chapter-top"><h2 id="validate-heading">Kiểm tra request và sự tồn tại của ID</h2><span class="time">1:51:11</span></header>
 
         <p>Ví dụ, <code>PUT /buoi-06/offerings/1/details</code> với body <code>{"detailIds":[2,3]}</code> yêu cầu offering số 1 có đúng hai chi tiết số 2 và 3. Tên có thể trùng, nên API dùng ID để tham chiếu bản ghi. <code>[]</code> yêu cầu gỡ hết liên kết, còn thiếu danh sách thì trả 400.</p>
 <figure class="snippet"><figcaption>DTO cập nhật tập liên kết</figcaption><pre tabindex="0"><code>public record AssignmentRequest(
@@ -69,10 +68,10 @@
   <li>Đọc và khóa offering theo ID. Nếu vắng thì trả 404. Gọi <code>findAllById</code>, rồi đối chiếu số detail tìm được với số ID khác nhau đã yêu cầu.</li>
   <li>Chỉ ghi sau khi mọi detail tồn tại. FK và UNIQUE bảo vệ ràng buộc ở DB.</li>
 </ol>
-<p>Kiểm tra <code>targets.isEmpty()</code> chỉ phát hiện khi tất cả ID vắng. Với <code>[3,999]</code>, repository tìm được 3 nhưng request vẫn phải bị từ chối. <a class="time" href="https://drive.google.com/file/d/1MpU2daNue6AIHFLCKBFLPIWDFjgeCmX-/view?t=7452" target="_blank" rel="noopener" aria-label="Xem video tại 2:04:12">2:04:12 <span aria-hidden="true">↗</span></a> <a class="time" href="https://drive.google.com/file/d/1MpU2daNue6AIHFLCKBFLPIWDFjgeCmX-/view?t=7926" target="_blank" rel="noopener" aria-label="Xem video tại 2:12:06">2:12:06 <span aria-hidden="true">↗</span></a> <a class="time" href="https://drive.google.com/file/d/1MpU2daNue6AIHFLCKBFLPIWDFjgeCmX-/view?t=8006" target="_blank" rel="noopener" aria-label="Xem video tại 2:13:26">2:13:26 <span aria-hidden="true">↗</span></a></p>
+<p>Kiểm tra <code>targets.isEmpty()</code> chỉ phát hiện khi tất cả ID vắng. Với <code>[3,999]</code>, repository tìm được 3 nhưng request vẫn phải bị từ chối. <span class="time">2:04:12</span> <span class="time">2:12:06</span> <span class="time">2:13:26</span></p>
       </section>
       <section class="chapter" id="replace" aria-labelledby="replace-heading">
-        <header class="chapter-top"><h2 id="replace-heading">Thay tập liên kết trong transaction</h2><a class="time" href="https://drive.google.com/file/d/1MpU2daNue6AIHFLCKBFLPIWDFjgeCmX-/view?t=11548" target="_blank" rel="noopener" aria-label="Xem video tại 3:12:28">3:12:28 <span aria-hidden="true">↗</span></a></header>
+        <header class="chapter-top"><h2 id="replace-heading">Thay tập liên kết trong transaction</h2><span class="time">3:12:28</span></header>
 
         <p>Giả sử offering số 1 đang có chi tiết <code>[1,2]</code> và client muốn trạng thái mới là <code>[2,3]</code>. Nếu chạy INSERT cho cả tập <code>[2,3]</code>, liên kết với chi tiết 1 vẫn tồn tại và INSERT lại cặp <code>(1,2)</code> sẽ đụng UNIQUE. Hãy giữ <code>(1,2)</code>, xóa <code>(1,1)</code> và thêm <code>(1,3)</code> trong cùng transaction.</p>
 <figure class="snippet"><figcaption>Phần ghi chênh lệch của CatalogService</figcaption><pre tabindex="0"><code>for (ProductOfferingDetail link : current) {
@@ -87,10 +86,10 @@ for (ProductDetail detail : targets) {
     }
 }</code></pre></figure>
 <p>Từ <code>{1,2}</code> sang <code>{2,3}</code>, xóa liên kết với 1, giữ 2 và thêm 3. Chỉ xóa dòng bảng nối. Detail 2 vẫn có thể dùng ở offering khác. <code>@Transactional</code> gom việc đọc và ghi thành một transaction; runtime exception trong bước ghi dẫn đến rollback theo mặc định. Khóa ghi trên offering tuần tự hóa các request ghi của demo cho cùng một sản phẩm. Cùng tập ID cho cùng kết quả; nếu hai request gửi hai tập khác nhau thì request xử lý sau cùng quyết định tập cuối.</p>
-<p><a class="time" href="https://drive.google.com/file/d/1MpU2daNue6AIHFLCKBFLPIWDFjgeCmX-/view?t=11613" target="_blank" rel="noopener" aria-label="Xem video tại 3:13:33">3:13:33 <span aria-hidden="true">↗</span></a> <a href="demo/src/main/java/vn/railway89/catalog/CatalogService.java">Xem service</a> · <a href="demo/src/main/java/vn/railway89/catalog/OfferingRepository.java">Xem truy vấn khóa ghi</a>.</p>
+<p><span class="time">3:13:33</span> <a href="demo/src/main/java/vn/railway89/catalog/CatalogService.java">Xem service</a> · <a href="demo/src/main/java/vn/railway89/catalog/OfferingRepository.java">Xem truy vấn khóa ghi</a>.</p>
       </section>
       <section class="chapter" id="thuc-hanh" aria-labelledby="thuc-hanh-heading">
-        <header class="chapter-top"><h2 id="thuc-hanh-heading">Thực hành</h2><a class="time" href="https://drive.google.com/file/d/1MpU2daNue6AIHFLCKBFLPIWDFjgeCmX-/view?t=7848" target="_blank" rel="noopener" aria-label="Xem video tại 2:10:48">2:10:48 <span aria-hidden="true">↗</span></a></header>
+        <header class="chapter-top"><h2 id="thuc-hanh-heading">Thực hành</h2><span class="time">2:10:48</span></header>
         <p>Chuẩn bị JDK 17 trở lên và Maven. Chạy lệnh dưới đây từ thư mục <code>backend-service</code>. Demo dùng H2 trong bộ nhớ và nạp lại bộ dữ liệu ban đầu mỗi lần khởi động. Dừng bằng Ctrl+C khi thực hành xong.</p>
         <figure class="snippet"><figcaption>PowerShell · khởi động trước khi gọi API</figcaption><pre tabindex="0"><code>mvn -f lessons/springboot/buoi-06/demo/pom.xml spring-boot:run</code></pre></figure>
         <p class="file-links"><a href="demo/pom.xml">Maven</a> <a href="demo/src/main/resources/schema.sql">Schema</a> <a href="demo/src/main/resources/data.sql">Dữ liệu mẫu</a> <a href="demo/src/main/resources/application.yaml">Cấu hình</a></p>
@@ -138,23 +137,22 @@ HAVING COUNT(*) &gt; 1;</code></pre></figure>
       <section class="chapter" id="moc-video" aria-labelledby="moc-video-heading">
         <header class="chapter-top"><h2 id="moc-video-heading">Mốc xem lại</h2></header>
         <ul>
-          <li><a class="time" href="https://drive.google.com/file/d/1MpU2daNue6AIHFLCKBFLPIWDFjgeCmX-/view?t=2287" target="_blank" rel="noopener" aria-label="Xem video tại 38:07">38:07 <span aria-hidden="true">↗</span></a> Chuyển từ đọc sang lưu.</li>
-          <li><a class="time" href="https://drive.google.com/file/d/1MpU2daNue6AIHFLCKBFLPIWDFjgeCmX-/view?t=2778" target="_blank" rel="noopener" aria-label="Xem video tại 46:18">46:18 <span aria-hidden="true">↗</span></a> Tách tạo từng đối tượng và gán.</li>
-          <li><a class="time" href="https://drive.google.com/file/d/1MpU2daNue6AIHFLCKBFLPIWDFjgeCmX-/view?t=3290" target="_blank" rel="noopener" aria-label="Xem video tại 54:50">54:50 <span aria-hidden="true">↗</span></a> Xác định quyền truyền status.</li>
-          <li><a class="time" href="https://drive.google.com/file/d/1MpU2daNue6AIHFLCKBFLPIWDFjgeCmX-/view?t=5138" target="_blank" rel="noopener" aria-label="Xem video tại 1:25:38">1:25:38 <span aria-hidden="true">↗</span></a> Thử trạng thái ngoài DTO.</li>
-          <li><a class="time" href="https://drive.google.com/file/d/1MpU2daNue6AIHFLCKBFLPIWDFjgeCmX-/view?t=5250" target="_blank" rel="noopener" aria-label="Xem video tại 1:27:30">1:27:30 <span aria-hidden="true">↗</span></a> Tạo DTO detail.</li>
-          <li><a class="time" href="https://drive.google.com/file/d/1MpU2daNue6AIHFLCKBFLPIWDFjgeCmX-/view?t=6671" target="_blank" rel="noopener" aria-label="Xem video tại 1:51:11">1:51:11 <span aria-hidden="true">↗</span></a> Chọn ID offering và danh sách detail.</li>
-          <li><a class="time" href="https://drive.google.com/file/d/1MpU2daNue6AIHFLCKBFLPIWDFjgeCmX-/view?t=7452" target="_blank" rel="noopener" aria-label="Xem video tại 2:04:12">2:04:12 <span aria-hidden="true">↗</span></a> Tìm các detail theo ID.</li>
-          <li><a class="time" href="https://drive.google.com/file/d/1MpU2daNue6AIHFLCKBFLPIWDFjgeCmX-/view?t=7926" target="_blank" rel="noopener" aria-label="Xem video tại 2:12:06">2:12:06 <span aria-hidden="true">↗</span></a> Thử request thiếu trường.</li>
-          <li><a class="time" href="https://drive.google.com/file/d/1MpU2daNue6AIHFLCKBFLPIWDFjgeCmX-/view?t=8006" target="_blank" rel="noopener" aria-label="Xem video tại 2:13:26">2:13:26 <span aria-hidden="true">↗</span></a> Kiểm tra kết quả gán trong DB.</li>
-          <li><a class="time" href="https://drive.google.com/file/d/1MpU2daNue6AIHFLCKBFLPIWDFjgeCmX-/view?t=11548" target="_blank" rel="noopener" aria-label="Xem video tại 3:12:28">3:12:28 <span aria-hidden="true">↗</span></a> Giao bài hoàn thiện cập nhật.</li>
-          <li><a class="time" href="https://drive.google.com/file/d/1MpU2daNue6AIHFLCKBFLPIWDFjgeCmX-/view?t=11613" target="_blank" rel="noopener" aria-label="Xem video tại 3:13:33">3:13:33 <span aria-hidden="true">↗</span></a> Tình huống link lặp khi chọn lại.</li>
+          <li><span class="time">38:07</span> Chuyển từ đọc sang lưu.</li>
+          <li><span class="time">46:18</span> Tách tạo từng đối tượng và gán.</li>
+          <li><span class="time">54:50</span> Xác định quyền truyền status.</li>
+          <li><span class="time">1:25:38</span> Thử trạng thái ngoài DTO.</li>
+          <li><span class="time">1:27:30</span> Tạo DTO detail.</li>
+          <li><span class="time">1:51:11</span> Chọn ID offering và danh sách detail.</li>
+          <li><span class="time">2:04:12</span> Tìm các detail theo ID.</li>
+          <li><span class="time">2:12:06</span> Thử request thiếu trường.</li>
+          <li><span class="time">2:13:26</span> Kiểm tra kết quả gán trong DB.</li>
+          <li><span class="time">3:12:28</span> Giao bài hoàn thiện cập nhật.</li>
+          <li><span class="time">3:13:33</span> Tình huống link lặp khi chọn lại.</li>
         </ul>
       </section>
       <footer class="references">
         <h2>Nguồn đối chiếu</h2>
         <ul>
-          <li><a href="https://drive.google.com/file/d/1MpU2daNue6AIHFLCKBFLPIWDFjgeCmX-/view" target="_blank" rel="noopener">Railway 89 · Buổi 6 · Video và transcript trên Google Drive</a></li>
           <li><a href="https://docs.spring.io/spring-framework/reference/6.2/web/webmvc/mvc-controller/ann-methods/requestbody.html">Spring Framework 6.2 · @RequestBody và validation</a></li>
           <li><a href="https://jakarta.ee/specifications/persistence/3.1/jakarta-persistence-spec-3.1">Jakarta Persistence 3.1 · Quan hệ và JPQL</a></li>
           <li><a href="https://www.rfc-editor.org/rfc/rfc9110.html">RFC 9110 · HTTP Semantics</a></li>
