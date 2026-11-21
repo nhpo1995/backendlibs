@@ -1,0 +1,171 @@
+var e=`
+<section aria-labelledby="on-tap-heading" class="chapter" id="on-tap">
+<header class="chapter-top"><h2 id="on-tap-heading">Từ lấy một dòng đến lấy danh sách</h2></header>
+<p>Để đọc danh sách sản phẩm, controller nhận HTTP request, service thực hiện use case và repository truy vấn dữ liệu. Repository có <code>findAll()</code> và <code>findById(id)</code>. Danh sách không có phần tử là một kết quả hợp lệ; không đồng nhất nó với việc không có tài nguyên theo một ID cụ thể.</p>
+<p>Khi đổi từ đọc chi tiết sang danh sách, đổi kiểu hợp đồng ở cả ba tầng. Một sản phẩm dùng <code>ProductOffering</code>, nhiều sản phẩm dùng <code>List&lt;ProductOffering&gt;</code>. Nếu cần header/status tường minh, dùng <code>ResponseEntity&lt;List&lt;ProductOffering&gt;&gt;</code>. Demo trả danh sách từ RestController nên MVC ghi mảng JSON với status 200.</p>
+<figure class="snippet"><figcaption>Controller · API danh sách trong demo</figcaption><pre tabindex="0"><code class="language-java">@GetMapping
+public List&lt;ProductOffering&gt; list() {
+    return service.list();
+}</code></pre></figure>
+<p>Với dữ liệu mẫu, <code>GET /products</code> trả bốn dòng. Khi danh sách rỗng, mảng JSON là <code>[]</code>. Đọc chi tiết theo ID ở Theo dấu API từ HTTP đến cơ sở dữ liệu có hợp đồng khác vì URL chỉ đến một bản ghi cụ thể. Đoạn  kiểm tra lại URL và tên đường dẫn khi gọi API. Đoạn  phân biệt body và status trên công cụ gửi request.</p>
+</section><aside class="callout"><strong>Chạy các ví dụ trên máy</strong><p><a download="" href="../../../practice/spring-demo-bundle/downloads/spring-demo-bundle.zip">Tải bộ demo Maven (.zip)</a>. Giải nén và dùng thư mục <code>spring-demo-bundle</code> chứa <code>lessons</code> và <code>practice</code> làm thư mục gốc cho các lệnh trong bài. Khi bài yêu cầu vào thư mục demo, mở thư mục chứa <code>pom.xml</code> của demo đó.</p></aside>
+<section aria-labelledby="jdbc-jpa-heading" class="chapter" id="jdbc-jpa">
+<header class="chapter-top"><h2 id="jdbc-jpa-heading">Từ JDBC đến Spring Data JPA</h2></header>
+<p>Với JDBC, ứng dụng lấy <code>Connection</code>, tạo <code>PreparedStatement</code>, bind tham số, gọi <code>executeQuery()</code> và chuyển từng dòng từ <code>ResultSet</code> sang dữ liệu Java. Nhiều truy vấn lặp lại phần quản lý tài nguyên và ánh xạ. Đây là đoạn JDBC minh họa lại truy vấn tìm theo tên với một <code>DataSource</code> đã cấu hình.</p>
+<figure class="snippet"><figcaption>JDBC · đọc ID bằng tham số bind</figcaption><pre tabindex="0"><code class="language-java">String sql = "SELECT id FROM product_offerings WHERE name = ? ORDER BY id";
+try (var connection = dataSource.getConnection();
+     var statement = connection.prepareStatement(sql)) {
+    statement.setString(1, "Product A");
+    try (var rows = statement.executeQuery()) {
+        while (rows.next()) {
+            System.out.println(rows.getLong("id"));
+        }
+    }
+}
+// Dữ liệu demo in lần lượt 1, 2, 4.</code></pre></figure>
+<dl class="definitions">
+<dt>ORM</dt><dd>Ánh xạ trạng thái đối tượng với dữ liệu quan hệ. Provider dùng metadata của entity để biết bảng, cột, định danh và cách đọc kiểu dữ liệu.</dd>
+<dt>Jakarta Persistence (JPA)</dt><dd>Đặc tả API và hành vi như <code>EntityManager</code>, lifecycle của entity, mapping và JPQL.</dd>
+<dt>Hibernate ORM</dt><dd>Provider triển khai JPA. Nó dịch truy vấn sang SQL theo dialect, gọi JDBC và dựng entity từ kết quả. Hibernate còn có API riêng như <code>Session</code> và <code>SessionFactory</code>. Phần so sánh JDBC và session bắt đầu tại .</dd>
+<dt>Spring Data JPA</dt><dd>Tạo proxy cho repository, cung cấp các phương thức CRUD và suy ra truy vấn tùy theo chữ ký repository.</dd>
+<dt>Spring Boot</dt><dd>Dùng starter và cấu hình để lắp datasource, JPA và repository khi các điều kiện tự cấu hình thỏa mãn.</dd>
+</dl>
+<p>Trong một persistence context, provider theo dõi entity đang được quản lý theo định danh. <code>EntityManager</code> cho ứng dụng làm việc với context này. <code>EntityManagerFactory</code> tạo các entity manager, còn connection thuộc tầng JDBC. File YAML của demo tắt Open EntityManager in View. Demo chỉ trả các thuộc tính cơ bản của entity nên có thể ghi JSON sau truy vấn. Khi đổi hệ quản trị, cần kiểm tra lại driver, dialect, kiểu cột, collation và các biểu thức SQL đặc thù. Xem thêm  về cấu hình và starter.</p>
+</section>
+<section class="chapter" id="persistence-context">
+<h2>Một hàng dữ liệu đi qua các trạng thái nào?</h2>
+<p>Giả sử H2 đã có sản phẩm ID 1 giá <code>100000</code>. Chạy thử nghiệm trong một test không có transaction bọc ngoài. Dùng <code>TransactionTemplate.executeWithoutResult</code> để mở mỗi transaction, inject <code>EntityManager</code> bằng <code>@PersistenceContext</code>. Khai báo thử nghiệm trên bản sao demo để giữ seed nguyên gốc. Thêm dependency test-scope <code>org.springframework.boot:spring-boot-starter-test</code>, dùng <code>@SpringBootTest</code> và <code>@Autowired TransactionTemplate tx</code> trong test. Dùng các assertion tĩnh của JUnit Jupiter, chạy <code>mvn test</code> từ thư mục demo.</p>
+<pre tabindex="0"><code class="language-java">tx.executeWithoutResult(status -&gt; {
+    ProductOffering first = em.find(ProductOffering.class, 1L);
+    ProductOffering again = em.find(ProductOffering.class, 1L);
+    assertSame(first, again);
+    assertTrue(em.contains(first));
+    em.clear();
+    assertFalse(em.contains(first));
+    assertNotSame(first, em.find(ProductOffering.class, 1L));
+});</code></pre>
+<p>Context giữ một instance được quản lý cho mỗi kiểu entity và ID. Hai lần <code>find</code> trước <code>clear</code> dùng chung instance và Hibernate dự kiến chỉ đọc SQL ở lần đầu khi context mới. <code>clear()</code> tách mọi instance khỏi context. Lần đọc cuối cần nạp lại trong cấu hình demo không có cache cấp hai. Biến <code>first</code> vẫn trỏ tới đối tượng Java cũ.</p>
+<table><thead><tr><th>Thao tác</th><th>Trạng thái</th><th>Điều cần quan sát</th></tr></thead><tbody>
+<tr><td><code>new</code></td><td>Transient</td><td>Đối tượng mới chưa được context quản lý.</td></tr>
+<tr><td><code>persist(newEntity)</code> hoặc <code>find</code> thấy hàng</td><td>Managed</td><td>Hibernate theo dõi thay đổi của instance.</td></tr>
+<tr><td><code>remove(managedEntity)</code></td><td>Removed</td><td>Hibernate lập lịch xóa hàng, SQL có thể phát ra lúc flush.</td></tr>
+<tr><td><code>clear()</code> sau khi đọc</td><td>Detached</td><td>Đổi field trên instance cũ không được Hibernate tự ghi.</td></tr>
+</tbody></table>
+<h3>Tự viết biến thể ghi và xác nhận rollback</h3>
+<ol><li>Thêm phương thức nghiệp vụ <code>changePrice(long)</code> vào entity demo. Trong callback transaction, đọc ID 1, đổi giá thành <code>120000</code>, gọi <code>em.flush()</code> rồi <code>em.clear()</code>. Đọc lại trong cùng transaction phải thấy <code>120000</code>. Ghi lại SQL <code>UPDATE</code> phát ra dù không gọi <code>save</code>.</li><li>Trước khi thoát callback, gọi <code>status.setRollbackOnly()</code>. Đọc ID 1 trong callback mới phải thấy <code>100000</code>. Lặp lại ca ghi với commit và đọc bằng transaction mới để xác nhận <code>120000</code>.</li><li>Gây lại lỗi theo dõi trạng thái bằng cách <code>clear()</code> ngay sau khi đọc lần đầu, rồi mới sửa instance cũ. <code>flush()</code> sẽ không phát <code>UPDATE</code>. Nạp lại entity trong context và áp dụng thay đổi lên instance managed để khôi phục hành vi.</li></ol>
+<p>Flush đồng bộ thay đổi đang chờ xuống DB trong transaction đang mở. Commit chốt kết quả transaction. Nếu quan sát log SQL mà kết luận thao tác đã lưu bền, ca rollback sẽ bác bỏ dự đoán đó. Bài transaction tiếp theo dùng chính khác biệt này để phân tích lỗi ở service.</p>
+</section>
+<section aria-labelledby="mapping-heading" class="chapter" id="mapping">
+<header class="chapter-top"><h2 id="mapping-heading">Ánh xạ bảng, cột và kiểu dữ liệu</h2></header>
+<p><code>@Entity</code> đưa class vào mô hình persistence. <code>@Table</code> chỉ bảng, <code>@Id</code> chỉ định danh. Đặt <code>@Id</code> trên field giúp chọn field access trong entity này. Hibernate có thể dựng và điền đối tượng qua constructor không tham số và các field. Getter public của demo dùng khi Jackson ghi JSON.</p>
+<figure class="snippet"><figcaption>ProductOffering.java · trích phần ánh xạ</figcaption><pre tabindex="0"><code class="language-java">@Entity
+@Table(name = "product_offerings")
+public class ProductOffering {
+    @Id
+    private Long id;
+
+    @Column(length = 100, nullable = false)
+    private String name;
+
+    @Column(nullable = false)
+    private Long price;
+
+    // Xem mã nguồn để bổ sung color, constructor và các getter.
+}</code></pre></figure>
+<ul>
+<li><code>BIGINT</code> có dấu ánh xạ sang <code>Long</code>. Demo chọn <code>Long</code> cho giá nguyên và ID. Nếu nghiệp vụ cần phần lẻ, dùng <code>DECIMAL</code> với <code>BigDecimal</code> và quy định scale phù hợp. Các wrapper như <code>Long</code> có thể biểu diễn SQL <code>NULL</code> khi schema cho phép.</li>
+<li><code>@Column(name = "product_name")</code> dùng khi cột SQL khác tên field. <code>length</code>, <code>nullable</code> và <code>unique</code> mô tả mapping và có thể tham gia sinh DDL. Demo định nghĩa constraint thực tế trong <code>schema.sql</code> và dùng <code>ddl-auto: validate</code>. Muốn đổi ràng buộc của một bảng đã tồn tại, thay đổi schema bằng migration phù hợp. Spring MVC dùng cơ chế riêng để kiểm tra dữ liệu request.</li>
+<li><code>insertable = false</code> hoặc <code>updatable = false</code> yêu cầu provider bỏ cột khỏi câu INSERT hay UPDATE tương ứng do nó sinh. <code>columnDefinition</code> cho phép ghi đoạn DDL theo dialect. </li>
+</ul>
+<p>Demo đọc các ID có sẵn từ SQL seed. Với API chỉ đọc, ID đã có trong bảng. Khi thêm API tạo bản ghi, bạn cần quyết định ứng dụng cấp ID hay CSDL sinh ID. <a href="../buoi-02/demo/src/main/java/vn/railway89/products/ProductOffering.java">Xem entity đầy đủ</a>.</p>
+</section>
+<section aria-labelledby="lifecycle-heading" class="chapter" id="lifecycle">
+<header class="chapter-top"><h2 id="lifecycle-heading">Trường tính toán, audit và vòng đời entity</h2></header>
+<p>Slide minh họa <code>@Formula</code> của Hibernate với họ tên ghép từ hai cột và số thuế tính từ thu nhập. Đây là biểu thức SQL đưa vào lệnh đọc để nhận một thuộc tính tính toán. Nó phụ thuộc cú pháp và cách xử lý <code>NULL</code> của DB. <code>@Transient</code> trong JPA loại field khỏi mapping. Nếu ghép họ tên trong một getter Java, Java thực hiện phép tính sau khi đọc dữ liệu.</p>
+<figure class="snippet"><figcaption>Minh họa mở rộng · biểu thức trong một entity Employee</figcaption><pre tabindex="0"><code class="language-java">@Formula("concat(first_name, ' ', last_name)")
+private String fullName;</code></pre></figure>
+<p>Ở , lớp thảo luận các trường theo dõi người tạo, thời điểm tạo, người sửa và thời điểm sửa. Xóa mềm dùng một cờ như <code>deleted</code> để dữ liệu vẫn còn trong bảng. Nếu áp dụng cách này, API đọc cần lọc dòng đang hoạt động theo quy ước nghiệp vụ, chẳng hạn <code>findByNameAndDeletedFalse</code>. Demo đọc bảng mẫu chưa có các trường audit hay cờ xóa.</p>
+<figure class="snippet"><figcaption>Minh họa mở rộng · callback JPA cho entity có cột created_at</figcaption><pre tabindex="0"><code class="language-java">@Column(name = "created_at", updatable = false)
+private Instant createdAt;
+
+@PrePersist
+void initializeCreatedAt() {
+    if (createdAt == null) {
+        createdAt = Instant.now();
+    }
+}</code></pre></figure>
+<p>Khi JPA persist entity mới, callback thiết lập thời gian trên đối tượng trước INSERT. Hibernate có lựa chọn <code>@CreationTimestamp</code>, mặc định lấy thời gian từ JVM và gán khi insert. Với <code>DEFAULT CURRENT_TIMESTAMP</code> của database, DB đặt giá trị khi INSERT để cột dùng default, chẳng hạn khi câu SQL bỏ qua cột đó. Script seed hay JDBC trực tiếp chạy ngoài callback JPA. Đoạn  so sánh hai cách đặt thời điểm lúc lưu.</p>
+</section>
+<section aria-labelledby="truy-van-heading" class="chapter" id="truy-van">
+<header class="chapter-top"><h2 id="truy-van-heading">Suy ra truy vấn từ tên phương thức</h2></header>
+<p>Bài toán tìm kiếm có hai biến thể: tìm theo tên, hoặc đồng thời theo tên và giá. Repository cung cấp <code>findByName</code> và <code>findByNameAndPrice</code>. Demo thêm <code>OrderByIdAsc</code> để đầu ra có thứ tự ổn định và dùng List vì có thể tìm thấy không, một hoặc nhiều sản phẩm.</p>
+<figure class="snippet"><figcaption>ProductOfferingRepository.java</figcaption><pre tabindex="0"><code class="language-java">public interface ProductOfferingRepository extends JpaRepository&lt;ProductOffering, Long&gt; {
+    List&lt;ProductOffering&gt; findByNameOrderByIdAsc(String name);
+
+    List&lt;ProductOffering&gt; findByNameAndPriceOrderByIdAsc(String name, Long price);
+}</code></pre></figure>
+<p>Spring Data phân tích phần sau <code>By</code> dựa trên <strong>thuộc tính Java</strong>. <code>Name</code> ánh xạ đến <code>name</code>, <code>AndPrice</code> thêm phép so sánh bằng trên <code>price</code>, còn <code>OrderByIdAsc</code> thêm sắp xếp. Spring Data JPA dựng truy vấn JPA Criteria cho các phương thức này. Hibernate dịch sang SQL dùng placeholder rồi bind giá trị qua JDBC.</p>
+<figure class="snippet"><figcaption>SQL tương đương · tham số của truy vấn thứ hai</figcaption><pre tabindex="0"><code class="language-sql">SELECT id, name, price, color
+FROM product_offerings
+WHERE name = ? AND price = ?
+ORDER BY id;
+-- Bind 1 = 'Product A', bind 2 = 100000. Kết quả có ID 1, 4.</code></pre></figure>
+<p><code>findByName</code> dùng phép bằng. Tìm theo một phần tên cần phương thức có <code>Containing</code>. Khi khớp tên chữ hoa, chữ thường hoặc dấu, kết quả còn phụ thuộc collation của cột ở DB triển khai. <code>Optional&lt;ProductOffering&gt;</code> phù hợp với truy vấn có kỳ vọng tối đa một dòng. Tên có thể trùng, nên dùng danh sách cho bài này.</p>
+<p>Trong live coding, lớp tạm truyền giá trị cố định. Cách nhận giá trị từ ngoài được hẹn ở . Demo bổ sung <code>@RequestParam</code> để tự chọn dữ liệu từ curl. Spring MVC nhận và đổi kiểu <code>price</code> trước khi gọi controller. Tham số thiếu hoặc sai kiểu cho HTTP 400.</p>
+<figure class="snippet"><figcaption>ProductOfferingController.java · API tên và giá</figcaption><pre tabindex="0"><code class="language-java">@GetMapping("/by-name-and-price")
+public List&lt;ProductOffering&gt; searchByNameAndPrice(
+        @RequestParam("name") String name, @RequestParam("price") Long price) {
+    return service.searchByNameAndPrice(name, price);
+}</code></pre></figure>
+</section>
+<section aria-labelledby="thuc-hanh-heading" class="chapter" id="thuc-hanh">
+<header class="chapter-top"><h2 id="thuc-hanh-heading">Chạy demo và tái hiện lỗi</h2></header>
+<p>Chuẩn bị JDK 17 trở lên và Maven 3.6.3 trở lên. Từ thư mục giải nén chứa <code>lessons</code> và <code>practice</code>, chạy các lệnh dưới đây. Spring Boot 3.5.10 nạp <code>schema.sql</code> và <code>data.sql</code> vào H2 trong bộ nhớ khi khởi động. Dừng ứng dụng bằng Ctrl+C và chạy lại để khôi phục bộ dữ liệu mẫu.</p>
+<figure class="snippet"><figcaption>PowerShell · chạy ứng dụng</figcaption><pre tabindex="0"><code class="language-powershell">Set-Location lessons/springboot/buoi-02
+mvn -f demo/pom.xml spring-boot:run</code></pre></figure>
+<p class="file-links"><a href="../buoi-02/demo/pom.xml">pom.xml</a> <a href="../buoi-02/demo/src/main/resources/application.yaml">Cấu hình</a> <a href="../buoi-02/demo/src/main/resources/schema.sql">Schema</a> <a href="../buoi-02/demo/src/main/resources/data.sql">Dữ liệu mẫu</a> <a href="../buoi-02/demo/src/main/java/vn/railway89/products/ProductApplication.java">Application</a> <a href="../buoi-02/demo/src/main/java/vn/railway89/products/ProductOfferingController.java">Controller</a> <a href="../buoi-02/demo/src/main/java/vn/railway89/products/ProductOfferingService.java">Service</a> <a href="../buoi-02/demo/src/main/java/vn/railway89/products/ProductOfferingRepository.java">Repository</a></p>
+<p>Để tự dựng từng bước, sao chép thư mục <code>demo</code> rồi bỏ hai phương thức tìm kiếm khỏi controller, service và repository của bản sao. Giữ API danh sách làm điểm xuất phát. Sau mỗi lần thêm API, khởi động lại ứng dụng để kiểm tra trước khi sang bước kế tiếp.</p>
+<ol>
+<li>Gọi API danh sách để có mốc so sánh. Xác nhận <code>Product A</code> có ba dòng, trong đó hai dòng cùng giá <code>100000</code>, và <code>Product B</code> cũng có giá đó.</li>
+<li>Thêm phương thức tìm theo tên ở repository, gọi từ service rồi nối controller với URL <code>/products/by-name</code>. Dự đoán ID trước khi chạy. Quan sát SQL và giá trị bind trong console của ứng dụng.</li>
+<li>Thêm phương thức theo tên và giá ở cả ba lớp. Kiểm tra <code>Product B</code> bị loại dù cùng giá, còn dòng giá <code>150000</code> bị loại dù cùng tên.</li>
+</ol>
+<figure class="snippet"><figcaption>PowerShell · cửa sổ thứ hai</figcaption><pre tabindex="0"><code class="language-powershell">curl.exe -i http://localhost:811/products
+curl.exe -i -G http://localhost:811/products/by-name --data-urlencode 'name=Product A'
+curl.exe -i -G http://localhost:811/products/by-name-and-price --data-urlencode 'name=Product A' --data-urlencode 'price=100000'
+curl.exe -i -G http://localhost:811/products/by-name-and-price --data-urlencode 'name=Product A' --data-urlencode 'price=123'
+curl.exe -i -G http://localhost:811/products/by-name-and-price --data-urlencode 'name=Product A' --data-urlencode 'price=abc'</code></pre></figure>
+<figure class="snippet"><figcaption>Kết quả · tên Product A và giá 100000, HTTP 200</figcaption><pre tabindex="0"><code class="language-json">[
+  {"id":1,"name":"Product A","price":100000,"color":"red"},
+  {"id":4,"name":"Product A","price":100000,"color":"black"}
+]</code></pre></figure>
+<p>Danh sách lần lượt cho ID <code>1, 2, 3, 4</code>, tìm theo tên cho ID <code>1, 2, 4</code>. Giá <code>123</code> trả <code>200 []</code>. Giá <code>abc</code> trả <code>400</code>. Logger <code>org.hibernate.SQL</code> ở DEBUG hiện SQL, <code>org.hibernate.orm.jdbc.bind</code> ở TRACE hiện giá trị bind. Cấu hình này phục vụ dữ liệu giả của bài thực hành.</p>
+<h3>Chẩn đoán lỗi theo dấu hiệu</h3>
+<ol>
+<li><strong>Ứng dụng không khởi động sau khi thêm repository method.</strong> Trong bản thử, đổi <code>findByNameAndPriceOrderByIdAsc</code> thành <code>findByNamePriceOrderByIdAsc</code> ở cả repository và lời gọi trong service. Build và chạy lại. Khi đọc <code>Could not create query</code>, tìm <code>PropertyReferenceException</code>. Spring Data thử duyệt <code>ProductOffering.name</code> rồi tìm thuộc tính <code>price</code> trên <code>String</code>. Khôi phục <code>And</code>, chạy lại và kiểm tra ID <code>1, 4</code>. Nếu đổi tên bằng công cụ Rename của IDE, kiểm tra cả khai báo và nơi gọi trước khi chạy lại. </li>
+<li><strong>Ứng dụng chạy nhưng truy vấn nhận ID null.</strong> <code>Id must not be null</code> nghĩa là repository nhận <code>null</code>, dù API có thể đã nhận một URL hợp lệ. Lần ngược tới lời gọi <code>findById</code> để kiểm tra ID có được truyền từ controller sang service hay bị thay bằng biến chưa được gán. Khi tự tái hiện trên Theo dấu API từ HTTP đến cơ sở dữ liệu, truyền <code>null</code> vào lời gọi <code>repository.findById</code> trong bản thử, quan sát log rồi trả lại ID từ controller. Với JDBC, ORM và Spring Data JPA, thử bỏ <code>price</code> khỏi URL và kiểm tra HTTP 400 ngay tại bước bind. </li>
+<li><strong>200 với mảng rỗng.</strong> Kiểm tra giá trị tham số, phép so sánh bằng, đúng bảng và dữ liệu mẫu. Dùng SQL tương đương hoặc thử lại bằng dữ liệu chắc chắn có. Để phân biệt lỗi truy vấn và dữ liệu không khớp, hãy đổi giá của một dòng trong <code>data.sql</code> rồi khởi động lại demo H2. Gọi lại URL với giá cũ và giá mới để kiểm tra dòng đó rời hoặc gia nhập tập kết quả đúng như điều kiện <code>WHERE</code>. </li>
+</ol>
+</section>
+<section aria-labelledby="tu-kiem-tra-heading" class="chapter" id="tu-kiem-tra">
+<header class="chapter-top"><h2 id="tu-kiem-tra-heading">Tự kiểm tra</h2></header>
+<details><summary>1. Tên Product A và giá 100000 trả bao nhiêu dòng?</summary><p>Hai dòng, ID 1 và 4. ID 2 trùng tên nhưng khác giá. ID 3 trùng giá nhưng khác tên. Hai điều kiện nối bằng <code>AND</code>.</p></details>
+<details><summary>2. Ai phân tích findByNameAndPrice, ai sinh SQL?</summary><p>Spring Data JPA phân tích tên phương thức repository và dựng truy vấn JPA. Hibernate dịch truy vấn sang SQL cho dialect hiện tại rồi dùng JDBC để chạy với các tham số đã bind.</p></details>
+<details><summary>3. Đổi tên cột SQL thành product_name thì sửa gì?</summary><p>Đổi schema và đặt <code>@Column(name = "product_name")</code>. Giữ <code>findByName...</code> khi field Java vẫn tên <code>name</code>.</p></details>
+<details><summary>4. Vì sao giá abc cho 400 còn giá 123 cho 200 []?</summary><p>MVC đổi chuỗi sang <code>Long</code> trước khi gọi controller. <code>abc</code> lỗi chuyển kiểu. <code>123</code> hợp lệ về kiểu và truy vấn chạy, nhưng bộ seed thiếu dòng khớp.</p></details>
+<details><summary>5. Vì sao đổi chữ ký thành Optional&lt;ProductOffering&gt; có thể làm hỏng API?</summary><p>Chữ ký đó kỳ vọng nhiều nhất một bản ghi. Bộ seed cố ý có nhiều dòng trùng tên, thậm chí trùng cả tên và giá. Hãy để kiểu <code>List&lt;ProductOffering&gt;</code> biểu diễn mọi kết quả.</p></details>
+<details><summary>6. @PrePersist có chạy khi chạy INSERT trong cửa sổ SQL không?</summary><p>Callback thuộc vòng đời do JPA quản lý. INSERT trực tiếp có thể dùng giá trị do DB tạo nếu cột có default và câu lệnh để cột dùng default.</p></details>
+<details><summary>7. Làm sao đổi bài tập thành tìm tên chứa một từ và màu đỏ?</summary><p>Dùng <code>findByNameContainingAndColorOrderByIdAsc(String name, String color)</code> rồi nối tham số ở service và controller. Với <code>Product</code> và <code>red</code>, bộ seed cho ID 1. Đây là bài mở rộng để phân biệt <code>LIKE</code> và phép bằng.</p></details>
+<p>Khi tự học xong, bạn có thể giải thích luồng từ hai tham số URL đến hai vị trí bind, dự đoán kết quả từ SQL seed, rồi tự gây và sửa lỗi thiếu <code>And</code> ở repository.</p>
+</section>
+<p><a href="#top">Về đầu trang ↑</a></p>`,t=`<div class="callout intro"><strong>Mục tiêu và điều kiện học</strong><p>Ánh xạ entity tối thiểu; viết derived query theo thuộc tính Java, xác nhận SQL và kết quả.</p><p><strong>Cần biết trước:</strong> Java object, SQL SELECT và repository. Các bài ứng dụng có thể cần đọc trước phần dữ liệu tương ứng; dùng <a href="../index.html">lộ trình</a> để chọn kiến thức còn thiếu.</p><p class="version-note">Baseline: Java 17 · Spring Boot 3.5.10 · Framework 6.2 · Security 6.5. Mỗi demo có hướng dẫn riêng; ví dụ H2 không chứng minh hành vi trên DB khác.</p></div>`,n=`<section id="nguon-chinh-thuc"><h2>Nguồn chính thức và tài liệu đối chiếu</h2><ul><li><a href="https://docs.oracle.com/javase/tutorial/jdbc/basics/processingsqlstatements.html">Oracle · JDBC và ResultSet</a></li><li><a href="https://jakarta.ee/specifications/persistence/3.1/jakarta-persistence-spec-3.1">Jakarta Persistence 3.1 · Entity, mapping và lifecycle</a></li><li><a href="https://docs.spring.io/spring-boot/3.5/how-to/data-initialization.html">Spring Boot 3.5 · Khởi tạo schema và dữ liệu</a></li><li><a href="https://docs.spring.io/spring-data/jpa/reference/3.5/jpa/query-methods.html">Spring Data JPA 3.5 · Query methods</a></li><li><a href="https://docs.spring.io/spring-framework/reference/6.2/web/webmvc/mvc-controller/ann-methods/requestparam.html">Spring Framework 6.2 · @RequestParam</a></li><li><a href="https://docs.hibernate.org/orm/6.6/javadocs/org/hibernate/annotations/Formula.html">Hibernate ORM 6.6 · @Formula</a></li><li><a href="https://docs.hibernate.org/orm/6.6/javadocs/org/hibernate/annotations/CreationTimestamp.html">@CreationTimestamp</a></li><li><a href="https://docs.spring.io/spring-framework/reference/6.2/data-access/jdbc/core.html">Spring Framework 6.2 · JDBC core và JdbcTemplate</a></li></ul></section>`,r=`<section aria-labelledby="moc-video-heading" class="chapter" id="moc-video"><details class="video-reference"><summary>Nguồn video · xem lại tùy chọn</summary>
+<header class="chapter-top"><h2 id="moc-video-heading">Mốc xem lại</h2></header>
+<ul>
+<li><a aria-label="Xem video tại 23:53" class="time" href="https://drive.google.com/file/d/1otS4D3yJT7nScKQrDfarYTW7Yj18k9cv/view?t=1433" rel="noopener" target="_blank">23:53 <span aria-hidden="true">↗</span></a> Làm API đọc danh sách. <a aria-label="Xem video tại 36:00" class="time" href="https://drive.google.com/file/d/1otS4D3yJT7nScKQrDfarYTW7Yj18k9cv/view?t=2160" rel="noopener" target="_blank">36:00 <span aria-hidden="true">↗</span></a> Sửa kiểu trả về của controller.</li>
+<li><a aria-label="Xem video tại 1:01:46" class="time" href="https://drive.google.com/file/d/1otS4D3yJT7nScKQrDfarYTW7Yj18k9cv/view?t=3706" rel="noopener" target="_blank">1:01:46 <span aria-hidden="true">↗</span></a> Ôn JDBC. <a aria-label="Xem video tại 1:09:11" class="time" href="https://drive.google.com/file/d/1otS4D3yJT7nScKQrDfarYTW7Yj18k9cv/view?t=4151" rel="noopener" target="_blank">1:09:11 <span aria-hidden="true">↗</span></a> ORM và ánh xạ đối tượng. <a aria-label="Xem video tại 1:21:09" class="time" href="https://drive.google.com/file/d/1otS4D3yJT7nScKQrDfarYTW7Yj18k9cv/view?t=4869" rel="noopener" target="_blank">1:21:09 <span aria-hidden="true">↗</span></a> Session và kết nối. <a aria-label="Xem video tại 1:28:24" class="time" href="https://drive.google.com/file/d/1otS4D3yJT7nScKQrDfarYTW7Yj18k9cv/view?t=5304" rel="noopener" target="_blank">1:28:24 <span aria-hidden="true">↗</span></a> Spring Data JPA và cấu hình.</li>
+<li><a aria-label="Xem video tại 1:33:45" class="time" href="https://drive.google.com/file/d/1otS4D3yJT7nScKQrDfarYTW7Yj18k9cv/view?t=5625" rel="noopener" target="_blank">1:33:45 <span aria-hidden="true">↗</span></a> Entity, ID và column. <a aria-label="Xem video tại 1:53:03" class="time" href="https://drive.google.com/file/d/1otS4D3yJT7nScKQrDfarYTW7Yj18k9cv/view?t=6783" rel="noopener" target="_blank">1:53:03 <span aria-hidden="true">↗</span></a> Ràng buộc cột. <a aria-label="Xem video tại 1:56:40" class="time" href="https://drive.google.com/file/d/1otS4D3yJT7nScKQrDfarYTW7Yj18k9cv/view?t=7000" rel="noopener" target="_blank">1:56:40 <span aria-hidden="true">↗</span></a> Trường tính toán.</li>
+<li><a aria-label="Xem video tại 2:02:13" class="time" href="https://drive.google.com/file/d/1otS4D3yJT7nScKQrDfarYTW7Yj18k9cv/view?t=7333" rel="noopener" target="_blank">2:02:13 <span aria-hidden="true">↗</span></a> Audit và xóa mềm. <a aria-label="Xem video tại 2:05:31" class="time" href="https://drive.google.com/file/d/1otS4D3yJT7nScKQrDfarYTW7Yj18k9cv/view?t=7531" rel="noopener" target="_blank">2:05:31 <span aria-hidden="true">↗</span></a> Callback trước khi persist.</li>
+<li><a aria-label="Xem video tại 2:14:01" class="time" href="https://drive.google.com/file/d/1otS4D3yJT7nScKQrDfarYTW7Yj18k9cv/view?t=8041" rel="noopener" target="_blank">2:14:01 <span aria-hidden="true">↗</span></a> Chốt đề hai API. <a aria-label="Xem video tại 2:36:32" class="time" href="https://drive.google.com/file/d/1otS4D3yJT7nScKQrDfarYTW7Yj18k9cv/view?t=9392" rel="noopener" target="_blank">2:36:32 <span aria-hidden="true">↗</span></a> Chữa bài. <a aria-label="Xem video tại 2:51:19" class="time" href="https://drive.google.com/file/d/1otS4D3yJT7nScKQrDfarYTW7Yj18k9cv/view?t=10279" rel="noopener" target="_blank">2:51:19 <span aria-hidden="true">↗</span></a> Lần lỗi ID null. <a aria-label="Xem video tại 3:03:59" class="time" href="https://drive.google.com/file/d/1otS4D3yJT7nScKQrDfarYTW7Yj18k9cv/view?t=11039" rel="noopener" target="_blank">3:03:59 <span aria-hidden="true">↗</span></a> Sửa tên phương thức truy vấn.</li>
+<li><a aria-label="Xem video tại 3:13:27" class="time" href="https://drive.google.com/file/d/1otS4D3yJT7nScKQrDfarYTW7Yj18k9cv/view?t=11607" rel="noopener" target="_blank">3:13:27 <span aria-hidden="true">↗</span></a> Tổng kết cú pháp repository. <a aria-label="Xem video tại 3:14:15" class="time" href="https://drive.google.com/file/d/1otS4D3yJT7nScKQrDfarYTW7Yj18k9cv/view?t=11655" rel="noopener" target="_blank">3:14:15 <span aria-hidden="true">↗</span></a> Sửa và lọc dữ liệu từ IDE. Transcript kết thúc ở <a aria-label="Xem video tại 3:16:46" class="time" href="https://drive.google.com/file/d/1otS4D3yJT7nScKQrDfarYTW7Yj18k9cv/view?t=11806" rel="noopener" target="_blank">3:16:46 <span aria-hidden="true">↗</span></a>.</li>
+</ul>
+<ul><li><a href="https://drive.google.com/file/d/1otS4D3yJT7nScKQrDfarYTW7Yj18k9cv/view?t=2596">43:16 ↗</a></li><li><a href="https://drive.google.com/file/d/1otS4D3yJT7nScKQrDfarYTW7Yj18k9cv/view?t=3470">57:50 ↗</a></li><li><a href="https://drive.google.com/file/d/1otS4D3yJT7nScKQrDfarYTW7Yj18k9cv/view?t=5236">1:27:16 ↗</a></li><li><a href="https://drive.google.com/file/d/1otS4D3yJT7nScKQrDfarYTW7Yj18k9cv/view?t=7713">2:08:33 ↗</a></li><li><a href="https://drive.google.com/file/d/1otS4D3yJT7nScKQrDfarYTW7Yj18k9cv/view?t=7962">2:12:42 ↗</a></li><li><a href="https://drive.google.com/file/d/1otS4D3yJT7nScKQrDfarYTW7Yj18k9cv/view?t=10506">2:55:06 ↗</a></li></ul><ul><li><a href="https://drive.google.com/file/d/1otS4D3yJT7nScKQrDfarYTW7Yj18k9cv/view" rel="noopener" target="_blank">Railway 89 · JDBC, ORM và Spring Data JPA · Video và transcript trên Google Drive</a></li></ul></details></section>`,i=[{id:`on-tap`,title:`Từ lấy một dòng đến lấy danh sách`},{id:`jdbc-jpa`,title:`Từ JDBC đến Spring Data JPA`},{id:`persistence-context`,title:`Một hàng dữ liệu đi qua các trạng thái nào?`},{id:`mapping`,title:`Ánh xạ bảng, cột và kiểu dữ liệu`},{id:`lifecycle`,title:`Trường tính toán, audit và vòng đời entity`},{id:`truy-van`,title:`Suy ra truy vấn từ tên phương thức`},{id:`thuc-hanh`,title:`Chạy demo và tái hiện lỗi`},{id:`tu-kiem-tra`,title:`Tự kiểm tra`},{id:`bai-tap-code`,title:`Bài tập lập trình`},{id:`kiem-tra-nang-luc`,title:`Kiểm tra cách hiểu`},{id:`nguon-chinh-thuc`,title:`Nguồn chính thức`}],a={title:`Entity đổi trạng thái khi nào?`,setup:`Transaction lấy Product 1 với name="An". Sửa tên thành "Bình" rồi kết thúc giao dịch.`,steps:[{label:`Load`,result:`Entity vừa lấy được quản lý trong persistence context hiện tại.`},{label:`Đổi field`,result:`Provider theo dõi thay đổi của entity managed. Chưa thể kết luận DB đã commit chỉ từ giá trị trên Java.`},{label:`Kết thúc`,result:`Flush gửi cập nhật khi thích hợp, commit xác nhận. Đọc lại bằng context mới để kiểm tên; bản detached sửa riêng không tự đồng bộ.`}]},o={bodyHtml:e,introHtml:t,referencesHtml:n,videoHtml:r,toc:i,simulation:a};export{e as bodyHtml,o as default,t as introHtml,n as referencesHtml,a as simulation,i as toc,r as videoHtml};

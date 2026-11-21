@@ -1,0 +1,6 @@
+CREATE TABLE IF NOT EXISTS product_offerings (
+    id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    price INT,
+    color VARCHAR(255)
+);

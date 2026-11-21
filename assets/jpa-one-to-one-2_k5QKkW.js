@@ -1,0 +1,70 @@
+var e=`
+<section aria-labelledby="cardinality-heading" class="chapter" id="cardinality">
+<header class="chapter-top"><h2 id="cardinality-heading">Đưa quan hệ một–một vào SQL</h2></header>
+<p>Xét một offering và hồ sơ thông số riêng của nó. Quy tắc nghiệp vụ quyết định bội số. Một–một nghĩa là mỗi bản ghi ở một phía liên kết nhiều nhất một bản ghi ở phía kia. Schema dưới đây cho phép offering tạm thời chưa có detail. Để bắt buộc mọi offering có detail, đặt <code>NOT NULL</code> trên <code>single_offering.detail_id</code> và khai báo <code>@OneToOne(optional = false)</code> tương ứng. Nếu dời FK sang bảng detail, <code>NOT NULL</code> ở đó buộc mỗi detail có offering. Một offering trong thiết kế đó vẫn có thể chưa được detail nào tham chiếu.</p>
+<figure class="snippet"><figcaption>Ràng buộc trong schema của demo</figcaption><pre tabindex="0"><code class="language-sql">CREATE TABLE single_detail (
+    id BIGINT PRIMARY KEY,
+    specification VARCHAR(100) NOT NULL
+);
+CREATE TABLE single_offering (
+    id BIGINT PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    detail_id BIGINT UNIQUE REFERENCES single_detail(id)
+);</code></pre></figure>
+<p><code>REFERENCES</code> từ chối ID detail vắng. <code>UNIQUE</code> từ chối hai offering trỏ cùng detail. Có thể dùng chung khóa chính, chẳng hạn <code>product_detail.id</code> đồng thời là PK và FK đến product, và cách đặt FK ở phía detail kèm UNIQUE. Dùng <code>@MapsId</code> nếu chọn khóa chung cho entity phụ thuộc. Tách bảng giúp biểu diễn lifecycle hoặc dữ liệu tùy chọn, nhưng khi muốn đọc đủ hai phía thì vẫn cần join hoặc thêm lượt query.  </p>
+</section><aside class="callout"><strong>Chạy các ví dụ trên máy</strong><p><a download="" href="../../../practice/spring-demo-bundle/downloads/spring-demo-bundle.zip">Tải bộ demo Maven (.zip)</a>. Giải nén và dùng thư mục <code>spring-demo-bundle</code> chứa <code>lessons</code> và <code>practice</code> làm thư mục gốc cho các lệnh trong bài. Khi bài yêu cầu vào thư mục demo, mở thư mục chứa <code>pom.xml</code> của demo đó.</p></aside>
+<section aria-labelledby="mapping-heading" class="chapter" id="mapping">
+<header class="chapter-top"><h2 id="mapping-heading">Ánh xạ cột join và phía sở hữu</h2></header>
+<figure class="snippet"><figcaption>SingleOffering.java</figcaption><pre tabindex="0"><code class="language-java">@OneToOne(fetch = FetchType.LAZY)
+@JoinColumn(name = "detail_id", unique = true)
+SingleDetail detail;</code></pre></figure>
+<p><code>name</code> chỉ cột FK tại bảng offering. <code>referencedColumnName</code> mặc định là cột PK của đối tượng <code>SingleDetail</code>. Nếu thêm chiều ngược, phía detail dùng <code>@OneToOne(mappedBy = "detail")</code>. Giá trị này là tên thuộc tính Java ở phía giữ FK. Thay field chỉ đọc ở phía ngược sẽ không tự đổi cột FK trong DB.</p>
+<p>Trong live coding có trường hợp offering trỏ đến detail không có dữ liệu hoặc bảng thiếu FK, và tên cột Java/DB không khớp. Lần từ log tới cột <code>detail_id</code>, kiểm tra giá trị và tồn tại của dòng detail trước khi sửa mapping.   <a href="../buoi-06/demo/src/main/java/vn/railway89/catalog/SingleOffering.java">Xem entity</a>.</p>
+</section>
+<section class="chapter" id="doi-chieu-rang-buoc"><h2>Dự đoán kết quả từ vị trí khóa ngoại</h2>
+<p>Seed có offering 1 trỏ detail 10 chứa <code>65 W</code>, offering 2 bỏ trống <code>detail_id</code>. Lần theo thứ tự kiểm tra ở DB và so với trạng thái quan hệ trong Java.</p>
+<table><thead><tr><th>Biến thể trên seed gốc</th><th>Kết quả dự kiến</th><th>Nguyên nhân</th></tr></thead><tbody>
+<tr><td>Thêm offering 3 với <code>detail_id=99</code></td><td>Lệnh INSERT bị từ chối</td><td>FK cần dòng detail 99 tồn tại.</td></tr>
+<tr><td>Thêm offering 3 với <code>detail_id=10</code></td><td>Lệnh INSERT bị từ chối</td><td>UNIQUE ngăn dùng cùng detail hai lần.</td></tr>
+<tr><td>Thêm detail ID 11 rồi đổi FK của offering 1 sang 11</td><td>Offering 1 liên kết với 11, hàng detail 10 vẫn có mặt</td><td>Đổi FK chỉ thay tham chiếu. Kiểm tra cấu hình cascade và orphan removal riêng nếu muốn xóa detail cũ.</td></tr>
+</tbody></table>
+<p><strong>Tự viết.</strong> Trong bản sao demo, thêm truy vấn bên <code>SingleOfferingRepository</code> lấy danh sách offering theo ID tăng dần và nạp thông số bằng <code>left join fetch</code>. Trả một DTO mới gồm ID, tên và thông số có thể null. Đọc hai dòng trong transaction, chuyển DTO rồi kết thúc transaction trước khi serialize. Ca nghiệm thu trả ID <code>[1,2]</code>, thông số <code>["65 W",null]</code> và một SELECT có LEFT JOIN. Đổi tạm thành <code>join fetch</code> để chứng minh ID 2 biến mất, rồi khôi phục và chạy lại. Dùng test repository hoặc chỉnh service trong bản sao và ghi log Hibernate như phần dưới.</p>
+</section>
+<section aria-labelledby="thuc-hanh-heading" class="chapter" id="thuc-hanh">
+<header class="chapter-top"><h2 id="thuc-hanh-heading">Thực hành</h2></header>
+<p>Chuẩn bị JDK 17 trở lên và Maven. Chạy lệnh dưới đây từ thư mục giải nén chứa <code>lessons</code> và <code>practice</code>. Demo dùng H2 trong bộ nhớ và nạp lại bộ dữ liệu ban đầu mỗi lần khởi động. Dừng bằng Ctrl+C khi thực hành xong.</p>
+<figure class="snippet"><figcaption>PowerShell · khởi động trước khi gọi API</figcaption><pre tabindex="0"><code class="language-powershell">mvn -f lessons/springboot/buoi-06/demo/pom.xml spring-boot:run</code></pre></figure>
+<p class="file-links"><a href="../buoi-06/demo/pom.xml">Maven</a> <a href="../buoi-06/demo/src/main/resources/schema.sql">Schema</a> <a href="../buoi-06/demo/src/main/resources/data.sql">Dữ liệu mẫu</a> <a href="../buoi-06/demo/src/main/resources/application.yaml">Cấu hình</a></p>
+<figure class="snippet"><figcaption>So sánh ba cách đọc ID 1 và đọc ID 2 không có detail</figcaption><pre tabindex="0"><code class="language-powershell">$api = 'http://localhost:812/buoi-04/offerings'
+Invoke-RestMethod "$api/1"
+Invoke-RestMethod "$api/1?includeDetail=true"
+Invoke-RestMethod "$api/1?includeDetail=true&amp;fetchJoin=true"
+Invoke-RestMethod "$api/2?includeDetail=true&amp;fetchJoin=true"</code></pre></figure>
+<div class="table-wrap"><table><thead><tr><th>Ca</th><th>Trạng thái khởi tạo trước → sau</th><th>SQL dự kiến</th></tr></thead><tbody><tr><td>ID 1, chỉ offering</td><td>false → false</td><td>1 SELECT</td></tr><tr><td>ID 1, getter chi tiết</td><td>false → true</td><td>2 SELECT</td></tr><tr><td>ID 1, fetch join</td><td>true → true</td><td>1 SELECT với LEFT JOIN</td></tr><tr><td>ID 2, fetch join</td><td>false → false, hasDetail=false</td><td>1 SELECT với LEFT JOIN</td></tr></tbody></table></div>
+<p>Quan sát log <code>org.hibernate.SQL</code> sau mỗi lần gọi. Hai lần có chi tiết trả <code>specification: "65 W"</code>. Để thử lỗi ràng buộc, trong bản sao demo thêm dòng sau vào cuối <code>data.sql</code>, rồi khởi động lại. Với <code>detail_id=10</code> lỗi UNIQUE, đổi thành 99 thì lỗi FK. Bỏ INSERT thử và khởi động lại trước khi làm tiếp.</p>
+<figure class="snippet"><figcaption>Gây lỗi bằng một dòng seed mới</figcaption><pre tabindex="0"><code class="language-sql">INSERT INTO single_offering (id, name, detail_id)
+VALUES (3, 'Duplicate reference', 10);</code></pre></figure>
+</section>
+<section aria-labelledby="tu-kiem-tra-heading" class="chapter" id="tu-kiem-tra">
+<header class="chapter-top"><h2 id="tu-kiem-tra-heading">Tự kiểm tra</h2></header>
+<details><summary>1. Chỉ có FOREIGN KEY thì bội số là gì?</summary><p>Nhiều offering có thể trỏ cùng detail. UNIQUE trên detail_id giới hạn mỗi detail ở tối đa một offering.</p></details>
+<details><summary>2. Vì sao detail_id có thể có giá trị mà Hibernate chưa nạp detail?</summary><p>FK cho Hibernate biết identity. Proxy chỉ lấy các thuộc tính của detail khi chúng được đọc trong cấu hình LAZY của demo.</p></details>
+<details><summary>3. Có thể suy số query chỉ từ EAGER hoặc LAZY không?</summary><p>Cần xem query, mapping, trạng thái persistence context và log. EAGER nói về thời điểm dữ liệu phải sẵn sàng.</p></details>
+<details><summary>4. LEFT JOIN FETCH giữ được trường hợp nào?</summary><p>Offering không có detail vẫn xuất hiện trong kết quả, với thuộc tính detail null.</p></details>
+<details><summary>5. mappedBy chỉ tên cột hay tên field?</summary><p>Tên thuộc tính Java ở entity sở hữu quan hệ. JoinColumn chỉ tên cột vật lý.</p></details>
+</section>
+<p><a href="#top">Về đầu trang ↑</a></p>`,t=`<div class="callout intro"><strong>Mục tiêu và điều kiện học</strong><p>Ánh xạ FK một–một, chọn phía sở hữu và constraint theo quy tắc bắt buộc/tùy chọn.</p><p><strong>Cần biết trước:</strong> JPA mapping và transaction đọc. Các bài ứng dụng có thể cần đọc trước phần dữ liệu tương ứng; dùng <a href="../index.html">lộ trình</a> để chọn kiến thức còn thiếu.</p><p class="version-note">Baseline: Java 17 · Spring Boot 3.5.10 · Framework 6.2 · Security 6.5. Mỗi demo có hướng dẫn riêng; ví dụ H2 không chứng minh hành vi trên DB khác.</p></div>`,n=`<section id="nguon-chinh-thuc"><h2>Nguồn chính thức và tài liệu đối chiếu</h2><ul><li><a href="https://jakarta.ee/specifications/persistence/3.1/jakarta-persistence-spec-3.1">Jakarta Persistence 3.1 · Mapping, vòng đời và truy vấn</a></li><li><a href="https://docs.hibernate.org/orm/6.6/userguide/html_single/">Hibernate ORM 6.6 · Associations, fetching và HQL</a></li></ul></section>`,r=`<section aria-labelledby="moc-video-heading" class="chapter" id="moc-video"><details class="video-reference"><summary>Nguồn video · xem lại tùy chọn</summary>
+<header class="chapter-top"><h2 id="moc-video-heading">Mốc xem lại</h2></header>
+<ul>
+<li><a aria-label="Xem video tại 19:01" class="time" href="https://drive.google.com/file/d/13XuT5Y9OeXAC9FszT8RLwBxqDkiiSkDU/view?t=1141" rel="noopener" target="_blank">19:01 <span aria-hidden="true">↗</span></a> Phân loại quan hệ dữ liệu.</li>
+<li><a aria-label="Xem video tại 48:09" class="time" href="https://drive.google.com/file/d/13XuT5Y9OeXAC9FszT8RLwBxqDkiiSkDU/view?t=2889" rel="noopener" target="_blank">48:09 <span aria-hidden="true">↗</span></a> Cân nhắc tách bảng và chi phí JOIN.</li>
+<li><a aria-label="Xem video tại 1:07:28" class="time" href="https://drive.google.com/file/d/13XuT5Y9OeXAC9FszT8RLwBxqDkiiSkDU/view?t=4048" rel="noopener" target="_blank">1:07:28 <span aria-hidden="true">↗</span></a> Mô hình product và product detail.</li>
+<li><a aria-label="Xem video tại 1:22:49" class="time" href="https://drive.google.com/file/d/13XuT5Y9OeXAC9FszT8RLwBxqDkiiSkDU/view?t=4969" rel="noopener" target="_blank">1:22:49 <span aria-hidden="true">↗</span></a> Sửa thiết kế khóa dùng chung.</li>
+<li><a aria-label="Xem video tại 1:28:04" class="time" href="https://drive.google.com/file/d/13XuT5Y9OeXAC9FszT8RLwBxqDkiiSkDU/view?t=5284" rel="noopener" target="_blank">1:28:04 <span aria-hidden="true">↗</span></a> Vai trò của UNIQUE.</li>
+<li><a aria-label="Xem video tại 1:41:20" class="time" href="https://drive.google.com/file/d/13XuT5Y9OeXAC9FszT8RLwBxqDkiiSkDU/view?t=6080" rel="noopener" target="_blank">1:41:20 <span aria-hidden="true">↗</span></a> Khai báo @OneToOne và @JoinColumn.</li>
+<li><a aria-label="Xem video tại 2:14:35" class="time" href="https://drive.google.com/file/d/13XuT5Y9OeXAC9FszT8RLwBxqDkiiSkDU/view?t=8075" rel="noopener" target="_blank">2:14:35 <span aria-hidden="true">↗</span></a> Kiểm tra detail được tham chiếu.</li>
+<li><a aria-label="Xem video tại 2:29:47" class="time" href="https://drive.google.com/file/d/13XuT5Y9OeXAC9FszT8RLwBxqDkiiSkDU/view?t=8987" rel="noopener" target="_blank">2:29:47 <span aria-hidden="true">↗</span></a> Bật log SQL.</li>
+<li><a aria-label="Xem video tại 2:36:09" class="time" href="https://drive.google.com/file/d/13XuT5Y9OeXAC9FszT8RLwBxqDkiiSkDU/view?t=9369" rel="noopener" target="_blank">2:36:09 <span aria-hidden="true">↗</span></a> Chuyển sang LAZY để so sánh.</li>
+<li><a aria-label="Xem video tại 2:53:40" class="time" href="https://drive.google.com/file/d/13XuT5Y9OeXAC9FszT8RLwBxqDkiiSkDU/view?t=10420" rel="noopener" target="_blank">2:53:40 <span aria-hidden="true">↗</span></a> Đọc SQL trước và sau khi truy cập detail.</li>
+</ul>
+<ul><li><a href="https://drive.google.com/file/d/13XuT5Y9OeXAC9FszT8RLwBxqDkiiSkDU/view?t=6039">1:40:39 ↗</a></li><li><a href="https://drive.google.com/file/d/13XuT5Y9OeXAC9FszT8RLwBxqDkiiSkDU/view?t=8385">2:19:45 ↗</a></li><li><a href="https://drive.google.com/file/d/13XuT5Y9OeXAC9FszT8RLwBxqDkiiSkDU/view?t=10013">2:46:53 ↗</a></li></ul><ul><li><a href="https://drive.google.com/file/d/13XuT5Y9OeXAC9FszT8RLwBxqDkiiSkDU/view" rel="noopener" target="_blank">Railway 89 · Quan hệ một–một, fetch plan và N+1 · Video và transcript trên Google Drive</a></li></ul></details></section>`,i=[{id:`cardinality`,title:`Đưa quan hệ một–một vào SQL`},{id:`mapping`,title:`Ánh xạ cột join và phía sở hữu`},{id:`doi-chieu-rang-buoc`,title:`Dự đoán kết quả từ vị trí khóa ngoại`},{id:`thuc-hanh`,title:`Thực hành`},{id:`tu-kiem-tra`,title:`Tự kiểm tra`},{id:`bai-tap-code`,title:`Bài tập lập trình`},{id:`kiem-tra-nang-luc`,title:`Kiểm tra cách hiểu`},{id:`nguon-chinh-thuc`,title:`Nguồn chính thức`}],a={title:`FK, UNIQUE và NULL`,setup:`offering.detail_id là FK có UNIQUE và cho phép NULL. Detail 7 đã được offering 1 tham chiếu.`,steps:[{label:`Thêm offering trống`,result:`NULL được chấp nhận vì cột nullable.`},{label:`Gắn lại detail 7`,result:`Detail có tồn tại, nhưng UNIQUE từ chối dùng cùng giá trị ở offering khác.`},{label:`Gắn ID 999`,result:`Nếu detail 999 không tồn tại, FK từ chối. Ba constraint cùng làm ba việc khác nhau.`}]},o={bodyHtml:e,introHtml:t,referencesHtml:n,videoHtml:r,toc:i,simulation:a};export{e as bodyHtml,o as default,t as introHtml,n as referencesHtml,a as simulation,i as toc,r as videoHtml};

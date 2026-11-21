@@ -1,0 +1,23 @@
+server:
+  address: 127.0.0.1
+  port: 817
+spring:
+  jackson:
+    deserialization:
+      accept-float-as-int: false
+      fail-on-numbers-for-enums: true
+  datasource:
+    url: jdbc:h2:mem:catalog
+    username: sa
+    password: ""
+  sql:
+    init:
+      mode: always
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+logging:
+  level:
+    org.hibernate.SQL: DEBUG
+

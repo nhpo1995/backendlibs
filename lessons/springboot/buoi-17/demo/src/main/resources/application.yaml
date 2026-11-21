@@ -1,0 +1,25 @@
+server:
+  address: 127.0.0.1
+  port: 8117
+  error:
+    include-message: never
+    include-stacktrace: never
+    include-binding-errors: never
+spring:
+  datasource:
+    url: jdbc:h2:mem:lesson17;DB_CLOSE_DELAY=-1
+  sql:
+    init:
+      mode: always
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+  jackson:
+    deserialization:
+      fail-on-unknown-properties: true
+      fail-on-numbers-for-enums: true
+      accept-float-as-int: false
+logging:
+  level:
+    vn.railway89.lab: INFO

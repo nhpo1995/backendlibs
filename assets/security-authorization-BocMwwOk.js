@@ -1,0 +1,63 @@
+var e=`<section class="chapter" id="boi-canh"><h2>Danh tính có quyền với nhóm nào?</h2>
+<p><code>reader</code> đọc được danh bạ sau khi <a href="../security-authentication/index.html">xác thực</a>. Với thao tác gửi lời mời, cần hai quyết định riêng: quyền thực hiện loại thao tác và quyền đối với nhóm đích. Dùng lại kiến thức <a href="../aop-transaction/index.html">lời gọi qua proxy</a> để xác định khi nào method security chạy.</p></section>
+<section class="chapter" id="policy"><h2>Viết policy trước khi viết matcher</h2>
+<p>Ứng dụng danh bạ có ba nhóm request: đọc danh sách cho người đã xác thực, thay đổi group cho admin, và các URL không công bố phải bị từ chối. Viết ma trận danh tính × hành động giúp phát hiện thiếu sót trước khi code. Một test chỉ dùng admin sẽ bỏ qua hầu hết lỗi phân quyền.</p>
+<div class="table-wrap"><table><thead><tr><th>Thao tác</th><th>Anonymous</th><th>Reader</th><th>Admin</th></tr></thead><tbody><tr><td>GET /api/groups</td><td>401 trong Basic lab</td><td>200</td><td>200</td></tr><tr><td>POST /api/groups có body và CSRF hợp lệ</td><td>401 trong Basic lab</td><td>403</td><td>201</td></tr><tr><td>POST thiếu CSRF</td><td colspan="3">Có thể bị chặn 403 ở CSRF trước bước xét quyền</td></tr></tbody></table></div>
+<p>Bảng trên phụ thuộc cấu hình lab. Luôn ghi điều kiện CSRF để không nhầm nguyên nhân 403. Một user có authentication không mặc định được ghi mọi dữ liệu.</p></section>
+<section class="chapter" id="matchers"><h2>Thứ tự chọn chain và thứ tự chọn rule</h2>
+<p><code>securityMatcher</code> giới hạn request thuộc một SecurityFilterChain. Nếu có nhiều chain, thứ tự chain quyết định chain khớp đầu tiên được dùng; không ghép tất cả chain thành một. Trong chain, <code>requestMatchers</code> bên trong authorizeHttpRequests chọn rule theo thứ tự khai báo. Rule rộng đặt trước có thể che rule hẹp.</p>
+<figure class="snippet"><figcaption>Java · ví dụ policy cho API</figcaption><pre tabindex="0"><code class="language-java">@Bean
+SecurityFilterChain web(HttpSecurity http) throws Exception {
+    http.authorizeHttpRequests(r -&gt; r
+        .requestMatchers(HttpMethod.GET, "/api/groups", "/api/groups/**")
+            .authenticated()
+        .requestMatchers("/api/groups", "/api/groups/**").hasRole("ADMIN")
+        .anyRequest().denyAll())
+        .httpBasic(Customizer.withDefaults());
+    return http.build();
+}</code></pre></figure>
+<p>CSRF vẫn bật. Đây là bean cấu hình, cần import các kiểu Spring Security/HttpMethod và user store như solution. Nếu thêm chain khác, phải đánh giá khoảng URL không chain nào bảo vệ. <code>permitAll</code> cho authorization không đồng nghĩa bỏ mọi filter bảo vệ khác.</p>
+<p><code>roles("ADMIN")</code> tạo authority với prefix mặc định ROLE_. <code>hasRole("ADMIN")</code> dùng quy ước đó; <code>hasAuthority("groups:write")</code> so authority cụ thể. Không vừa truyền ROLE_ADMIN vào hasRole vừa kỳ vọng framework không thêm prefix.</p></section>
+<section class="chapter" id="method"><h2>Bảo vệ method và dữ liệu thuộc người dùng</h2>
+<p>Kiểm soát URL không đủ cho mọi đường gọi: service có thể được gọi từ controller khác hoặc job. Bật <code>@EnableMethodSecurity</code> để dùng annotation như <code>@PreAuthorize</code>. Starter-security không tự bật tính năng này.</p>
+<figure class="snippet"><figcaption>Java · guard trên service được quản lý</figcaption><pre tabindex="0"><code class="language-java">@Configuration
+@EnableMethodSecurity
+class MethodPolicy {}
+
+@Service
+class GroupWriter {
+    @PreAuthorize("hasAuthority('groups:write')")
+    public void rename(long id, String name) { /* cập nhật có kiểm tra */ }
+}</code></pre></figure>
+<p>Trong proxy mode, lời gọi cần đi qua bean proxy. Với quyền theo ownership, “đã đăng nhập” vẫn chưa đủ: user A không được đọc tài nguyên của B chỉ bằng cách đổi ID trên URL. Kiểm tra chủ sở hữu ở ranh giới nghiệp vụ hoặc truy vấn có điều kiện phù hợp; đừng chỉ ẩn nút trên UI. Cân nhắc phản hồi không làm lộ tài nguyên mà người gọi không có quyền biết.</p></section>
+<section class="chapter" id="invitation-policy"><h2>Chia policy theo trách nhiệm ở HTTP, service và dữ liệu</h2>
+<p><strong>Ví dụ mở rộng trong mô phỏng.</strong> Seed nhóm Backend do <code>owner-backend</code> sở hữu, nhóm Ops do <code>owner-ops</code> sở hữu. Cả hai owner đều có authority <code>groups:invite</code>. Admin có quyền toàn hệ thống. Với endpoint lời mời, HTTP yêu cầu xác thực, service dùng <code>@PreAuthorize</code> kiểm quyền thực hiện hành động, rồi use case kiểm caller có quyền trên nhóm đích. Các ca POST giả định CSRF và payload hợp lệ.</p>
+<div class="table-wrap"><table><thead><tr><th>Danh tính gọi POST lời mời Backend</th><th>Rule HTTP</th><th>@PreAuthorize</th><th>Quyền trên nhóm</th><th>Kỳ vọng</th></tr></thead><tbody>
+<tr><td>Anonymous</td><td>Thiếu xác thực</td><td>Chưa chạy</td><td>Chưa chạy</td><td>401 trong API Basic</td></tr>
+<tr><td>Reader</td><td>Qua</td><td>Thiếu quyền mời</td><td>Chưa chạy</td><td>403</td></tr>
+<tr><td>Owner Ops</td><td>Qua</td><td>Qua</td><td>Owner không khớp nhóm Backend</td><td>403</td></tr>
+<tr><td>Owner Backend hoặc Admin</td><td>Qua</td><td>Qua</td><td>Chủ nhóm phù hợp hoặc quyền admin</td><td>Tiếp tục kiểm tra nghiệp vụ và ghi trong transaction</td></tr>
+</tbody></table></div>
+<figure class="snippet"><figcaption>Java · Khung service của bài mở rộng, gọi qua bean proxy</figcaption><pre tabindex="0"><code class="language-java">@PreAuthorize("hasAuthority('groups:invite') or hasRole('ADMIN')")
+@Transactional
+public void invite(long groupId, InviteCommand command) {
+    var caller = currentCaller.get();
+    groupPolicy.requireCanInvite(groupId, caller);
+    invitationWriter.record(groupId, command);
+}</code></pre></figure>
+<p>Bật <code>@EnableMethodSecurity</code> để Spring kiểm annotation. Trong proxy mode mặc định, gọi service qua bean proxy. Lấy danh tính từ security context. Nếu ownership có thể đổi đồng thời, bảo vệ điều kiện quyền tại biên ghi, chẳng hạn khóa nhất quán khi kiểm rồi ghi hoặc phép ghi có điều kiện. Giữ SpEL ngắn, chuyển policy phức tạp sang thành phần riêng có test.</p>
+<p>Ví dụ cấu hình HTTP ở trên dạy cách ghép matcher và phân quyền sớm. Với use case lời mời, chọn một nơi rõ ràng cho từng quyết định và dùng rule dự phòng ở HTTP cho endpoint chưa khai báo. Kiểm policy bằng test HTTP có CSRF hợp lệ, test service qua proxy cho từng authority và test quyền trên đúng nhóm. Các điểm vào ngoài HTTP vẫn cần danh tính rõ ràng nếu gọi method được bảo vệ.</p>
+<p><a download="" href="../../../practice/spring-advanced-lab/downloads/spring-advanced-lab.zip">Tải lab Maven</a>. Giải nén rồi chạy <code>mvn -Dtest=InvitationAuthorizationTest test</code> tại thư mục có <code>pom.xml</code>. Bốn ca dùng Spring proxy thật và bộ đếm ghi mẫu để phân biệt dừng trước khi vào thân method với dừng tại policy nhóm.</p>
+<details class="question"><summary>Vì sao một test owner Ops bị 403 chưa đủ để chứng minh rule ownership?</summary><p>Nếu test bỏ CSRF hoặc chưa cấp authority, request bị dừng sớm. Giữ cùng credential và token hợp lệ, thử owner Ops trên nhóm Ops để kiểm tra quyền đối với chính nhóm đó, rồi đối chiếu với ca Ops yêu cầu thao tác trên Backend. Kiểm tra cả trạng thái dữ liệu sau khi request bị từ chối.</p></details></section>
+<section class="chapter" id="practice"><h2>Thực hành policy và lỗi thứ tự</h2>
+<ol><li>Hoàn thành SecurityConfig ở starter theo ma trận trên.</li><li>Chạy test anonymous, reader, admin, gồm request ghi có CSRF hợp lệ.</li><li>Thêm assertion reader đã xác thực vẫn bị từ chối khi gửi request ghi có CSRF hợp lệ; kiểm tra matcher hẹp được xét trước matcher rộng khi đọc cấu hình.</li><li>Khôi phục thứ tự, đọc DB xác nhận request bị từ chối không thay dữ liệu.</li><li>Mở rộng method security như bài thêm: viết test gọi service qua proxy với và không có authority. Đây là phần mở rộng ngoài acceptance tests starter.</li></ol>
+<details class="question"><summary>Ẩn nút “Xóa” với reader đã đủ bảo vệ API chưa?</summary><p>Chưa. Người gọi có thể tự gửi HTTP request. Server phải kiểm tra quyền ở mỗi thao tác; frontend chỉ hỗ trợ trải nghiệm.</p></details></section>
+<section class="chapter" id="error-dispatch"><h2>Không che mất lỗi gốc ở servlet dispatch</h2>
+<p>Security còn có thể kiểm tra lần dispatch nội bộ như ERROR. Trong Spring Boot, một lỗi được gửi qua servlet container có thể đi tới <code>/error</code>. Nếu policy chặn lại luồng này, response cuối có thể khác lỗi ban đầu. Lab HTTP đã phát hiện trường hợp thiếu CSRF bị từ chối 403 nhưng response cuối thành 401 khi error dispatch bị chặn.</p>
+<figure class="snippet"><figcaption>Java · thêm trước các rule URL trong lab</figcaption><pre tabindex="0"><code class="language-java">// import jakarta.servlet.DispatcherType;
+http.authorizeHttpRequests(r -&gt; r
+    .dispatcherTypeMatchers(DispatcherType.ERROR).permitAll()
+    // ... các rule đọc/ghi API đã trình bày
+    .anyRequest().denyAll());</code></pre></figure>
+<p>Rule này cho phép xử lý ERROR nội bộ, không cấp quyền cho mọi request thông thường hoặc mở API ghi. Solution có HttpBoundaryTest chạy server RANDOM_PORT để kiểm tra status cuối qua HTTP. MockMvc vẫn hữu ích cho policy và MVC, nhưng một test không bao phủ mọi tầng servlet.</p></section>
+<p><a href="#top">Về đầu trang ↑</a></p>`,t=`<div class="callout intro"><strong>Mục tiêu và điều kiện học</strong><p>Đặt rule /api/admin/** trước rule tổng quát /api/**.</p><p><strong>Cần biết trước:</strong> Authentication, role và authority. Các bài ứng dụng có thể cần đọc trước phần dữ liệu tương ứng; dùng <a href="../index.html">lộ trình</a> để chọn kiến thức còn thiếu.</p><p class="version-note">Baseline: Java 17 · Spring Boot 3.5.10 · Framework 6.2 · Security 6.5. Mỗi demo có hướng dẫn riêng; ví dụ H2 không chứng minh hành vi trên DB khác.</p></div>`,n=`<section class="chapter" id="nguon-chinh-thuc"><h2>Nguồn chính thức</h2><ul><li><a href="https://docs.spring.io/spring-security/reference/6.5/servlet/authorization/authorize-http-requests.html">Spring Security 6.5 · Request authorization</a></li><li><a href="https://docs.spring.io/spring-security/reference/6.5/servlet/configuration/java.html">Spring Security 6.5 · Nhiều filter chains và securityMatcher</a></li><li><a href="https://docs.spring.io/spring-security/reference/6.5/servlet/authorization/method-security.html">Spring Security 6.5 · Method security</a></li></ul></section>`,r=``,i=[{id:`boi-canh`,title:`Danh tính có quyền với nhóm nào?`},{id:`policy`,title:`Viết policy trước khi viết matcher`},{id:`matchers`,title:`Thứ tự chọn chain và thứ tự chọn rule`},{id:`method`,title:`Bảo vệ method và dữ liệu thuộc người dùng`},{id:`invitation-policy`,title:`Chia policy theo trách nhiệm ở HTTP, service và dữ liệu`},{id:`practice`,title:`Thực hành policy và lỗi thứ tự`},{id:`error-dispatch`,title:`Không che mất lỗi gốc ở servlet dispatch`},{id:`bai-tap-code`,title:`Bài tập lập trình`},{id:`kiem-tra-nang-luc`,title:`Kiểm tra cách hiểu`},{id:`nguon-chinh-thuc`,title:`Nguồn chính thức`}],a={bodyHtml:e,introHtml:t,referencesHtml:n,videoHtml:``,toc:i};export{e as bodyHtml,a as default,t as introHtml,n as referencesHtml,i as toc,r as videoHtml};

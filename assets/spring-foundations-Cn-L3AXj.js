@@ -1,0 +1,52 @@
+var e=`<p class="eyebrow">Viết backend · chạy Java/Spring thật</p>
+<h1>Project thực hành Spring Foundations</h1>
+<p class="lead">Tự hoàn thành từng mốc Core, Web, dữ liệu, transaction và Security. Starter chứa khung dự án, test hợp đồng và các TODO; lời giải nằm ở project riêng.</p>
+<div class="hero-actions"><a class="button" download="" href="downloads/spring-foundations-starter.zip">Tải starter ZIP</a><a class="button secondary" href="../../lessons/springboot/index.html">Về giáo trình</a></div>
+<section id="prepare"><h2>1. Chuẩn bị và chọn đúng thư mục</h2>
+<p>Cần JDK 17 trở lên, Maven và Internet lần đầu để tải dependency. Project chốt Spring Boot 3.5.10, dùng H2 trong bộ nhớ; không cần cài MySQL. Các lệnh dưới đây chạy từ thư mục gốc website, có thư mục <code>practice</code>. Nếu tải ZIP, giải nén rồi mở terminal trong thư mục chứa <code>pom.xml</code> và bỏ phần <code>-f đường/dẫn/pom.xml</code>.</p>
+<figure class="snippet"><figcaption>PowerShell · kiểm tra môi trường và starter</figcaption><pre><code class="language-powershell">java -version
+mvn -version
+mvn -f practice/spring-foundations/starter/pom.xml -DskipTests package
+mvn -f practice/spring-foundations/starter/pom.xml test</code></pre></figure>
+<p>Starter <strong>biên dịch được nhưng acceptance tests chưa đạt</strong>. Một số test gặp UnsupportedOperationException có thông báo TODO: đó là phần implementation bạn phải viết. Không sửa test để bỏ yêu cầu; đọc tên test, assertion và lời gọi gây lỗi. Test collection và một số kiểm tra scaffold đã có thể đạt ngay từ đầu.</p>
+<p>Đọc <a href="starter/src/test/java/vn/backend/foundations/GroupApiTest.java">GroupApiTest</a> như hợp đồng thực thi. Khi chỉ làm một mốc, chạy riêng test của mốc đó; lỗi ở mốc sau chưa hoàn thành là điều dự kiến. Khi xong, chạy cả suite.</p></section>
+<section id="core"><h2>2. Mốc Core: chọn dependency và chuẩn hóa đầu vào</h2>
+<p><strong>Đề:</strong> GreetingConfig cung cấp hai bean <code>english</code> và <code>vietnamese</code>. GreetingService phải nhận dependency qua constructor, chọn tiếng Việt tường minh và trả <code>Xin chào An</code> khi nhận chuỗi <code>" An "</code>. Collection vẫn phải chứa cả hai chiến lược.</p>
+<p>Sửa <a href="starter/src/main/java/vn/backend/foundations/GreetingService.java">GreetingService.java</a>. Không đổi câu trả lời hardcode thành <code>Xin chào An</code>; service phải dùng strategy và hoạt động với tên khác. Sau đó tự thêm test cho Bình.</p>
+<figure class="snippet"><figcaption>Chạy test mốc Core</figcaption><pre><code class="language-powershell">mvn -f practice/spring-foundations/starter/pom.xml -Dtest=CoreTest test</code></pre></figure>
+<details><summary>Gợi ý</summary><p>So tên bean với qualifier ở constructor; phân biệt chọn dependency với chuẩn hóa dữ liệu truyền vào. Không cần khởi động HTTP server cho mọi bài kiểm quy tắc Java.</p></details></section>
+<section id="web"><h2>3. Mốc Web/Data: tự viết CRUD và lỗi</h2>
+<p><strong>Đề:</strong> GroupController đã khai báo route và constructor. Hoàn thành GroupService, DTO validation và xử lý lỗi theo contract:</p>
+<div class="table-wrap"><table><thead><tr><th>Request</th><th>Kết quả cần đạt</th></tr></thead><tbody>
+<tr><td>GET /api/groups</td><td>Danh sách theo ID tăng, chỉ có id/name</td></tr>
+<tr><td>POST tên hợp lệ</td><td>Trim tên, lưu DB, 201 + Location GET lại được</td></tr>
+<tr><td>Tên trắng, thiếu hoặc dài hơn 80</td><td>400, không ghi dữ liệu</td></tr>
+<tr><td>Tên đã có</td><td>409 với code GROUP_EXISTS, dữ liệu cũ giữ nguyên</td></tr>
+<tr><td>PUT /api/groups/{id}</td><td>Sửa đúng ID hoặc 404 khi vắng</td></tr>
+<tr><td>DELETE /api/groups/{id}</td><td>204 nếu xóa được, 404 khi vắng theo contract lab</td></tr>
+<tr><td>GET ID không phải số</td><td>400 ở binding</td></tr></tbody></table></div>
+<p>Schema có unique name. Dùng SQL bind parameter, không nối chuỗi đầu vào thành SQL. ID do DB sinh; không dựa vào “ID lớn nhất + 1”. Tests nạp lại dữ liệu và không giả định ID luôn bằng 1.</p>
+<figure class="snippet"><figcaption>Chạy test hợp đồng API</figcaption><pre><code class="language-powershell">mvn -f practice/spring-foundations/starter/pom.xml -Dtest=GroupApiTest test</code></pre></figure>
+<p>Mốc này dùng request admin + CSRF hợp lệ để không bị filter che lỗi implementation. Policy cho reader sẽ kiểm riêng ở mốc Security. <a href="../../lessons/springboot/dto-contracts/index.html">Ôn DTO</a> · <a href="../../lessons/springboot/api-errors/index.html">Ôn hợp đồng lỗi</a>.</p></section>
+<section id="transaction"><h2>4. Mốc Transaction: lỗi phải giữ nguyên dữ liệu</h2>
+<p><code>createThenFail</code> đang INSERT rồi ném <code>IllegalStateException</code>. Khi gọi qua GroupService bean, thao tác phải rollback. Không xóa bản ghi thủ công trong catch để làm test xanh; chọn đúng ranh giới transaction và giải thích vì sao interceptor quan sát được exception.</p>
+<figure class="snippet"><figcaption>Kiểm chứng rollback</figcaption><pre><code class="language-powershell">mvn -f practice/spring-foundations/starter/pom.xml -Dtest=TransactionTest test</code></pre></figure>
+<p>Test không có transaction bao quanh; nó đọc trạng thái sau lời gọi service. <a href="../../lessons/springboot/aop-transaction/index.html">Đọc proxy và self-invocation</a> trước khi thử chuyển method sang private hoặc gọi bằng this.</p></section>
+<section id="security"><h2>5. Mốc Security: phân biệt hai nguyên nhân 403</h2>
+<p>Hai user in-memory của lab là <code>admin</code> và <code>reader</code>, mật khẩu mẫu <code>demo-pass</code>. GET danh sách và token CSRF yêu cầu xác thực; mọi thao tác ghi group chỉ dành ADMIN; URL khác bị từ chối. Giữ CSRF bật. Sửa policy trong SecurityConfig rồi chạy:</p>
+<figure class="snippet"><figcaption>Test policy và toàn bộ mốc</figcaption><pre><code class="language-powershell">mvn -f practice/spring-foundations/starter/pom.xml -Dtest=SecurityTest test
+mvn -f practice/spring-foundations/starter/pom.xml verify</code></pre></figure>
+<p>Reader có token hợp lệ vẫn phải bị 403 khi ghi. Admin thiếu token cũng 403 nhưng vì CSRF. Hai trường hợp đều phải không thay dữ liệu. Test httpBasic kiểm credential qua provider; helper user chỉ tạo danh tính test, không kiểm mật khẩu.</p></section>
+<section id="run"><h2>6. Chạy API thật sau khi test đạt</h2>
+<figure class="snippet"><figcaption>Hai terminal · từ gốc website</figcaption><pre><code class="language-powershell"># Terminal 1:
+mvn -f practice/spring-foundations/starter/pom.xml spring-boot:run
+# Chờ log server chạy ở 8181. Terminal 2:
+curl.exe -i http://127.0.0.1:8181/api/groups
+curl.exe -i -u reader:demo-pass http://127.0.0.1:8181/api/groups
+python practice/spring-foundations/verify_http.py</code></pre></figure>
+<p>Request đầu 401, request sau 200. verify_http.py kiểm luồng HTTP/CSRF/CRUD và dọn group do nó tạo. Cổng khác có thể truyền <code>--base http://127.0.0.1:8182</code>. H2 mất dữ liệu khi tiến trình dừng; restart để quay về seed Backend và Ops. Các credential mẫu chỉ dùng trong lab localhost.</p></section>
+<section id="solution"><h2>7. Đối chiếu lời giải và mở rộng</h2>
+<details class="solution"><summary>Mở lời giải sau khi tự làm</summary><p><a download="" href="downloads/spring-foundations-solution.zip">Tải solution ZIP</a> · <a href="solution/src/main/java/vn/backend/foundations/GroupService.java">GroupService</a> · <a href="solution/src/main/java/vn/backend/foundations/SecurityConfig.java">SecurityConfig</a>. Starter và solution dùng cùng bộ test; so implementation và giải thích từng khác biệt, không chép đè bài đang làm.</p><p>Từ gốc website: <code>mvn -f practice/spring-foundations/solution/pom.xml verify</code>. Không chạy starter và solution cùng cổng 8181 cùng lúc.</p></details>
+<p>Suite hiện có 17 test cho các mốc trên. Nó chưa chấm toàn bộ giáo trình: mapping JPA, N+1, account/membership đầy đủ và OAuth2/OIDC cần bài mở rộng và kiểm thử tương ứng. Dùng <a href="../../lessons/springboot/project-capstone/index.html">đồ án account/group</a> để phát triển tiếp; demo cũ là nguồn đối chiếu, không phải implementation bạn đã tự hoàn thành.</p>
+<p><a href="README.md">README và hướng dẫn offline</a> · <a href="../../lessons/springboot/index.html">Về lộ trình kiến thức →</a></p></section>
+`,t=`Project thực hành Spring Foundations`,n={html:e,title:t};export{n as default,e as html,t as title};
