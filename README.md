@@ -145,5 +145,5 @@ mvn -f demo/pom.xml verify
 
 ## Xuất bản website tĩnh
 
-Sau khi build, phục vụ nội dung `dist/` hoặc dùng artifact này để cấu hình GitHub Pages. Assets và project source/ZIP được đóng gói; target Java, node_modules và file riêng tư không được đưa vào output. Spring Boot/DB của project thực hành chạy riêng. Chưa publish. [Hướng dẫn cấu hình GitHub Pages](https://docs.github.com/en/pages/getting-started-with-github-pages/configuring-a-publishing-source-for-your-github-pages-site).
+GitHub Pages dùng nguồn **GitHub Actions**. Khi `main` nhận commit mới, [workflow Pages](.github/workflows/pages.yml) build và kiểm tra nội dung rồi xuất bản `dist/` lên [website](https://learn.backendservice.click/). Workflow lấy base path từ cấu hình Pages để hỗ trợ tên miền riêng và URL GitHub mặc định. Có thể chạy lại workflow từ tab Actions trên `main`. Spring Boot và DB của project thực hành chạy riêng. [Hướng dẫn cấu hình GitHub Pages](https://docs.github.com/en/pages/getting-started-with-github-pages/configuring-a-publishing-source-for-your-github-pages-site).
 
