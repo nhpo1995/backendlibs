@@ -1,0 +1,1851 @@
+{
+  "title": "Làm chủ Spring Boot",
+  "version": "2026-11-19",
+  "baseline": "Java 17 · Spring Boot 3.5.10 · Framework 6.2 · Security 6.5",
+  "modules": [
+    {
+      "id": "foundations",
+      "title": "Nền tảng backend",
+      "summary": "Đọc một request, chuẩn bị môi trường và kiểm chứng kết quả."
+    },
+    {
+      "id": "core",
+      "title": "Spring Core",
+      "summary": "Hiểu container, dependency injection, vòng đời bean và proxy."
+    },
+    {
+      "id": "boot",
+      "title": "Spring Boot",
+      "summary": "Giải thích cấu hình tự động và điều khiển ứng dụng theo môi trường."
+    },
+    {
+      "id": "web",
+      "title": "Spring Web MVC",
+      "summary": "Thiết kế contract, xử lý request, validation và lỗi API."
+    },
+    {
+      "id": "data",
+      "title": "Dữ liệu và transaction",
+      "summary": "Làm chủ ánh xạ, truy vấn, tính nhất quán và hiệu năng."
+    },
+    {
+      "id": "events",
+      "title": "Spring Event và Outbox",
+      "summary": "Nối event trong process với transaction và phục hồi sau lỗi."
+    },
+    {
+      "id": "security",
+      "title": "Spring Security",
+      "summary": "Theo dấu xác thực, phân quyền và bảo vệ các request."
+    },
+    {
+      "id": "testing",
+      "title": "Kiểm thử và vận hành",
+      "summary": "Chứng minh hành vi bằng test và quan sát ứng dụng khi chạy."
+    },
+    {
+      "id": "integration",
+      "title": "Tích hợp API và chịu lỗi",
+      "summary": "Điều khiển timeout, retry và xử lý kết quả chưa biết."
+    },
+    {
+      "id": "async",
+      "title": "Async và scheduling",
+      "summary": "Giới hạn executor và phục hồi công việc giữa nhiều instance."
+    },
+    {
+      "id": "cache",
+      "title": "Cache và nhất quán",
+      "summary": "Chọn key, TTL và invalidation dựa trên dữ liệu và quyền truy cập."
+    },
+    {
+      "id": "project",
+      "title": "Triển khai và dự án",
+      "summary": "Giữ ứng dụng hoạt động khi thay phiên bản và tự nghiệm thu đồ án danh bạ."
+    }
+  ],
+  "lessons": [
+    {
+      "slug": "nen-tang-http",
+      "module": "foundations",
+      "title": "HTTP, môi trường và cách kiểm chứng backend",
+      "summary": "Hiểu một request trước khi học annotation.",
+      "prerequisites": "Java cơ bản: class, method, exception",
+      "lab": {
+        "goal": "Kiểm ba trường hợp GET group trên solution đang chạy: tồn tại, thiếu dữ liệu và sai kiểu.",
+        "starter": "# TODO: ba request tới API group bằng reader, ghi status dự kiến\n",
+        "solution": "curl.exe -i -u reader:demo-pass http://127.0.0.1:8181/api/groups/1\ncurl.exe -i -u reader:demo-pass http://127.0.0.1:8181/api/groups/999999\ncurl.exe -i -u reader:demo-pass http://127.0.0.1:8181/api/groups/abc\n# Với seed mới: 200, 404, 400.\n",
+        "expected": "Seed mới có group ID 1: 200; ID 999999 không có: 404; abc không đổi được sang long: 400. Sau khi đã chỉnh dữ liệu, lấy ID tồn tại từ GET danh sách thay vì giả định 1.",
+        "language": "powershell",
+        "filename": "requests.ps1",
+        "instructions": "Viết ba lệnh curl bên dưới TODO. Giữ nguyên URL, tài khoản và ba ID của đề; chạy lệnh ở PowerShell với solution đã khởi động để xác nhận status.",
+        "comparison": "whole"
+      },
+      "quiz": {
+        "question": "Connection refused có phải HTTP 404 không?",
+        "answers": [
+          "Có",
+          "Không, chưa nhận được HTTP response từ server",
+          "Là lỗi validation"
+        ],
+        "correct": 1,
+        "explanation": "Phải kết nối được tới tiến trình lắng nghe trước khi server có thể trả mã HTTP."
+      },
+      "understanding": [
+        {
+          "title": "Đọc tín hiệu HTTP",
+          "prompt": "Seed có sản phẩm 1 và không có 99. Ba request GET /products/1, /products/99, /products/abc nhận gì nếu route bind id kiểu long? Nếu tiến trình dừng thì kiểm tra gì đầu tiên?",
+          "answer": "200, 404 và 400 tương ứng. Ca 404 tìm được route và chạy tra cứu; ca 400 dừng lúc đổi kiểu. Khi không kết nối được, kiểm tra tiến trình, IP và cổng trước khi phân tích status.",
+          "criterion": "Nêu đúng điểm dừng của từng ca và phân biệt lỗi kết nối với một phản hồi HTTP."
+        },
+        {
+          "title": "Gửi lại sau khi mất phản hồi",
+          "prompt": "Server đã tạo nhóm nhưng client không nhận được response của POST. Nếu gửi lại cùng body, điều gì có thể xảy ra? Thiết kế và kiểm thử cách nhận biết cùng một thao tác.",
+          "answer": "Hai lần POST có thể tạo hai hiệu ứng. Nếu hợp đồng hỗ trợ retry, client gửi cùng idempotency key; server bảo vệ key và kết quả bằng lưu trữ phù hợp. Test làm mất response sau ghi rồi gửi lại cùng key.",
+          "criterion": "Chứng minh số bản ghi hoặc hiệu ứng cuối cùng, không chỉ status lần thử lại."
+        }
+      ]
+    },
+    {
+      "slug": "ioc-container",
+      "module": "core",
+      "title": "IoC container và đồ thị dependency",
+      "summary": "Theo dõi lời mời từ constructor injection đến cách Spring dựng đồ thị bean.",
+      "prerequisites": "Java constructor và interface",
+      "lab": {
+        "goal": "Tiêm kênh gửi lời mời qua constructor để use case chạy được với fake.",
+        "starter": "class InvitationService {\n    // TODO: giữ Channel và nhận nó từ constructor\n}\n",
+        "solution": "class InvitationService {\n    private final Channel channel;\n    InvitationService(Channel channel) { this.channel = channel; }\n}\n",
+        "expected": "Caller truyền fake khi tạo service. Service giữ đúng reference được cấp.",
+        "language": "java",
+        "filename": "Exercise.java",
+        "instructions": "Giữ lớp InvitationService. Dùng field final và constructor nhận Channel. Interface Channel đã có trong ví dụ ở đầu bài.",
+        "comparison": "whole"
+      },
+      "quiz": {
+        "question": "new RegistrationService(fake) có dùng DI không?",
+        "answers": [
+          "Không",
+          "Có",
+          "Chỉ khi fake có @Component"
+        ],
+        "correct": 1,
+        "explanation": "Dependency được cung cấp từ ngoài qua constructor. Annotation không phải điều kiện định nghĩa DI."
+      },
+      "understanding": [
+        {
+          "title": "Từ class đến bean",
+          "prompt": "Có class SmtpChannel implements Channel trên classpath, chưa scan, import hay đăng ký. InvitationService cần Channel. Context sẽ làm gì? Kiểm chứng thế nào?",
+          "answer": "Context thất bại nếu không có ứng viên khác. Class hiện diện chưa tạo BeanDefinition. Dùng context test trước và sau khi đăng ký tường minh, kiểm tra reference được đưa vào constructor.",
+          "criterion": "Chỉ ra lớp nào chịu trách nhiệm lắp ghép; nêu dấu hiệu khi chưa có bean."
+        },
+        {
+          "title": "Chạy cùng use case ngoài Spring",
+          "prompt": "Thay email bằng fake ghi tên người nhận vào List. Viết kế hoạch kiểm tra để lỗi trong use case và lỗi wiring không bị trộn.",
+          "answer": "Unit test tự new service với fake, gọi invite và kiểm tra danh sách. Context test riêng nạp đúng cấu hình và xác nhận bean được chọn.",
+          "criterion": "Giải thích đây vẫn là DI trong test Java thuần và phân biệt bằng chứng của hai test."
+        }
+      ]
+    },
+    {
+      "slug": "design-solid",
+      "module": "core",
+      "title": "Thiết kế trách nhiệm và SOLID",
+      "summary": "Đi từ hành vi người dùng đến contract, đặt ranh giới trách nhiệm và nối các đối tượng bằng constructor.",
+      "prerequisites": "Java interface, constructor và collection",
+      "lab": {
+        "goal": "Tách Checkout khỏi nơi lưu dữ liệu để unit test dùng store trong bộ nhớ.",
+        "starter": "record Work(String employee, long hours) {}\ninterface PayPolicy { long pay(long hours); }\ninterface PayrollStore { void save(String employee, long amount); }\nclass Checkout {\n    // TODO: nhận PayPolicy và PayrollStore, tính và lưu lương\n}\n",
+        "solution": "record Work(String employee, long hours) {}\ninterface PayPolicy { long pay(long hours); }\ninterface PayrollStore { void save(String employee, long amount); }\nclass Checkout {\n    private final PayPolicy policy;\n    private final PayrollStore store;\n    Checkout(PayPolicy policy, PayrollStore store) {\n        this.policy = policy; this.store = store;\n    }\n    long run(Work work) {\n        if (work.hours() < 0) throw new IllegalArgumentException(\"Giờ làm âm\");\n        long amount = policy.pay(work.hours());\n        store.save(work.employee(), amount);\n        return amount;\n    }\n}\n// new Checkout(h -> h * 100_000, (n,a) -> entries.add(n + \"=\" + a))\n//     .run(new Work(\"An\", 8));  // 800000; entries chứa An=800000\n",
+        "expected": "Checkout không tự new store; fake store nhận được đúng dữ liệu sau use case.",
+        "language": "java",
+        "filename": "Exercise.java",
+        "instructions": "Giữ record Work và hai interface PayPolicy/PayrollStore. Hoàn thiện field, constructor và run trong Checkout; không khai báo lại các kiểu đã có. Kiểm tra giờ âm trước khi lưu lương.",
+        "comparison": "whole"
+      },
+      "quiz": {
+        "question": "Liskov Substitution yêu cầu gì ở implementation thay thế?",
+        "answers": [
+          "Giữ hành vi mà client của hợp đồng có quyền kỳ vọng",
+          "Có nhiều annotation hơn",
+          "Luôn kế thừa một class"
+        ],
+        "correct": 0,
+        "explanation": "Tính thay thế là về hợp đồng hành vi, không chỉ quan hệ kiểu của Java."
+      },
+      "understanding": [
+        {
+          "title": "Thêm chính sách thưởng",
+          "prompt": "Checkout đang dùng PayPolicy và PayrollStore. Thêm cách trả lương có thưởng mà vẫn từ chối giờ âm và ghi đúng một bản ghi. Đặt thay đổi ở đâu?",
+          "answer": "Thêm implementation PayPolicy và chọn tại nơi lắp ghép; Checkout giữ validation và luồng lưu. Dùng fake store và test giờ hợp lệ/âm cho hai chính sách.",
+          "criterion": "Chỉ ra trách nhiệm thay đổi và hợp đồng chung được giữ."
+        },
+        {
+          "title": "Implementation thay thế phá hợp đồng",
+          "prompt": "Store mới âm thầm bỏ mọi khoản dưới 100 dù hợp đồng yêu cầu lưu mọi khoản hợp lệ. Vì sao qua compile vẫn có vấn đề? Kiểm thế nào?",
+          "answer": "Interface chỉ kiểm chữ ký. Hành vi mất dữ liệu vi phạm hợp đồng dùng chung. Chạy cùng bộ contract tests với store cũ và mới, gồm 99 và 100 nếu đều hợp lệ.",
+          "criterion": "Nêu được LSP qua hành vi quan sát được và ca biên cụ thể."
+        }
+      ]
+    },
+    {
+      "slug": "bean-registration",
+      "module": "core",
+      "title": "Đăng ký và lựa chọn bean",
+      "summary": "Theo dõi lúc Spring đọc annotation và chọn bean cho use case lời mời.",
+      "prerequisites": "IoC container và constructor injection",
+      "lab": {
+        "goal": "Chọn kênh email cho service trong context có cả email và audit.",
+        "starter": "class Invitations {\n    @Bean\n    InvitationService invitationService(/* TODO: chọn kênh email */ Channel selected) {\n        return new InvitationService(selected);\n    }\n}\n",
+        "solution": "class Invitations {\n    @Bean\n    InvitationService invitationService(@EmailChannel Channel selected) {\n        return new InvitationService(selected);\n    }\n}\n",
+        "expected": "Gọi invite(\"an\") trả email:an. Context vẫn có cả bean email và audit.",
+        "language": "java",
+        "filename": "Exercise.java",
+        "comparison": "whole",
+        "instructions": "Giữ factory method và tham số Channel. Thay TODO bằng qualifier đối chiếu với bean email, đã được khai báo trong bài."
+      },
+      "quiz": {
+        "question": "Nếu bỏ @EmailChannel khỏi bean email nhưng vẫn giữ nó trên tham số selected, điều gì xảy ra?",
+        "answers": [
+          "Spring tự chọn audit",
+          "Context không tìm được ứng viên thỏa qualifier",
+          "Cả hai kênh đều được gọi"
+        ],
+        "correct": 1,
+        "explanation": "Spring chỉ xét các ứng viên phù hợp với qualifier tại điểm inject. Không bean Channel nào mang metadata phù hợp trong cấu hình này."
+      },
+      "understanding": [
+        {
+          "title": "Qualifier gặp primary",
+          "prompt": "Email có @EmailChannel, audit có @Primary. Factory nhận @EmailChannel Channel và nơi khác nhận List<Channel> không gắn qualifier. Hai điểm nhận gì?",
+          "answer": "Factory nhận email vì qualifier lọc tập ứng viên trước. List có cả email và audit. Kiểm tra kết quả invite và tập bean theo kiểu trong context.",
+          "criterion": "Phân biệt chọn một ứng viên với thu thập collection, không suy từ primary sang việc loại bean."
+        },
+        {
+          "title": "Metadata đúng, context vẫn lỗi",
+          "prompt": "Class có stereotype tự định nghĩa nhưng nằm ngoài phạm vi scan và chưa được import. Thêm qualifier vào tham số có sửa lỗi không? Cần quan sát gì?",
+          "answer": "Qualifier chỉ lọc bean đã đăng ký. Kiểm tra BeanDefinition hoặc kết quả tra cứu kiểu, sau đó thêm đăng ký có chủ đích và kiểm tra context khởi động.",
+          "criterion": "Giải thích thứ tự đăng ký rồi mới resolve dependency."
+        }
+      ]
+    },
+    {
+      "slug": "bean-lifecycle",
+      "module": "core",
+      "title": "Vòng đời bean và quản lý trạng thái",
+      "summary": "Quan sát vòng đời bean, sửa race condition và thực hành bộ đếm, quota, Future trong Java.",
+      "prerequisites": "Đăng ký và lựa chọn bean, class, interface và exception trong Java",
+      "lab": {
+        "goal": "Chuyển người nhận từ field dùng chung sang tham số của từng lời gọi.",
+        "starter": "class InvitationService {\n    private final Channel channel;\n    InvitationService(Channel channel) { this.channel = channel; }\n    String recipient;\n    String invite() { return channel.send(recipient); }\n}\n",
+        "solution": "class InvitationService {\n    private final Channel channel;\n    InvitationService(Channel channel) { this.channel = channel; }\n    String invite(String recipient) { return channel.send(recipient); }\n}\n",
+        "expected": "Hai lời gọi với an và binh giữ đúng người nhận. C2 kiểm chứng bằng lịch xen kẽ có kiểm soát.",
+        "language": "java",
+        "filename": "Exercise.java",
+        "instructions": "Giữ Channel và constructor. Bỏ field recipient và thay chữ ký invite để nhận recipient ở mỗi lời gọi.",
+        "comparison": "whole"
+      },
+      "quiz": {
+        "question": "Singleton Spring có nghĩa tự động thread-safe không?",
+        "answers": [
+          "Có",
+          "Không",
+          "Chỉ khi có @Service"
+        ],
+        "correct": 1,
+        "explanation": "Scope điều khiển số instance và thời gian sống; đồng bộ hóa trạng thái là vấn đề riêng."
+      },
+      "understanding": [
+        {
+          "title": "Prototype bị giữ trong singleton",
+          "prompt": "Singleton constructor nhận một prototype. Hai lần xử lý dùng trực tiếp field dependency. So với gọi ObjectProvider.getObject() mỗi lần, identity thay đổi thế nào?",
+          "answer": "Tiêm constructor chỉ lấy một instance lúc tạo singleton. Provider yêu cầu context cấp prototype mỗi lần, nhận instance khác nhau. Ghi identity/counter để kiểm chứng.",
+          "criterion": "Nêu đúng thời điểm resolve và trách nhiệm dọn tài nguyên của prototype."
+        },
+        {
+          "title": "Dữ liệu request bị ghi đè",
+          "prompt": "Request A ghi field recipient rồi dừng, B ghi field và gửi bình thường, sau đó A tiếp tục. Hãy dự đoán A gửi cho ai và thiết kế test ổn định.",
+          "answer": "A có thể dùng giá trị của B; với lịch có latch xác định, A đọc B. Chuyển dữ liệu sang tham số; chạy lại hai lời gọi và kiểm recipient từng lần.",
+          "criterion": "Dùng lịch kiểm soát được, không chỉ chạy thử nhiều lần rồi suy ra an toàn."
+        }
+      ]
+    },
+    {
+      "slug": "aop-transaction",
+      "module": "core",
+      "title": "Proxy, AOP và ranh giới transaction",
+      "summary": "Hiểu tại sao annotation có thể không tác dụng.",
+      "prerequisites": "Bean, Java exception và SQL transaction",
+      "lab": {
+        "goal": "Tách thao tác cần transaction sang bean khác để lời gọi đi qua proxy.",
+        "starter": "class Checkout {\n    void run() { this.save(); }\n    @Transactional public void save() { /* ... */ }\n}\n",
+        "solution": "class Checkout {\n    private final Writer writer;\n    Checkout(Writer writer) { this.writer = writer; }\n    void run() { writer.save(); }\n}\n@Service\nclass Writer {\n    @Transactional public void save() { /* ... */ }\n}\n",
+        "expected": "Gọi Writer từ bean khác đi qua proxy trong cấu hình transaction mặc định; test exception rồi đọc DB từ transaction mới.",
+        "language": "java",
+        "filename": "Exercise.java",
+        "instructions": "Thay this.save() bằng lời gọi dependency Writer; chuyển phương thức save khỏi Checkout sang bean Writer. Giữ nghiệp vụ trong save khi chuyển, không để lại bản tự gọi cũ.",
+        "comparison": "whole"
+      },
+      "quiz": {
+        "question": "this.save() có đi qua Spring proxy mặc định không?",
+        "answers": [
+          "Có",
+          "Không",
+          "Nếu method public thì luôn có"
+        ],
+        "correct": 1,
+        "explanation": "Self-invocation gọi trực tiếp target. Proxy-based advice chỉ chặn lời gọi đi qua proxy."
+      },
+      "understanding": [
+        {
+          "title": "Lời gọi bỏ qua proxy",
+          "prompt": "Ngoài service gọi run(), bên trong run gọi this.save(), chỉ save có @Transactional. Theo chế độ proxy mặc định, lời gọi nào được chặn? Sửa ở đâu?",
+          "answer": "Lời gọi run tới bean có thể qua proxy, nhưng this.save gọi target trực tiếp nên advice transaction của save không áp dụng. Đặt biên trên use case được gọi qua proxy hoặc tách save sang bean khác.",
+          "criterion": "Vẽ đúng caller → proxy → target và phân biệt object tự new với bean."
+        },
+        {
+          "title": "Có SQL nhưng vẫn rollback",
+          "prompt": "Service qua proxy mở transaction, flush một INSERT rồi ném RuntimeException ra ngoài. Log đã thấy INSERT. Bằng chứng nào quyết định dữ liệu thực sự còn hay mất?",
+          "answer": "Flush gửi SQL nhưng chưa commit. Theo rollback mặc định, đọc lại từ transaction khác sau khi service kết thúc để xác nhận không còn hàng.",
+          "criterion": "Nêu điều kiện exception thoát khỏi biên transaction và kiểm DB sau khi giao dịch kết thúc."
+        }
+      ]
+    },
+    {
+      "slug": "boot-configuration",
+      "module": "boot",
+      "title": "Spring Boot: auto-configuration, properties và profiles",
+      "summary": "Kiểm soát những gì Boot cấu hình thay vì đoán.",
+      "prerequisites": "Bean definition và classpath Maven",
+      "lab": {
+        "goal": "Viết cấu hình port mặc định và override qua biến môi trường/lệnh chạy.",
+        "starter": "server:\n  port: 8080\n# TODO: chạy JAR bằng port 8181 mà không sửa file\n",
+        "solution": "server:\n  port: 8080\n# PowerShell: java -jar target/app.jar --server.port=8181\n",
+        "expected": "Log báo 8181; curl vào đúng cổng. Gỡ argument thì quay lại cấu hình mặc định.",
+        "language": "yaml",
+        "filename": "Exercise.java",
+        "comparison": "manual",
+        "instructions": "Giữ YAML port 8080. Lệnh override port được chạy ở terminal, không nhập lệnh Java thành một thuộc tính YAML. Bài này tự nghiệm thu theo hướng dẫn."
+      },
+      "quiz": {
+        "question": "Đổi code cấu hình xong nhưng chạy JAR cũ sẽ thế nào?",
+        "answers": [
+          "JAR tự cập nhật",
+          "Vẫn chạy bản đã đóng gói; cần build lại",
+          "Maven luôn chạy nền"
+        ],
+        "correct": 1,
+        "explanation": "Artifact là bản đóng gói tại thời điểm build. Kiểm tra đúng tiến trình, file JAR và config source."
+      },
+      "understanding": [
+        {
+          "title": "Nguồn cấu hình cạnh tranh",
+          "prompt": "File đặt 8080, SERVER_PORT=8182, dòng lệnh truyền --server.port=8183. Với các nguồn thông thường của Boot trong bài, hãy dự đoán cổng và cách kiểm.",
+          "answer": "8183. Chạy cùng JAR, kiểm log cổng và gọi endpoint; bỏ arg để đối chiếu cổng 8182. Giữ artifact và biến môi trường cố định.",
+          "criterion": "Chỉ ra thứ tự ba nguồn và phân biệt cấu hình hiệu lực với nội dung file."
+        },
+        {
+          "title": "Bean mặc định rút lui",
+          "prompt": "Auto-configuration tạo một bean khi thiếu đúng kiểu. Ứng dụng đăng ký bean cùng kiểu trước khi điều kiện được xét. Điều gì thay đổi và kiểm thế nào?",
+          "answer": "Với điều kiện OnMissingBean tương ứng, bean mặc định không được tạo. So hai context có/không có bean người dùng và xem condition report.",
+          "criterion": "Nêu rõ đây là điều kiện của cấu hình, không phải mọi auto-configuration đều cư xử giống nhau."
+        }
+      ]
+    },
+    {
+      "slug": "boot-auto-configuration",
+      "module": "boot",
+      "title": "Đọc điều kiện và viết cấu hình tự động",
+      "summary": "Theo dấu từ classpath đến bean mặc định và chứng minh khi cấu hình rút lui.",
+      "prerequisites": "BeanDefinition, @Bean và cấu hình theo môi trường",
+      "lab": {
+        "goal": "Theo dấu từ classpath đến bean mặc định và chứng minh khi cấu hình rút lui.",
+        "starter": "@AutoConfiguration\n@ConditionalOnProperty(prefix = \"invites\", name = \"enabled\", havingValue = \"true\")\nclass InvitationAutoConfiguration {\n    @Bean\n    // TODO: cho bean ứng dụng thay mặc định\n    InvitationChannel defaultChannel() {\n        return new RecordingChannel();\n    }\n}\n",
+        "solution": "@AutoConfiguration\n@ConditionalOnProperty(prefix = \"invites\", name = \"enabled\", havingValue = \"true\")\nclass InvitationAutoConfiguration {\n    @Bean\n    @ConditionalOnMissingBean(InvitationChannel.class)\n    InvitationChannel defaultChannel() {\n        return new RecordingChannel();\n    }\n}\n",
+        "expected": "Không tạo bean mặc định; xem condition report ở OnProperty.",
+        "language": "java",
+        "filename": "Exercise.java",
+        "instructions": "Giữ factory method, thêm đúng điều kiện trên bean mặc định.",
+        "comparison": "whole"
+      },
+      "quiz": {
+        "question": "Cờ bật và bean ứng dụng đã có. Bean nào được giữ?",
+        "answers": [
+          "Bean ứng dụng",
+          "Bean mặc định",
+          "Cả hai"
+        ],
+        "correct": 0,
+        "explanation": "OnMissingBean làm cấu hình mặc định rút lui khi đã có bean ứng viên thích hợp."
+      },
+      "understanding": [
+        {
+          "title": "Bật cờ mà không có bean",
+          "prompt": "Context có invites.enabled=true và không thấy InvitationChannel. Bạn kiểm tra theo thứ tự nào nếu kiểm thử riêng bằng ApplicationContextRunner lại tạo bean mặc định?",
+          "answer": "Kiểm JAR và danh sách AutoConfiguration.imports trước, rồi xác nhận classpath, condition report và profile của app thật. Runner nạp auto-configuration trực tiếp nên không kiểm việc Boot phát hiện nó từ artifact.",
+          "criterion": "Phân biệt discovery khỏi condition, và chọn test chạy bằng artifact để xác nhận discovery."
+        },
+        {
+          "title": "Override bị bỏ qua",
+          "prompt": "Ứng dụng cung cấp bean bằng factory method khai báo trả Object, dù đối tượng thực implements InvitationChannel. Vì sao điều kiện theo loại có thể nhận diện khác kỳ vọng?",
+          "answer": "Điều kiện xét metadata kiểu có thể suy ra tại thời điểm đăng ký, trước khi mọi bean được dựng. Dùng kiểu trả về đủ cụ thể và test context có đúng một ứng viên.",
+          "criterion": "Chỉ rõ thông tin container thấy trước lúc gọi factory."
+        }
+      ]
+    },
+    {
+      "slug": "boot-datasource",
+      "module": "boot",
+      "title": "Datasource, schema và kết nối cơ sở dữ liệu",
+      "summary": "JDBC URL, driver, pool và schema là bốn điều kiện khác nhau khi kết nối DB.",
+      "prerequisites": "HTTP, Maven và cấu hình Spring Boot",
+      "lab": {
+        "goal": "Cấu hình datasource bằng biến môi trường và kiểm tra sai URL/sai schema riêng.",
+        "starter": "# TODO: cấu hình datasource\n",
+        "solution": "spring:\n  datasource:\n    url: ${DB_URL}\n    username: ${DB_USER}\n    password: ${DB_PASSWORD}\n",
+        "expected": "Thực hiện các trường hợp đúng và lỗi trong bài; đối chiếu response, log và dữ liệu sau thao tác.",
+        "language": "yaml",
+        "filename": "Exercise.java",
+        "instructions": "Thay TODO bằng cây spring.datasource với ba giá trị lấy từ biến môi trường. Giữ đúng quan hệ thụt lề; chỉ đổi số dấu cách đồng đều nếu cần.",
+        "comparison": "whole"
+      },
+      "quiz": {
+        "question": "IDE kết nối DB được đã chứng minh app có cấu hình đúng chưa?",
+        "answers": [
+          "Đã chứng minh",
+          "Chưa; app có URL/user/driver/schema riêng",
+          "Chỉ cần đổi cổng HTTP"
+        ],
+        "correct": 1,
+        "explanation": "So datasource thực tế của tiến trình app. Kết nối IDE là một client khác."
+      },
+      "understanding": [
+        {
+          "title": "Đúng cổng HTTP, sai DB",
+          "prompt": "API đã nghe ở 811 nhưng truy vấn báo table not found. IDE thấy bảng trong schema product. Đề xuất cách khoanh nguyên nhân mà không đổi cổng server.",
+          "answer": "Cổng HTTP khác địa chỉ JDBC. Kiểm JDBC URL, schema và user thực tế của connection mà ứng dụng dùng, rồi đối chiếu bảng/quyền trên đúng kết nối.",
+          "criterion": "Phân biệt kết nối được với truy vấn đúng schema; nêu bằng chứng từ phía ứng dụng."
+        },
+        {
+          "title": "Thử từng lỗi cấu hình",
+          "prompt": "Lab có datasource chạy được. Bạn muốn phân biệt sai port JDBC và thiếu bảng. Thay biến nào mỗi lần và tìm dấu hiệu nào?",
+          "answer": "Giữ các điều kiện khác, đổi cổng JDBC sang cổng không nghe để thấy lỗi tạo/lấy connection; khôi phục cổng rồi dùng schema kết nối được nhưng thiếu bảng để thấy lỗi SQL.",
+          "criterion": "Thiết kế hai ca một biến và nêu tầng phát sinh mỗi lỗi."
+        }
+      ]
+    },
+    {
+      "slug": "mvc-request-flow",
+      "module": "web",
+      "title": "Luồng request trong Spring Web MVC",
+      "summary": "Từ một bảng MySQL đến API đọc chi tiết sản phẩm. Theo dõi request qua controller, service và repository, rồi kiểm thử phản hồi JSON.",
+      "prerequisites": "HTTP, Maven và cấu hình Spring Boot",
+      "lab": {
+        "goal": "Tự viết endpoint GET /products/{id}; tách lỗi ID sai kiểu khỏi trường hợp không có dữ liệu.",
+        "starter": "@GetMapping(\"/products/{id}\")\nProductResponse find(@PathVariable long id) {\n    // TODO: gọi service; không trả null khi thiếu\n    // TODO: viết implementation tại đây\n}\n",
+        "solution": "@GetMapping(\"/products/{id}\")\nProductResponse find(@PathVariable long id) {\n    return service.find(id);\n}\n// Service tìm repository; nếu thiếu thì ném lỗi được ánh xạ thành 404.\n",
+        "expected": "ID tồn tại → 200; ID không tồn tại → 404; /products/abc → 400. Kiểm tra response body lẫn status.",
+        "language": "java",
+        "filename": "Exercise.java",
+        "instructions": "Giữ annotation và chữ ký find; thay TODO bằng return gọi service. Với nháp cũ, xóa throw new UnsupportedOperationException() giữ chỗ, không giữ nó sau return.",
+        "comparison": "whole"
+      },
+      "quiz": {
+        "question": "Request /products/abc thất bại ở đâu khi tham số là long?",
+        "answers": [
+          "Khi DB chạy SELECT",
+          "Khi MVC chuyển chuỗi abc sang long",
+          "Khi serialize JSON"
+        ],
+        "correct": 1,
+        "explanation": "MVC bind path variable trước khi gọi handler. Chuỗi không đổi được thành long nên chưa cần truy vấn DB."
+      },
+      "understanding": [
+        {
+          "title": "Request dừng ở đâu",
+          "prompt": "GET /products/abc và GET /products/999 đều thất bại. Route nhận long, seed không có 999. Service và repository có chạy không?",
+          "answer": "abc không đổi được thành long nên MVC trả 400 trước khi gọi method controller. 999 hợp lệ về kiểu nên đi tới lookup, sau đó trả 404 theo contract.",
+          "criterion": "Dùng spy/log hoặc test để chứng minh lookup có chạy ở ca 999 và không chạy ở ca abc."
+        },
+        {
+          "title": "Null trong dòng và không có dòng",
+          "prompt": "Hàng ID 5 tồn tại nhưng price NULL. Hàng ID 6 không tồn tại. Bạn mong thấy status/body nào và nên test ở đâu?",
+          "answer": "ID 5 trả 200 với price null theo demo. ID 6 trả 404. Kiểm repository phân biệt Optional có hàng và rỗng, rồi kiểm response JSON HTTP.",
+          "criterion": "Không biến trường null thành lỗi thiếu tài nguyên; dùng seed có cả hai ca."
+        }
+      ]
+    },
+    {
+      "slug": "mvc-binding",
+      "module": "web",
+      "title": "Request binding và chuyển đổi kiểu dữ liệu",
+      "summary": "Phân biệt dữ liệu ở path/query/body và lỗi chuyển đổi với lỗi quy tắc.",
+      "prerequisites": "HTTP, MVC request flow và kiểu dữ liệu Java",
+      "lab": {
+        "goal": "Viết controller nhận ID ở path, bộ lọc ở query và DTO ở body theo thao tác.",
+        "starter": "// TODO: tự viết giải pháp theo đề bài\n",
+        "solution": "@GetMapping(\"/products/{id}\")\nProductResponse find(@PathVariable long id) { return service.find(id); }\n// /products/abc: lỗi chuyển đổi trước khi gọi service.\n",
+        "expected": "Thực hiện các trường hợp đúng và lỗi trong bài; đối chiếu response, log và dữ liệu sau thao tác.",
+        "language": "java",
+        "filename": "Exercise.java",
+        "instructions": "Trong editor chỉ viết endpoint đọc theo path ID. Phần query/body thực hành tiếp trong project theo nội dung bài; không cộng thêm endpoint khác vào đoạn đang đối chiếu.",
+        "comparison": "whole"
+      },
+      "quiz": {
+        "question": "Client gửi ID trong URL và body khác nhau thì nên làm gì?",
+        "answers": [
+          "Âm thầm lấy body",
+          "Thiết kế DTO bỏ ID, hoặc từ chối xung đột nếu contract có cả hai",
+          "Cập nhật cả hai"
+        ],
+        "correct": 1,
+        "explanation": "Một nguồn định danh tránh ambiguity. Nếu hỗ trợ hai nguồn, contract phải chỉ rõ và kiểm tra xung đột."
+      },
+      "understanding": [
+        {
+          "title": "Ba nguồn đầu vào",
+          "prompt": "Thiết kế PUT /products/5?notify=true với body có name. Dữ liệu nào bind qua path, query và body? Nếu URL dùng abc thì service có nên chạy?",
+          "answer": "ID qua @PathVariable, notify qua @RequestParam và name trong DTO @RequestBody. abc không chuyển được thành kiểu ID nên method không chạy.",
+          "criterion": "Nêu annotation, kiểu và test request riêng cho lỗi path/body."
+        },
+        {
+          "title": "Kiểm tra kiểu hay quy tắc",
+          "prompt": "GET list nhận Long minPrice và Long maxPrice. So minPrice=abc với minPrice=350&maxPrice=200, giả sử hợp đồng từ chối khoảng đảo.",
+          "answer": "Ca abc lỗi conversion trước controller; cặp 350/200 bind được và cần quy tắc validation/nghiệp vụ. Cả hai có thể trả 400 nhưng khác tầng.",
+          "criterion": "Chỉ ra một dấu hiệu để xác định conversion đã thành công ở ca thứ hai."
+        }
+      ]
+    },
+    {
+      "slug": "dto-contracts",
+      "module": "web",
+      "title": "DTO và ranh giới dữ liệu API",
+      "summary": "Giới hạn đầu vào/đầu ra và tách hợp đồng API khỏi entity lưu trữ.",
+      "prerequisites": "Request binding, JSON và Java record; chưa cần biết cách thay tập liên kết",
+      "lab": {
+        "goal": "Tự viết CreateProductRequest và ProductResponse; không cho client tự đặt ID hoặc ghi field nội bộ.",
+        "starter": "record CreateProductRequest(/* TODO */) {}\nrecord ProductResponse(/* TODO */) {}\n",
+        "solution": "record CreateProductRequest(@NotBlank String name, @PositiveOrZero int price) {}\nrecord ProductResponse(long id, String name, int price) {}\n",
+        "expected": "JSON tạo không cần ID; response chỉ chứa các trường hợp đồng; validation từ chối tên trắng và giá âm.",
+        "language": "java",
+        "filename": "Exercise.java",
+        "instructions": "Giữ hai record; thay các TODO trong danh sách tham số bằng field và constraint. Không thêm record trùng tên hoặc cho client gửi ID tạo mới.",
+        "comparison": "whole"
+      },
+      "quiz": {
+        "question": "Vì sao DTO tạo group không nên nhận creator từ client?",
+        "answers": [
+          "Vì JSON không có String",
+          "Creator là dữ liệu do server xác định từ danh tính đã xác thực",
+          "Vì DB không có ID"
+        ],
+        "correct": 1,
+        "explanation": "Giới hạn trường client được phép điều khiển; không tin field nhận vào để xác định quyền hoặc người tạo."
+      },
+      "understanding": [
+        {
+          "title": "Trường chỉ do server đặt",
+          "prompt": "Client POST group gửi name và creator=admin. Thiết kế DTO/request mapping và test để bảo đảm creator phản ánh chính sách server.",
+          "answer": "Request chỉ chứa field được phép sửa; server xác định creator từ identity đã xác thực. Chọn chính sách field dư rồi kiểm response và bản ghi được ghi.",
+          "criterion": "Không dựa vào việc UI ẩn field; chứng minh từ request tới DB."
+        },
+        {
+          "title": "Thiếu, null và danh sách rỗng",
+          "prompt": "API thay membership. Contract muốn [] gỡ hết, còn thiếu/null là lỗi. Chọn DTO và ca test để giữ khác biệt.",
+          "answer": "Chọn kiểu cho phép nhận biết null, áp ràng buộc bắt buộc và không mặc định thiếu thành []. Test thiếu, null, [] và một danh sách có ID.",
+          "criterion": "Nêu đúng hiệu ứng DB của từng ca và tránh mặc định làm mất dữ liệu."
+        }
+      ]
+    },
+    {
+      "slug": "bean-validation",
+      "module": "web",
+      "title": "Validation, constraint tùy biến và i18n",
+      "summary": "Kiểm tra đầu vào trước khi ghi dữ liệu và chỉ ra chính xác trường nào người dùng cần sửa.",
+      "prerequisites": "DTO, request binding và exception",
+      "lab": {
+        "goal": "Thêm validation cho đăng ký, kiểm tra riêng JSON sai kiểu và dữ liệu đúng kiểu nhưng sai quy tắc.",
+        "starter": "record Registration(\n    // TODO: constraint username và email\n    String username,\n    String email\n) {}\n@RestController\nclass RegistrationController {\n    @PostMapping(\"/registrations/check\")\n    Map<String, Boolean> check(/* TODO: kích hoạt validation */ @RequestBody Registration request) {\n        return Map.of(\"valid\", true);\n    }\n}\n",
+        "solution": "record Registration(\n    @NotBlank @Size(min = 3, max = 20) String username,\n    @NotBlank @Email String email\n) {}\n@RestController\nclass RegistrationController {\n    @PostMapping(\"/registrations/check\")\n    Map<String, Boolean> check(@Valid @RequestBody Registration request) {\n        return Map.of(\"valid\", true);\n    }\n}\n",
+        "expected": "Trong snippet: username trắng/quá ngắn/quá dài hoặc email sai → 400; username là object JSON → lỗi binding 400; dữ liệu hợp lệ → 200 với valid=true. Endpoint chỉ kiểm tra, không lưu dữ liệu. Định dạng field lỗi thực hành thêm với advice trong bài.",
+        "language": "java",
+        "filename": "Exercise.java",
+        "instructions": "Giữ record và controller. Thay các TODO bằng constraint username/email và @Valid trước @RequestBody. Username cần 3–20 ký tự và không trắng; email không trắng, đúng định dạng. Endpoint này chỉ kiểm tra dữ liệu, không lưu đăng ký.",
+        "comparison": "whole"
+      },
+      "quiz": {
+        "question": "@Email có thay thế kiểm tra bắt buộc không?",
+        "answers": [
+          "Có",
+          "Không; cần kết hợp @NotBlank nếu trường bắt buộc",
+          "Chỉ cần unique DB"
+        ],
+        "correct": 1,
+        "explanation": "Các constraint có mục đích riêng. Kiểm tra định dạng không phải kiểm tra tồn tại và cũng không thay unique constraint."
+      },
+      "understanding": [
+        {
+          "title": "Hai ca HTTP 400",
+          "prompt": "Registration.username là String có @NotBlank. So username dạng object với chuỗi ba dấu cách. Jackson, validator và controller chạy đến đâu?",
+          "answer": "Object không bind được thành String nên Jackson dừng trước khi có DTO. Chuỗi bind được nhưng @NotBlank từ chối. Cả hai ca không gọi method controller.",
+          "criterion": "Chỉ đúng tầng phát sinh, cấu trúc DTO tại điểm dừng và cách chứng minh controller không chạy."
+        },
+        {
+          "title": "Mất @Valid sau refactor",
+          "prompt": "DTO giữ @NotBlank và @Email, controller vẫn có @RequestBody nhưng bỏ @Valid. Ca nào chứng minh vấn đề ở điểm kích hoạt?",
+          "answer": "Dùng JSON đúng kiểu với email sai và các trường khác hợp lệ. So test MVC trước/sau khi bỏ @Valid trong cấu hình bài, kiểm gọi service và status.",
+          "criterion": "Giữ payload đủ bind, chỉ đổi @Valid và giải thích khác biệt với lỗi JSON."
+        }
+      ]
+    },
+    {
+      "slug": "api-errors",
+      "module": "web",
+      "title": "Chuẩn hóa lỗi API với ProblemDetail",
+      "summary": "Giữ trạng thái HTTP và mã lỗi nhất quán; trả đủ thông tin để người dùng sửa mà không lộ stack trace.",
+      "prerequisites": "Validation, exception và HTTP status",
+      "lab": {
+        "goal": "Tự viết advice ánh xạ lỗi thiếu group, giữ status đúng và không lộ stack trace.",
+        "starter": "@RestControllerAdvice\nclass ApiErrors {\n    // TODO: handler cho GroupNotFound\n}\n",
+        "solution": "@RestControllerAdvice\nclass ApiErrors {\n    @ExceptionHandler(GroupNotFound.class)\n    ProblemDetail missing(GroupNotFound ex) {\n        var problem = ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, \"Group không tồn tại\");\n        problem.setProperty(\"code\", \"GROUP_NOT_FOUND\");\n        return problem;\n    }\n}\n",
+        "expected": "404 với ProblemDetail; lỗi bất ngờ trả 500 có mã đối chiếu, không có SQL/stack trace/password trong body.",
+        "language": "java",
+        "filename": "Exercise.java",
+        "comparison": "whole",
+        "instructions": "Giữ @RestControllerAdvice và lớp ApiErrors; chèn handler vào trong lớp, thay TODO. Lời giải hiển thị cả lớp để đối chiếu, không dán một lớp ApiErrors thứ hai vào lớp hiện có."
+      },
+      "quiz": {
+        "question": "Advice MVC có mặc định bắt mọi lỗi security filter không?",
+        "answers": [
+          "Có",
+          "Không; cần entry point/access denied handler cho lỗi ở filter",
+          "Chỉ cần @Valid"
+        ],
+        "correct": 1,
+        "explanation": "Filter có thể kết thúc request trước DispatcherServlet. Cần kiểm tra đúng tầng thay vì thêm handler MVC tùy ý."
+      },
+      "understanding": [
+        {
+          "title": "Một status, hai mã lỗi",
+          "prompt": "Giữ hai request 400 từ bài Validation. Chọn response giúp client biết yêu cầu sửa JSON hay tô lỗi ở field username.",
+          "answer": "Lỗi đọc body dùng mã INVALID_JSON trong demo, lỗi constraint dùng VALIDATION_FAILED và field phù hợp. Dùng ProblemDetail với mã ổn định và test không trả raw payload.",
+          "criterion": "Nêu status, code và cấu trúc field cho từng ca; phân biệt thông báo hiển thị với contract."
+        },
+        {
+          "title": "Lỗi đi qua biên nào",
+          "prompt": "Một request bị filter chặn, request khác vào MVC rồi service ném lỗi không tìm thấy. Vì sao advice MVC không mặc định xử lý cả hai?",
+          "answer": "Advice thuộc cơ chế xử lý exception MVC. Filter chạy trước hoặc ngoài luồng MVC tương ứng nên dùng handler phù hợp tại tầng filter/security. Test hai response độc lập.",
+          "criterion": "Xác định được điểm chịu trách nhiệm ánh xạ mỗi lỗi, tránh dựa vào status để đoán tầng."
+        }
+      ]
+    },
+    {
+      "slug": "jpa-fundamentals",
+      "module": "data",
+      "title": "JDBC, ORM và vòng đời entity JPA",
+      "summary": "Ánh xạ entity, đọc danh sách và theo dõi cách một phương thức repository trở thành truy vấn SQL có tham số.",
+      "prerequisites": "Java object, SQL SELECT và repository",
+      "lab": {
+        "goal": "Ánh xạ entity tối thiểu; viết derived query theo thuộc tính Java, xác nhận SQL và kết quả.",
+        "starter": "interface ProductRepository extends JpaRepository<Product, Long> {\n    // TODO: tìm name chứa từ khóa, không phân biệt hoa thường\n}\n",
+        "solution": "interface ProductRepository extends JpaRepository<Product, Long> {\n    List<Product> findByNameContainingIgnoreCase(String name);\n}\n",
+        "expected": "Seed Product A, Laptop; tìm product → Product A. Query dùng tên thuộc tính entity, không dùng tên cột SQL.",
+        "language": "java",
+        "filename": "Exercise.java",
+        "instructions": "Giữ interface ProductRepository; thay TODO bằng khai báo derived query. Mapping entity và quan sát SQL là phần nghiệm thu trong project, không thêm entity vào snippet này.",
+        "comparison": "whole"
+      },
+      "quiz": {
+        "question": "JPQL truy cập field nào?",
+        "answers": [
+          "Tên cột trong DDL",
+          "Tên thuộc tính persistent của entity",
+          "Tên JSON tùy ý"
+        ],
+        "correct": 1,
+        "explanation": "JPQL làm việc với mô hình entity. Native SQL mới trực tiếp dùng tên bảng/cột."
+      },
+      "understanding": [
+        {
+          "title": "SQL, entity và JSON",
+          "prompt": "Đổi tên JSON của name nhưng giữ nguyên cột product_name và thuộc tính Java name. Derived query findByName và SQL native dùng tên gì?",
+          "answer": "Derived query dựa trên name trong Java. SQL native dùng product_name. Tên JSON chỉ thuộc biên serialize. Kiểm cùng kết quả bằng seed và xem SQL được sinh.",
+          "criterion": "Gọi đúng ba lớp tên và không suy từ thay đổi JSON sang đổi schema."
+        },
+        {
+          "title": "Entity managed và detached",
+          "prompt": "Trong transaction, sửa name của entity vừa load mà không gọi save. Sau đó lấy entity đã detached, đổi name ngoài transaction. Hai lần sửa khác nhau thế nào?",
+          "answer": "Bản managed được dirty checking và flush khi phù hợp. Sửa bản detached chỉ đổi object Java nếu chưa đưa thay đổi vào context. Đọc lại sau hai giao dịch để phân biệt.",
+          "criterion": "Giải thích vai trò persistence context và kiểm từ lần đọc độc lập."
+        }
+      ]
+    },
+    {
+      "slug": "rest-write",
+      "module": "web",
+      "title": "REST: tạo, cập nhật và định danh tài nguyên",
+      "summary": "Thử POST và PUT, xem Hibernate sinh ID, rồi kiểm tra trạng thái enum từ JSON đến database.",
+      "prerequisites": "GET API, DTO và JPA cơ bản",
+      "lab": {
+        "goal": "Viết POST tạo sản phẩm và PUT cập nhật có kiểm tra tồn tại, không biến PUT nhầm thành insert.",
+        "starter": "@PostMapping\nResponseEntity<ProductResponse> create(@RequestBody CreateProduct request) {\n    // TODO: tạo và trả Location\n    // TODO: viết implementation tại đây\n}\n",
+        "solution": "@PostMapping\nResponseEntity<ProductResponse> create(@RequestBody CreateProduct request) {\n    ProductResponse result = service.create(request);\n    return ResponseEntity.created(URI.create(\"/products/\" + result.id())).body(result);\n}\n",
+        "expected": "POST trả 201 + Location đọc lại được. PUT ID không có trả 404 theo contract bài này, dữ liệu cũ không bị thay nhầm.",
+        "language": "java",
+        "filename": "Exercise.java",
+        "instructions": "Giữ endpoint POST; thay TODO bằng gọi service và trả 201/Location. Editor đối chiếu riêng POST; phần PUT và lỗi ID thiếu được kiểm chứng thêm trong project.",
+        "comparison": "whole"
+      },
+      "quiz": {
+        "question": "Location ở phản hồi tạo tài nguyên dùng để làm gì?",
+        "answers": [
+          "Chỉ đường tới tài nguyên vừa tạo",
+          "Chứa mật khẩu",
+          "Chỉ được dùng khi 302"
+        ],
+        "correct": 0,
+        "explanation": "Client có thể GET tài nguyên mới theo Location. Contract tạo phải chỉ ra URL có ý nghĩa."
+      },
+      "understanding": [
+        {
+          "title": "POST với ID do client gửi",
+          "prompt": "Nhận thẳng entity rồi save, client gửi ID đang tồn tại. Rủi ro gì? Thiết kế cách chứng minh POST luôn tạo theo hợp đồng.",
+          "answer": "Tùy quy tắc nhận diện entity mới, save có thể đi qua merge và ghi đè. Dùng DTO không nhận ID, tạo entity mới; kiểm 201, Location và GET lại cả bản ghi cũ/mới.",
+          "criterion": "Nêu điều kiện dẫn đến cập nhật nhầm và kiểm dữ liệu chứ không chỉ status."
+        },
+        {
+          "title": "PUT vào tài nguyên không tồn tại",
+          "prompt": "Hợp đồng PUT sửa sản phẩm hiện có. ID 999 không có. Nếu service tạo entity mới khi lookup rỗng, test nào bắt được?",
+          "answer": "Ca phải trả 404 và không insert. Dùng seed cố định, gọi PUT rồi đọc DB hoặc danh sách từ lần đọc riêng, đối chiếu tổng số và ID.",
+          "criterion": "Kiểm 404 và chứng minh bảng không có hàng mới."
+        }
+      ]
+    },
+    {
+      "slug": "spring-transaction",
+      "module": "data",
+      "title": "Transaction từ flush đến commit và cạnh tranh",
+      "summary": "Theo dõi proxy, rollback-only, propagation và trạng thái dữ liệu sau giao dịch.",
+      "prerequisites": "Proxy/AOP, JPA và persistence context",
+      "lab": {
+        "goal": "Theo dõi proxy, rollback-only, propagation và trạng thái dữ liệu sau giao dịch.",
+        "starter": "// TODO: đặt biên giao dịch\npublic void replaceMembers(long groupId, Set<Long> requestedIds) {\n    Group group = groups.getRequired(groupId);\n    var requestedMembers = members.requireAll(requestedIds);\n    group.replaceMembers(requestedMembers);\n    // Hibernate có thể phát SQL khi flush, trước khi giao dịch commit.\n}\n",
+        "solution": "@Transactional\npublic void replaceMembers(long groupId, Set<Long> requestedIds) {\n    Group group = groups.getRequired(groupId);\n    var requestedMembers = members.requireAll(requestedIds);\n    group.replaceMembers(requestedMembers);\n    // Hibernate có thể phát SQL khi flush, trước khi giao dịch commit.\n}\n",
+        "expected": "Lần đọc độc lập sau khi giao dịch kết thúc phải thấy [1,2].",
+        "language": "java",
+        "filename": "Exercise.java",
+        "instructions": "Giữ toàn bộ use case, bổ sung annotation để lời gọi qua proxy dùng chung transaction.",
+        "comparison": "whole"
+      },
+      "quiz": {
+        "question": "Đã flush INSERT rồi rollback, vì sao log vẫn có INSERT?",
+        "answers": [
+          "Log SQL chứng minh đã commit",
+          "Flush đã gửi SQL nhưng giao dịch chưa commit",
+          "Hibernate tự tạo giao dịch mới"
+        ],
+        "correct": 1,
+        "explanation": "Dùng lần đọc độc lập sau khi giao dịch kết thúc để xác nhận dữ liệu."
+      },
+      "understanding": [
+        {
+          "title": "Audit cần bền độc lập",
+          "prompt": "Nghiệp vụ bị rollback nhưng yêu cầu giữ audit lý do từ chối. Thiết kế hai nhánh và phép đo trước khi chọn propagation.",
+          "answer": "Audit ghi cùng giao dịch sẽ rollback theo. Nếu chính sách yêu cầu bền độc lập, gọi qua bean riêng có REQUIRES_NEW, xét thêm connection và việc không đọc phụ thuộc vào thay đổi chưa commit. Đối chiếu audit và membership bằng giao dịch ngoài.",
+          "criterion": "Giải thích khác biệt commit và tác động pool, không chỉ nêu tên annotation."
+        },
+        {
+          "title": "Hai lượt đọc cùng phiên bản",
+          "prompt": "A và B cùng thấy version 4; A cập nhật trước, B vẫn ghi dựa trên dữ liệu cũ. Với optimistic locking, hợp đồng API và test cần nói gì?",
+          "answer": "Hành vi cần được phát hiện ở flush/commit. Quy định trả conflict hoặc retry có giới hạn dựa trên việc đọc lại dữ liệu. Điều phối thứ tự và kiểm version cuối.",
+          "criterion": "Kiểm cả kết quả của A/B, invariant và trạng thái cuối."
+        }
+      ]
+    },
+    {
+      "slug": "jpa-one-to-one",
+      "module": "data",
+      "title": "Ánh xạ quan hệ một–một",
+      "summary": "Thiết kế khóa ngoại, đọc SQL và quan sát thời điểm Hibernate nạp chi tiết của một sản phẩm.",
+      "prerequisites": "JPA mapping và transaction đọc",
+      "lab": {
+        "goal": "Ánh xạ FK một–một, chọn phía sở hữu và constraint theo quy tắc bắt buộc/tùy chọn.",
+        "starter": "// Offering có nhiều nhất một detail; một detail không dùng chung.\n// TODO: mapping và constraint DDL\n",
+        "solution": "@OneToOne\n@JoinColumn(name = \"detail_id\", unique = true)\nprivate SingleDetail detail;\n// Nếu bắt buộc: optional=false và NOT NULL ở schema.\n",
+        "expected": "FK sai bị từ chối; hai offering không dùng cùng detail; trạng thái chưa có detail được chấp nhận hoặc từ chối đúng contract.",
+        "language": "java",
+        "filename": "Exercise.java",
+        "instructions": "Viết field detail và hai annotation mapping bên dưới TODO. Constraint NOT NULL chỉ thêm trong project khi quan hệ bắt buộc; không trộn DDL vào ô Java.",
+        "comparison": "whole"
+      },
+      "quiz": {
+        "question": "FK không null ở bảng detail có bắt mọi offering phải có detail không?",
+        "answers": [
+          "Có",
+          "Không; nó buộc mỗi detail tham chiếu offering, chưa buộc chiều ngược",
+          "Chỉ cần @Service"
+        ],
+        "correct": 1,
+        "explanation": "Ràng buộc thuộc một phía không tự buộc tồn tại bản ghi ở phía ngược. Thiết kế schema theo đúng invariant."
+      },
+      "understanding": [
+        {
+          "title": "FK bảo vệ phía nào",
+          "prompt": "Offering có detail_id nullable, UNIQUE và FK. Hai offering muốn dùng cùng detail 7, còn offering thứ ba không có detail. Ca nào bị chặn?",
+          "answer": "FK yêu cầu giá trị khác null tham chiếu hàng tồn tại. UNIQUE chặn lặp detail 7. Nullable cho phép không có detail. Test riêng từng ràng buộc.",
+          "criterion": "Nêu ba ràng buộc bảo vệ ba điều kiện khác nhau."
+        },
+        {
+          "title": "Sửa phía mappedBy",
+          "prompt": "Bạn chỉ đổi offering trên phía ngược của quan hệ một–một, không đổi phía giữ FK. Dự đoán SQL và cách xác nhận.",
+          "answer": "Thay đổi phía ngược đơn lẻ không điều khiển cập nhật FK. Sửa phía sở hữu theo mapping và đồng bộ cả hai đầu trong bộ nhớ; flush rồi đọc lại.",
+          "criterion": "Chỉ ra cột FK nằm ở đâu và kiểm giá trị DB sau flush/commit."
+        }
+      ]
+    },
+    {
+      "slug": "jpa-relationships",
+      "module": "data",
+      "title": "Quan hệ một–nhiều và entity bảng nối",
+      "summary": "Từ khóa ngoại ở phía nhiều đến entity bảng nối. Viết truy vấn lấy sản phẩm theo ID chi tiết.",
+      "prerequisites": "Khóa ngoại, join và entity",
+      "lab": {
+        "goal": "Chọn entity bảng nối khi quan hệ có dữ liệu riêng; viết truy vấn đúng đường dẫn thuộc tính.",
+        "starter": "// OfferingDetail có offering và detail\n@Query(\"select od from OfferingDetail od where /* TODO */\")\nList<OfferingDetail> findLinks(@Param(\"id\") long id);\n",
+        "solution": "@Query(\"select od from OfferingDetail od where od.offering.id = :id\")\nList<OfferingDetail> findLinks(@Param(\"id\") long id);\n",
+        "expected": "Offering 1 có detail 1,2 thì đúng hai liên kết; không thêm trùng cặp; detail độc lập không bị xóa theo liên kết.",
+        "language": "java",
+        "filename": "Exercise.java",
+        "instructions": "Thay đúng phần /* TODO */ bên trong chuỗi JPQL bằng điều kiện theo od.offering.id. Giữ @Param và chữ ký findLinks, không thêm một @Query thứ hai.",
+        "comparison": "whole"
+      },
+      "quiz": {
+        "question": "Quan hệ có addedAt thì nên lưu ở đâu?",
+        "answers": [
+          "Ở DTO tạm rồi bỏ",
+          "Ở entity biểu diễn bảng nối",
+          "Trong tên group"
+        ],
+        "correct": 1,
+        "explanation": "Thuộc tính thuộc cặp liên kết nên bảng nối/entity liên kết là nơi biểu diễn tự nhiên."
+      },
+      "understanding": [
+        {
+          "title": "Khi liên kết có dữ liệu riêng",
+          "prompt": "Một thành viên có role và addedAt theo từng group. Chọn mapping và ràng buộc bảo đảm chỉ một dòng cho mỗi cặp.",
+          "answer": "Dùng entity Membership với hai @ManyToOne và các thuộc tính của liên kết, kèm unique trên cặp FK hoặc khóa ghép. Kiểm chèn cặp trùng.",
+          "criterion": "Đặt role/addedAt ở hàng liên kết và phân biệt khóa kỹ thuật với invariant."
+        },
+        {
+          "title": "Tên thuộc tính trong query",
+          "prompt": "Offering có links; mỗi link có detail. Vì sao findByDetailId trên Offering không có đường đi đúng? Thiết kế truy vấn.",
+          "answer": "Tên truy vấn phải dùng thuộc tính của model. Dùng JPQL join qua o.links tới link.detail.id hoặc truy vấn entity link rồi lấy offering; test nhiều link và trùng hàng nếu có.",
+          "criterion": "Chỉ ra path Java và phân biệt với tên cột vật lý."
+        }
+      ]
+    },
+    {
+      "slug": "jpa-query-bulk",
+      "module": "data",
+      "title": "Chọn kiểu truy vấn và quản lý bulk update",
+      "summary": "Chọn giữa tên phương thức, JPQL và SQL; dự đoán bản ghi nào được đọc hoặc sửa và kiểm tra bằng log.",
+      "prerequisites": "Repository và persistence context",
+      "lab": {
+        "goal": "Viết bulk update có điều kiện và kiểm tra dữ liệu đọc lại từ context mới.",
+        "starter": "// TODO: annotation và query đổi màu theo ID\nint changeColor(long id, String color);\n",
+        "solution": "@Modifying(clearAutomatically = true, flushAutomatically = true)\n@Query(\"update Product p set p.color = :color where p.id = :id\")\nint changeColor(@Param(\"id\") long id, @Param(\"color\") String color);\n// Gọi bên trong service @Transactional.\n",
+        "expected": "Đổi đúng một bản ghi → affected rows=1; ID thiếu → 0; đọc lại không nhận entity stale từ context.",
+        "language": "java",
+        "filename": "Exercise.java",
+        "instructions": "Thêm @Modifying/@Query và @Param vào khai báo changeColor hiện có. Không giữ thêm phiên bản phương thức chưa gắn annotation; transaction đặt ở service trong project.",
+        "comparison": "whole"
+      },
+      "quiz": {
+        "question": "Bulk JPQL update có tự cập nhật entity đã tải không?",
+        "answers": [
+          "Có",
+          "Không; phải quản lý flush/clear và ranh giới transaction",
+          "Chỉ với @Valid"
+        ],
+        "correct": 1,
+        "explanation": "Bulk thao tác trực tiếp dữ liệu, không đồng bộ từng object managed như dirty checking."
+      },
+      "understanding": [
+        {
+          "title": "Entity cũ sau UPDATE",
+          "prompt": "Đã load Product 1 có màu RED, sau đó chạy bulk JPQL đổi BLUE trong cùng context. Object cũ và DB có thể khác thế nào?",
+          "answer": "Bulk update không sửa instance đã managed. Với phép ghi thành công, DB đã nhận BLUE trong transaction còn reference cũ có thể giữ RED. Clear/refresh thích hợp rồi đọc lại.",
+          "criterion": "Nêu vì sao log UPDATE chưa chứng minh object cũ đổi và đo từ hai chỗ."
+        },
+        {
+          "title": "Clear làm mất thay đổi chưa flush",
+          "prompt": "Cùng transaction có chỉnh sửa managed entity khác và sau bulk query tự clear. Thiết kế cách tránh bỏ thay đổi đang chờ.",
+          "answer": "Flush các thay đổi cần giữ trước khi clear, hoặc tách biên xử lý phù hợp. Kiểm dữ liệu cả entity sửa thường lẫn hàng bulk sau commit.",
+          "criterion": "Giải thích flush và clear tác động khác nhau; xác nhận bằng trạng thái cuối."
+        }
+      ]
+    },
+    {
+      "slug": "jpa-projections",
+      "module": "data",
+      "title": "DTO mapping và projection ở tầng truy vấn",
+      "summary": "Chọn cột ở tầng query, phân biệt projection với map DTO sau khi đọc entity.",
+      "prerequisites": "Entity JPA, repository và DTO; Specification học ở bài riêng",
+      "lab": {
+        "goal": "Tự viết projection ID/name và endpoint đối chiếu mapper; xác nhận cả JSON lẫn cột SELECT.",
+        "starter": "// TODO: projection DTO và repository query\n",
+        "solution": "record Summary(Long id, String name) {}\n@Query(\"select new vn.railway89.lab.Summary(p.id, p.name) from Product p order by p.id\")\nList<Summary> summaries();\n",
+        "expected": "Hai endpoint có cùng dữ liệu hợp đồng; log cho thấy query projection chỉ chọn cột cần thiết.",
+        "language": "java",
+        "filename": "Exercise.java",
+        "instructions": "Viết record Summary rồi khai báo query/phương thức summaries. Hai phần thuộc DTO và repository riêng khi đưa vào project; editor đối chiếu đoạn minh họa gồm cả hai.",
+        "comparison": "whole"
+      },
+      "quiz": {
+        "question": "Map entity thành DTO sau query có tự giảm cột SELECT không?",
+        "answers": [
+          "Có",
+          "Không; fetch/projection ở tầng query mới quyết định dữ liệu đọc",
+          "Chỉ cần Lombok"
+        ],
+        "correct": 1,
+        "explanation": "Biến đổi object sau khi đọc không làm DB quay lại chọn ít cột hơn."
+      },
+      "understanding": [
+        {
+          "title": "Cùng JSON, khác SELECT",
+          "prompt": "A tải entity rồi map id/name. B query DTO projection id/name. JSON giống nhau. Làm sao chứng minh B đọc ít dữ liệu hơn trong lab?",
+          "answer": "Giữ seed và bộ lọc, bật quan sát SQL, so danh sách cột và số query. DTO hóa sau query không đổi SQL đã phát.",
+          "criterion": "Đưa ra bằng chứng ở tầng truy vấn, không kết luận từ response JSON."
+        },
+        {
+          "title": "Thêm cột tính tổng",
+          "prompt": "Danh sách group cần thêm memberCount. Thiết kế query để tránh gọi count riêng trong mapper cho từng group, kể cả nhóm rỗng.",
+          "answer": "Dùng aggregate với join phù hợp hoặc query gom nhóm theo tập ID. Với left join, đếm khóa của bản ghi liên kết để nhóm rỗng có 0. Kiểm cả kết quả và số query.",
+          "criterion": "Giữ nhóm rỗng và chứng minh không có một COUNT cho mỗi hàng."
+        }
+      ]
+    },
+    {
+      "slug": "dynamic-query",
+      "module": "data",
+      "title": "Tìm kiếm động với Criteria và Specification",
+      "summary": "Kết hợp bộ lọc tùy chọn, bind tham số an toàn và kiểm tra predicate thực sự được áp dụng.",
+      "prerequisites": "SQL SELECT, query parameter, repository/JPQL và Criteria cơ bản",
+      "lab": {
+        "goal": "Xây điều kiện tìm theo tên và cận giá tùy chọn; không đưa đầu vào trực tiếp vào SQL.",
+        "starter": "List<Predicate> predicates = new ArrayList<>();\n// TODO: minPrice chỉ tạo predicate khi không null\n",
+        "solution": "List<Predicate> predicates = new ArrayList<>();\nif (minPrice != null) {\n    predicates.add(cb.greaterThanOrEqualTo(root.get(\"price\"), minPrice));\n}\n",
+        "expected": "Bỏ bộ lọc không vô tình thành price=0; minPrice lớn hơn maxPrice bị từ chối theo contract; nhập dấu % được xử lý theo nghĩa tìm kiếm đã công bố.",
+        "language": "java",
+        "filename": "Exercise.java",
+        "comparison": "whole",
+        "instructions": "Giữ dòng tạo predicates. Thay TODO bằng if kiểm tra minPrice rồi thêm predicate; không tạo lại danh sách. Các bộ lọc tên/maxPrice và kiểm tra khoảng giá làm tiếp trong project."
+      },
+      "quiz": {
+        "question": "Ghép Specification nhưng bỏ giá trị trả về có thể gây gì?",
+        "answers": [
+          "Điều kiện mới không được dùng",
+          "DB tự sửa điều kiện",
+          "Mọi hàng bị xóa"
+        ],
+        "correct": 0,
+        "explanation": "Dùng kết quả composition và test bộ lọc; tên method đúng không chứng minh SQL có predicate."
+      },
+      "understanding": [
+        {
+          "title": "Thiếu bộ lọc khác giá bằng 0",
+          "prompt": "API có minPrice tùy chọn. So request thiếu minPrice và minPrice=0. Điều kiện query thay đổi thế nào?",
+          "answer": "Thiếu thì không thêm predicate. Có 0 thì thêm price >= 0 theo contract. Dùng kiểu nullable và seed có giá âm nếu miền dữ liệu cho phép, hoặc kiểm predicate/SQL.",
+          "criterion": "Không dùng 0 như sentinel cho thiếu; kiểm query shape khi tập kết quả có thể giống nhau."
+        },
+        {
+          "title": "Phần trăm được tìm theo nghĩa nào",
+          "prompt": "Người dùng muốn tìm ký tự % trong tên, hợp đồng là tìm chuỗi con theo nghĩa đen. Bind parameter có đủ để giữ nghĩa đó không?",
+          "answer": "Bind giúp tách dữ liệu khỏi câu lệnh; LIKE vẫn hiểu wildcard. Escape % và _ theo escape character của truy vấn rồi test tên chứa % và tên không chứa %.",
+          "criterion": "Phân biệt cú pháp an toàn với ngữ nghĩa khớp mẫu."
+        }
+      ]
+    },
+    {
+      "slug": "data-pagination",
+      "module": "data",
+      "title": "Phân trang, thứ tự ổn định và chi phí truy vấn",
+      "summary": "Thiết kế metadata, giới hạn kích thước trang và giữ thứ tự ổn định.",
+      "prerequisites": "SELECT, ORDER BY và query parameter",
+      "lab": {
+        "goal": "Viết danh sách có giới hạn size và sort ổn định bằng khóa phụ ID.",
+        "starter": "Pageable page = PageRequest.of(pageNumber, size, Sort.by(\"name\"));\n// TODO: sort ổn định khi trùng name\n",
+        "solution": "Pageable page = PageRequest.of(pageNumber, size,\n    Sort.by(\"name\").ascending().and(Sort.by(\"id\").ascending()));\n",
+        "expected": "Hai hàng trùng tên không đổi chỗ tùy ý giữa các lần đọc cùng dữ liệu; size ngoài giới hạn → 400, page đầu là 0.",
+        "language": "java",
+        "filename": "Exercise.java",
+        "instructions": "Sửa biểu thức Sort trong dòng Pageable hiện có để thêm id làm khóa phụ. Thay dòng cũ, không khai báo thêm một biến page trùng tên.",
+        "comparison": "whole"
+      },
+      "quiz": {
+        "question": "Page thường cần thêm truy vấn nào so với lấy content?",
+        "answers": [
+          "COUNT để có tổng số phần tử",
+          "DELETE",
+          "INSERT"
+        ],
+        "correct": 0,
+        "explanation": "Page cung cấp totalElements/totalPages. Tùy truy vấn và tối ưu, framework có thể suy ra count; không mặc định mọi Page luôn đúng hai SQL."
+      },
+      "understanding": [
+        {
+          "title": "Offset và tổng số",
+          "prompt": "API dùng trang bắt đầu từ 1. Có 6 hàng theo ID, page=2 size=4. Nêu offset, ID trả về và totalPages.",
+          "answer": "Offset 4, trả [5,6], totalPages 2. Khi dùng PageRequest, chuyển page thành 1. Tổng phải từ tập khớp filter chứ không từ hai item trả về.",
+          "criterion": "Nêu chỗ chuyển chỉ số một lần ở biên và kiểm trang vượt phạm vi."
+        },
+        {
+          "title": "Đồng hạng giữa hai trang",
+          "prompt": "Nhiều dòng cùng price. Chỉ sort price thì dữ liệu có thể trùng hoặc thiếu giữa các trang thế nào? Thiết kế đối chứng.",
+          "answer": "Order không xác định giữa hàng đồng hạng. Thêm khóa phụ id có thứ tự nhất quán. Test với giá trùng qua biên trang. Nếu dữ liệu thay đổi giữa lần đọc, offset vẫn có thể dịch.",
+          "criterion": "Phân biệt sort ổn định trên seed cố định với thay đổi dữ liệu."
+        }
+      ]
+    },
+    {
+      "slug": "jpa-fetch-plan",
+      "module": "data",
+      "title": "Fetch plan, lazy loading và N+1",
+      "summary": "Chọn dữ liệu cần tải theo use case và chứng minh bằng SQL.",
+      "prerequisites": "JPA mapping và transaction đọc",
+      "lab": {
+        "goal": "So sánh SELECT khi lấy danh sách và chuyển DTO; sửa N+1 bằng fetch plan đúng.",
+        "starter": "// TODO: tự viết giải pháp theo đề bài\n",
+        "solution": "@Query(\"select o from SingleOffering o left join fetch o.detail where o.id = :id\")\nOptional<SingleOffering> findWithDetail(@Param(\"id\") Long id);\n",
+        "expected": "Thực hiện các trường hợp đúng và lỗi trong bài; đối chiếu response, log và dữ liệu sau thao tác.",
+        "language": "java",
+        "filename": "Exercise.java",
+        "instructions": "Viết khai báo repository findWithDetail và JPQL fetch join cho một ID. Đo SELECT/N+1 và so DTO trong project; không thêm các request kiểm chứng vào ô Java.",
+        "comparison": "whole"
+      },
+      "quiz": {
+        "question": "LAZY có bảo đảm mỗi use case chỉ chạy một SQL không?",
+        "answers": [
+          "Có",
+          "Không; truy cập quan hệ có thể phát sinh truy vấn",
+          "Có nếu dùng DTO sau cùng"
+        ],
+        "correct": 1,
+        "explanation": "FetchType không thay việc chọn fetch plan. Cần quan sát SQL ở use case cụ thể, tránh cache che mất N+1."
+      },
+      "understanding": [
+        {
+          "title": "Đo N+1 đúng cách",
+          "prompt": "Load 10 offering, mỗi offering có detail khác nhau chưa được nạp. Mapper truy cập tất cả detail. Trong ca không batch/cache, SQL dự kiến ra sao?",
+          "answer": "Có thể có 1 query danh sách và 10 query detail. Đo trong context sạch, cùng seed, rồi so với fetch plan khác và kiểm DTO không đổi.",
+          "criterion": "Nêu giả định và đếm query ở cả giai đoạn fetch lẫn mapping."
+        },
+        {
+          "title": "Phân trang qua collection",
+          "prompt": "Một offering có nhiều link. Bạn muốn page 10 offering và hiển thị link. Vì sao LIMIT trên joined rows có thể sai?",
+          "answer": "Một offering sinh nhiều hàng join. Giới hạn hàng join không tương đương giới hạn số offering. Có thể page root IDs trước rồi fetch dữ liệu theo IDs, giữ thứ tự ban đầu.",
+          "criterion": "Test một root có nhiều link, kiểm số root, link đầy đủ và thứ tự trang."
+        }
+      ]
+    },
+    {
+      "slug": "api-contract-design",
+      "module": "web",
+      "title": "Thiết kế hợp đồng API từ use case",
+      "summary": "Từ từng thao tác trên màn hình, xác định URL, dữ liệu đầu vào, kết quả, quy tắc cập nhật và trạng thái lỗi.",
+      "prerequisites": "REST, DTO và pagination",
+      "lab": {
+        "goal": "Viết contract sửa group: ID trên URL quyết định tài nguyên; tránh nhận body cho phép đổi ID.",
+        "starter": "record UpdateGroupRequest(/* TODO: trường được phép sửa */) {}\n@PutMapping(\"/api/groups/{id}\")\nGroupResponse update(@PathVariable long id, @Valid @RequestBody UpdateGroupRequest body) {\n    // TODO: viết implementation tại đây\n}\n",
+        "solution": "record UpdateGroupRequest(@NotBlank String name) {}\n@PutMapping(\"/api/groups/{id}\")\nGroupResponse update(@PathVariable long id, @Valid @RequestBody UpdateGroupRequest body) {\n    return service.update(id, body.name());\n}\n",
+        "expected": "ID thiếu → 404; tên rỗng → 400; ID hợp lệ → đổi đúng một group; response có số thành viên đúng.",
+        "language": "java",
+        "filename": "Exercise.java",
+        "instructions": "Giữ record và endpoint PUT; điền field name cùng constraint vào record, rồi hoàn thiện thân update dùng id từ URL. Không thêm trường id vào request.",
+        "comparison": "whole"
+      },
+      "quiz": {
+        "question": "Client gửi ID trong URL và body khác nhau thì nên làm gì?",
+        "answers": [
+          "Âm thầm lấy body",
+          "Thiết kế DTO bỏ ID, hoặc từ chối xung đột nếu contract có cả hai",
+          "Cập nhật cả hai"
+        ],
+        "correct": 1,
+        "explanation": "Một nguồn định danh tránh ambiguity. Nếu hỗ trợ hai nguồn, contract phải chỉ rõ và kiểm tra xung đột."
+      },
+      "understanding": [
+        {
+          "title": "Quyền đặt dữ liệu",
+          "prompt": "Màn hình hiển thị id, name, creator, createdAt, memberCount. Chốt nguồn của từng trường cho POST và GET.",
+          "answer": "Client POST chỉ cung cấp name. ID do DB cấp theo thiết kế, creator từ danh tính, thời gian do server ghi, memberCount tính từ liên kết.",
+          "criterion": "Chỉ rõ trường nào xuất hiện trong request/response và test field giả mạo."
+        },
+        {
+          "title": "Hợp đồng khi cập nhật lỗi",
+          "prompt": "PUT thay tên nhóm bằng một tên trùng. Làm sao bên UI biết lỗi và dữ liệu cũ vẫn còn?",
+          "answer": "Thống nhất 409 và mã lỗi máy đọc được cho trường hợp xung đột của API, giữ ràng buộc unique, kiểm lại name theo ID sau lỗi.",
+          "criterion": "Nêu cả contract HTTP và bất biến dữ liệu. Đừng đoán lỗi từ nội dung message hiển thị."
+        }
+      ]
+    },
+    {
+      "slug": "data-collection-update",
+      "module": "data",
+      "title": "Thay thế tập liên kết và tính nhất quán",
+      "summary": "Tách vòng đời bản ghi khỏi vòng đời liên kết; bảo vệ invariant khi thay đổi cả tập.",
+      "prerequisites": "REST write, quan hệ JPA và transaction",
+      "lab": {
+        "goal": "Thực hiện hai contract riêng: offering từ chối detailIds trùng; account chuẩn hóa groupIds trùng. Cả hai phải giữ dữ liệu khi một ID không tồn tại.",
+        "starter": "// Offering: input [2,3,3] -> TODO status và dữ liệu sau lỗi\n// Account: input [2,3,3] -> TODO tập kết quả\n// Với ID 999 không có: TODO trạng thái sau lỗi\n",
+        "solution": "// Offering: [2,3,3] -> 400; dữ liệu không đổi.\nvar desired = new HashSet<>(requested);\nif (desired.size() != requested.size()) throw badRequest(\"Duplicate detail IDs\");\n// Account: [2,3,3] -> chuẩn hóa {2,3}, rồi kiểm toàn bộ nhóm tồn tại.\n// Trong cả hai use case, [3,999] -> 404 và giữ nguyên dữ liệu trước request.\n",
+        "expected": "Demo offering /buoi-06/offerings/{id}/details ở cổng 812: trùng ID -> 400. Demo account /api/accounts/{id} ở 8117: trùng ID được chuẩn hóa. ID thiếu -> 404, không thay cả trường dữ liệu và liên kết.",
+        "language": "java",
+        "filename": "Exercise.java",
+        "instructions": "Trong editor viết riêng bước từ chối detail ID trùng của offering. Phân biệt quy tắc account bằng chú thích; kiểm tra ID tồn tại và rollback ở project. Không áp dụng lỗi trùng ID của offering cho account.",
+        "comparison": "whole"
+      },
+      "quiz": {
+        "question": "Vì sao kiểm tra mọi ID trước khi sửa liên kết?",
+        "answers": [
+          "Thay thế được transaction",
+          "Phát hiện đầu vào thiếu trước khi tạo thay đổi dở dang",
+          "Không cần khóa ngoại nữa"
+        ],
+        "correct": 1,
+        "explanation": "Kiểm tra sớm cho lỗi rõ; transaction và ràng buộc DB vẫn cần vì dữ liệu có thể đổi đồng thời."
+      },
+      "understanding": [
+        {
+          "title": "Thay tập [1,2] thành [2,3]",
+          "prompt": "Liên kết hiện tại [1,2], yêu cầu [2,3]. Hãy nêu thao tác tối thiểu và trạng thái khi 3 không tồn tại.",
+          "answer": "Giữ 2, xóa liên kết 1, thêm 3. Xác thực toàn bộ ID trước ghi, và đặt các thay đổi trong transaction. Nếu 3 thiếu, báo lỗi và đọc lại thấy [1,2].",
+          "criterion": "Phân biệt xóa liên kết và xóa đối tượng; xác nhận DB sau lỗi."
+        },
+        {
+          "title": "Hai contract với ID lặp",
+          "prompt": "Offering từ chối [2,3,3], account chuẩn hóa danh sách đó. Viết ca nghiệm thu tách biệt và giải thích vì sao không áp cùng helper mặc định.",
+          "answer": "Offering trả 400 và giữ nguyên. Account chuẩn hóa thành {2,3}, xác minh các ID rồi cập nhật. Có thể dùng helper chung cho phép hiệu tập sau khi policy đầu vào đã được áp dụng.",
+          "criterion": "Nêu quy tắc, status và tập dữ liệu cuối riêng của từng API."
+        }
+      ]
+    },
+    {
+      "slug": "spring-events",
+      "module": "events",
+      "title": "Spring Event, sau commit và transactional outbox",
+      "summary": "Chọn gọi trực tiếp, listener theo phase hoặc bàn giao bền vững theo yêu cầu phục hồi.",
+      "prerequisites": "Service transaction, rollback và dependency injection",
+      "lab": {
+        "goal": "Chọn gọi trực tiếp, listener theo phase hoặc bàn giao bền vững theo yêu cầu phục hồi.",
+        "starter": "record InvitationCreated(UUID eventId, long invitationId) {}\n\n@EventListener\npublic void onInvitation(InvitationCreated event) {\n    notifier.send(event.invitationId());\n}\n",
+        "solution": "record InvitationCreated(UUID eventId, long invitationId) {}\n\n@TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)\npublic void onInvitation(InvitationCreated event) {\n    notifier.send(event.invitationId());\n}\n",
+        "expected": "Listener thường đồng bộ có thể đã chạy; listener AFTER_COMMIT không chạy.",
+        "language": "java",
+        "filename": "Exercise.java",
+        "instructions": "Đổi annotation để callback thông báo chạy sau commit.",
+        "comparison": "whole"
+      },
+      "quiz": {
+        "question": "Trong cấu hình mặc định, publish ngoài giao dịch có gọi AFTER_COMMIT listener không?",
+        "answers": [
+          "Có, ngay lập tức",
+          "Tùy số listener",
+          "Không"
+        ],
+        "correct": 2,
+        "explanation": "Không có giao dịch để đăng ký phase, trừ khi cấu hình fallbackExecution phù hợp."
+      },
+      "understanding": [
+        {
+          "title": "Dữ liệu `lazy` trong payload",
+          "prompt": "Event giữ nguyên entity Group và listener xử lý bất đồng bộ. Lúc nào đọc group.members có thể thất bại hoặc không còn đúng nghĩa sự kiện?",
+          "answer": "Listener có thể chạy ngoài persistence context gốc hoặc đọc trạng thái muộn hơn. Truyền ID và snapshot bất biến đủ dùng, rồi chọn lần đọc riêng nếu nghiệp vụ muốn trạng thái mới nhất.",
+          "criterion": "Phân biệt dữ liệu của sự kiện với trạng thái hiện tại của DB."
+        },
+        {
+          "title": "Khi listener báo lỗi sau commit",
+          "prompt": "Ứng dụng trả lỗi khi gửi thông báo sau commit. Client retry tạo nhóm và có thể gặp nhóm đã tồn tại. Thiết kế lại hợp đồng.",
+          "answer": "Đặt hợp đồng xác nhận tạo nhóm/lời mời đã ghi, xử lý gửi bằng trạng thái có thể đối soát. Nếu cần bền vững, ghi outbox cùng transaction và dùng khóa idempotency. Kiểm dữ liệu sau lỗi gửi.",
+          "criterion": "Nêu rõ giao dịch đã commit rồi và chỉ ra cách phục hồi mà không tạo hiệu ứng lặp."
+        }
+      ]
+    },
+    {
+      "slug": "security-authentication",
+      "module": "security",
+      "title": "Authentication và lưu mật khẩu",
+      "summary": "Theo dấu credential đến Authentication và SecurityContext.",
+      "prerequisites": "HTTP header, bean và filter",
+      "lab": {
+        "goal": "Kiểm tra hash bằng PasswordEncoder.matches thay vì encode rồi so chuỗi.",
+        "starter": "PasswordEncoder encoder = new BCryptPasswordEncoder();\nString hash = encoder.encode(\"demo-pass\");\n// TODO: kiểm tra đúng và sai mật khẩu\n",
+        "solution": "PasswordEncoder encoder = new BCryptPasswordEncoder();\nString hash = encoder.encode(\"demo-pass\");\nboolean accepted = encoder.matches(\"demo-pass\", hash);\nboolean rejected = encoder.matches(\"wrong\", hash);\n// accepted=true, rejected=false\n",
+        "expected": "Hai lần encode có thể ra hash khác; matches vẫn đúng với cùng password.",
+        "language": "java",
+        "filename": "Exercise.java",
+        "comparison": "whole",
+        "instructions": "Giữ encoder và hash đã có; thay TODO bằng hai phép matches cho mật khẩu đúng/sai. Lời giải nay hiển thị cả phần khởi tạo, không dán lặp encoder/hash."
+      },
+      "quiz": {
+        "question": "Base64 của username:password có mã hóa bí mật không?",
+        "answers": [
+          "Có",
+          "Không",
+          "Chỉ khi password dài"
+        ],
+        "correct": 1,
+        "explanation": "Base64 đảo ngược được. Basic phải dùng TLS ngoài môi trường lab localhost."
+      },
+      "understanding": [
+        {
+          "title": "Một mật khẩu, hai hash",
+          "prompt": "BCrypt tạo hai hash khác nhau cho cùng mật khẩu. Tại sao so hai hash mới tạo là kiểm tra sai? Viết ca đối chiếu.",
+          "answer": "BCrypt dùng salt; matches nhận mật khẩu nhập và hash đã lưu. Test hai hash có thể khác, matches đúng cho mật khẩu gốc và sai cho giá trị khác.",
+          "criterion": "Nêu đúng hai đầu vào matches và cách chứng minh pass/fail."
+        },
+        {
+          "title": "Danh tính nằm ở đâu",
+          "prompt": "Request HTTP Basic hợp lệ tới endpoint đọc. Hãy lần theo từ credential đến principal. Test mock principal có kiểm được toàn luồng không?",
+          "answer": "Filter đọc credential, chuyển sang authentication manager/provider, provider kiểm credential và kết quả được đưa vào security context. Mock principal chỉ kiểm phần sử dụng danh tính; cần test Basic thật cho luồng auth.",
+          "criterion": "Chỉ rõ biên mà test mock bỏ qua và xác nhận principal quan sát tại endpoint."
+        }
+      ]
+    },
+    {
+      "slug": "security-authorization",
+      "module": "security",
+      "title": "Authorization ở request và method",
+      "summary": "Thiết kế policy theo method, URL và quyền nghiệp vụ.",
+      "prerequisites": "Authentication, role và authority",
+      "lab": {
+        "goal": "Đặt rule /api/admin/** trước rule tổng quát /api/**.",
+        "starter": "http.authorizeHttpRequests(r -> r\n    // TODO: admin trước, API sau, cuối cùng deny\n);\n",
+        "solution": "http.authorizeHttpRequests(r -> r\n    .requestMatchers(\"/api/admin/**\").hasRole(\"ADMIN\")\n    .requestMatchers(\"/api/**\").authenticated()\n    .anyRequest().denyAll());\n",
+        "expected": "Reader đã xác thực vẫn không được gọi /api/admin; endpoint ngoài policy bị từ chối.",
+        "language": "java",
+        "filename": "Exercise.java",
+        "instructions": "Giữ lời gọi authorizeHttpRequests; chèn các rule vào lambda theo đúng thứ tự, không thêm một lời gọi authorizeHttpRequests thứ hai.",
+        "comparison": "whole"
+      },
+      "quiz": {
+        "question": "@PreAuthorize tự hoạt động chỉ vì thêm starter-security?",
+        "answers": [
+          "Có",
+          "Không, cần bật method security",
+          "Chỉ ở controller"
+        ],
+        "correct": 1,
+        "explanation": "@EnableMethodSecurity bật hạ tầng kiểm soát phương thức. Cần test lời gọi qua bean được quản lý."
+      },
+      "understanding": [
+        {
+          "title": "So thứ tự chain và rule",
+          "prompt": "Có hai chain khớp cùng /api/admin/stats; trong chain được dùng có rule /api/** trước /api/admin/**. Spring chọn gì và nên sửa chỗ nào?",
+          "answer": "Chain khớp đầu tiên được chọn theo thứ tự. Trong chain đó, rule đầu tiên phù hợp quyết định quyền. Cần xét cả thứ tự chain và đặt rule admin cụ thể trước rule rộng.",
+          "criterion": "Phân biệt hai bước match, test reader/admin ở URL admin và URL đọc thường."
+        },
+        {
+          "title": "Có role nhưng sai chủ sở hữu",
+          "prompt": "Hai user đều có quyền đọc nhóm của mình. User An gửi ID nhóm của Bình. Kiểm role là đủ chưa? Thiết kế ca test.",
+          "answer": "Role chung chưa xác nhận quyền trên bản ghi. Dùng kiểm ownership ở service hoặc truy vấn có điều kiện; kiểm cả truy cập cùng chủ và khác chủ theo status của contract.",
+          "criterion": "Test giữ nguyên role và chỉ đổi resource/owner; xác nhận dữ liệu không lộ."
+        }
+      ]
+    },
+    {
+      "slug": "security-session-csrf",
+      "module": "security",
+      "title": "Session, CSRF và CORS",
+      "summary": "Phân biệt ba vấn đề thường bị gom thành lỗi 403.",
+      "prerequisites": "Cookie, origin và authentication",
+      "lab": {
+        "goal": "Viết test phân biệt admin thiếu CSRF và reader đủ CSRF nhưng thiếu quyền.",
+        "starter": "// TODO: viết hai test riêng để không lẫn role và CSRF.\n// Mỗi test chụp groups.list() trước, gửi request và assert DB không đổi.\n",
+        "solution": "var before = groups.list();\nmvc.perform(post(\"/api/groups\")\n    .with(httpBasic(\"admin\", \"demo-pass\"))\n    .contentType(\"application/json\").content(\"{\\\"name\\\":\\\"Denied\\\"}\"))\n    .andExpect(status().isForbidden());\nassertThat(groups.list()).isEqualTo(before);\n\nmvc.perform(post(\"/api/groups\")\n    .with(httpBasic(\"reader\", \"demo-pass\")).with(csrf())\n    .contentType(\"application/json\").content(\"{\\\"name\\\":\\\"Denied\\\"}\"))\n    .andExpect(status().isForbidden());\nassertThat(groups.list()).isEqualTo(before);\n",
+        "expected": "Thử cùng session/token; kiểm dữ liệu không đổi sau hai request bị chặn.",
+        "language": "java",
+        "filename": "Exercise.java",
+        "instructions": "Trong editor viết hai đoạn kiểm chứng liên tiếp và so dữ liệu sau mỗi request. Khi đưa vào bộ test thật, tách thành hai @Test với dữ liệu chuẩn bị riêng.",
+        "comparison": "whole"
+      },
+      "quiz": {
+        "question": "CORS có ngăn mọi client ngoài trình duyệt gọi API không?",
+        "answers": [
+          "Có",
+          "Không",
+          "Chỉ khi bật credentials"
+        ],
+        "correct": 1,
+        "explanation": "CORS là cơ chế trình duyệt kiểm soát việc đọc response cross-origin; API vẫn cần authentication/authorization."
+      },
+      "understanding": [
+        {
+          "title": "Hai ca cùng bị từ chối",
+          "prompt": "Trong cấu hình lab yêu cầu ADMIN và CSRF cho POST. So admin thiếu token với reader có token hợp lệ. Làm sao biết nguyên nhân khác nhau?",
+          "answer": "Admin thiếu token bị chặn ở CSRF. Reader có token hợp lệ vẫn thiếu quyền. Giữ body và endpoint giống nhau, đối chiếu với admin có token hợp lệ.",
+          "criterion": "Chọn biến đối chứng đúng và kiểm dữ liệu không đổi sau hai ca bị chặn."
+        },
+        {
+          "title": "Origin khác, cùng request",
+          "prompt": "Request chạy được bằng HTTP client nhưng JavaScript khác origin không đọc response. Tách gì giữa CORS và quyền API?",
+          "answer": "Xem Network để xác định preflight và header CORS. CORS là chính sách browser theo origin; quyền API được kiểm tra riêng bằng authentication/authorization. Test origin được phép và bị từ chối.",
+          "criterion": "Không suy từ client dòng lệnh thành hành vi browser; phân biệt hai lớp."
+        }
+      ]
+    },
+    {
+      "slug": "security-lab",
+      "module": "security",
+      "title": "Lab kiểm chứng policy Security",
+      "summary": "Tự kiểm tra ma trận quyền, credential và CSRF bằng API; đọc dữ liệu sau lỗi.",
+      "prerequisites": "Authentication, authorization và CSRF",
+      "lab": {
+        "goal": "Lập ma trận GET/POST theo anonymous, reader, admin và CSRF; viết test cho hai nguyên nhân 403.",
+        "starter": "// TODO: test reader ghi với token hợp lệ\nmvc.perform(post(\"/api/groups\")\n    .with(user(\"reader\").roles(\"READER\"))\n    .with(csrf())\n    .contentType(\"application/json\").content(\"{\\\"name\\\":\\\"Demo\\\"}\"));\n",
+        "solution": "mvc.perform(post(\"/api/groups\")\n    .with(user(\"reader\").roles(\"READER\"))\n    .with(csrf())\n    .contentType(\"application/json\").content(\"{\\\"name\\\":\\\"Demo\\\"}\"))\n    .andExpect(status().isForbidden());\n",
+        "expected": "Reader có CSRF vẫn 403 do quyền; admin thiếu CSRF 403; admin có CSRF và body hợp lệ được tạo.",
+        "language": "java",
+        "filename": "Exercise.java",
+        "instructions": "Sửa chuỗi mvc.perform hiện có: thay dấu chấm phẩy kết thúc bằng .andExpect kiểm tra 403. Không giữ request cũ rồi tạo thêm request thứ hai chỉ để gắn assert.",
+        "comparison": "whole"
+      },
+      "quiz": {
+        "question": "Admin GET được nhưng POST 403 có chắc thiếu role không?",
+        "answers": [
+          "Có",
+          "Không; phải kiểm tra CSRF và policy của endpoint",
+          "Cứ tắt security"
+        ],
+        "correct": 1,
+        "explanation": "401/403 cần được đọc cùng method, danh tính, CSRF và cấu hình thực tế. Không sửa bằng cách tắt bảo vệ chung."
+      },
+      "understanding": [
+        {
+          "title": "Ma trận đọc và ghi",
+          "prompt": "Lab có GET yêu cầu xác thực, POST yêu cầu admin và token CSRF hợp lệ. Dự đoán anonymous GET, reader GET, reader POST đủ token và admin POST đủ token/body đúng.",
+          "answer": "Trong cấu hình Basic của lab, dự kiến 401, 200, 403, 201. Xác nhận GET không đổi dữ liệu và chỉ POST được phép tạo bản ghi.",
+          "criterion": "Nêu điều kiện của từng status và kiểm hậu quả ghi."
+        },
+        {
+          "title": "Mock user và credential thật",
+          "prompt": "Một test dùng user mock có ADMIN và CSRF thì xanh. Test đó có chứng minh mật khẩu thật của admin hợp lệ không? Bổ sung gì?",
+          "answer": "Nó thiết lập identity cho request rồi test policy. Dùng httpBasic với credential đúng/sai cho ca xác thực và giữ điều kiện CSRF phù hợp để lỗi không bị che.",
+          "criterion": "Nêu rõ test nào trả lời câu hỏi authentication, test nào trả lời authorization."
+        }
+      ]
+    },
+    {
+      "slug": "security-oauth2",
+      "module": "security",
+      "title": "OAuth2, OpenID Connect và JWT Resource Server",
+      "summary": "Phân biệt đăng nhập, ủy quyền và định dạng token.",
+      "prerequisites": "Authentication, authorization, HTTPS và JSON",
+      "lab": {
+        "goal": "Lập checklist xác minh access token; không coi decode JWT là xác thực.",
+        "starter": "// TODO: các điều kiện chấp nhận JWT\n",
+        "solution": "// 1. Signature hợp lệ với key/algorithm tin cậy\n// 2. iss đúng issuer, exp/nbf hợp lệ\n// 3. aud chứa API của mình (cấu hình validator)\n// 4. scope/authority đủ cho thao tác\n",
+        "expected": "Token sai chữ ký/hết hạn/sai issuer/audience bị từ chối theo cấu hình; token hợp lệ thiếu scope không được cấp quyền.",
+        "language": "java",
+        "filename": "Exercise.java",
+        "instructions": "Ghi checklist xác minh token bằng chú thích. Bài này tự nghiệm thu; bộ đối chiếu không thể xác nhận chữ ký/issuer/audience bằng cách so đoạn giải thích.",
+        "comparison": "manual"
+      },
+      "quiz": {
+        "question": "ID token có nên mặc định dùng thay access token để gọi API không?",
+        "answers": [
+          "Có",
+          "Không",
+          "Nếu decode được JSON"
+        ],
+        "correct": 1,
+        "explanation": "ID token phục vụ client xác minh đăng nhập theo OIDC. API resource server cần access token đúng audience và policy."
+      },
+      "understanding": [
+        {
+          "title": "JWT đọc được nhưng sai đối tượng nhận",
+          "prompt": "JWT hợp lệ về chữ ký và còn hạn, issuer đúng nhưng audience dành cho API khác. Resource server yêu cầu audience của mình. Kết quả nào đúng?",
+          "answer": "Token không đạt xác thực cho resource server này vì sai aud. Test với token đúng aud và sai aud, cố định issuer và thời hạn.",
+          "criterion": "Chỉ ra vì sao decode và chữ ký hợp lệ chưa đủ để chấp nhận token."
+        },
+        {
+          "title": "Thiếu scope khác token hết hạn",
+          "prompt": "API yêu cầu scope groups:write. So token hết hạn và token hợp lệ chỉ có groups:read trong cấu hình Bearer của bài.",
+          "answer": "Token hết hạn không qua xác thực, thường 401 trong cấu hình đó. Token hợp lệ thiếu quyền bị từ chối ở authorization, thường 403. Test đi qua decoder thật cho ca hết hạn.",
+          "criterion": "Phân biệt lỗi token với policy quyền; chỉ ra ca nào test mock JWT không xác minh."
+        }
+      ]
+    },
+    {
+      "slug": "testing-deployment",
+      "module": "testing",
+      "title": "Chiến lược kiểm thử và vận hành Spring Boot",
+      "summary": "Chọn test đủ mạnh cho hành vi cần chứng minh.",
+      "prerequisites": "Các tầng API, transaction và security",
+      "lab": {
+        "goal": "Viết test dữ liệu không đổi sau request bị từ chối, không chỉ assert status.",
+        "starter": "// TODO: chụp danh sách, gửi POST tên trắng bằng ADMIN + CSRF,\n// assert 400, rồi đọc lại và so dữ liệu.\n",
+        "solution": "var before = groups.list();\nmvc.perform(post(\"/api/groups\")\n    .with(user(\"admin\").roles(\"ADMIN\"))\n    .with(csrf())\n    .contentType(\"application/json\")\n    .content(\"{\\\"name\\\":\\\"  \\\"}\"))\n    .andExpect(status().isBadRequest());\nassertThat(groups.list()).isEqualTo(before);\n",
+        "expected": "Test phát hiện cả trường hợp trả 400 nhưng vẫn ghi dữ liệu. Với rollback, đọc lại ở transaction mới.",
+        "language": "java",
+        "filename": "Exercise.java",
+        "instructions": "Thay TODO bằng chụp dữ liệu trước request, gửi POST trắng với ADMIN + CSRF, assert 400 và so dữ liệu sau request. Chạy test thật trong project để xác nhận.",
+        "comparison": "whole"
+      },
+      "quiz": {
+        "question": "H2 pass có đủ kết luận SQL native chạy đúng MySQL không?",
+        "answers": [
+          "Có",
+          "Không",
+          "Nếu cùng JPA version"
+        ],
+        "correct": 1,
+        "explanation": "Dialect, constraint, locking và SQL có thể khác. Cần kiểm thử DB mục tiêu cho kết luận đó."
+      },
+      "understanding": [
+        {
+          "title": "Status đúng nhưng dữ liệu sai",
+          "prompt": "Test POST input lỗi chỉ assert 400. Implementation có thể ghi một hàng rồi trả 400. Bổ sung bằng chứng nào để bắt lỗi?",
+          "answer": "So trạng thái dữ liệu trước và sau request bằng lần đọc độc lập. Tránh để rollback của chính test che thay đổi đã commit của ứng dụng.",
+          "criterion": "Nêu invariant và ranh giới của phép đọc kiểm chứng."
+        },
+        {
+          "title": "H2 và DB triển khai",
+          "prompt": "Test native query chạy ổn trên H2. Deploy sang PostgreSQL, câu query và migration dùng dialect riêng. Chọn bộ test tối thiểu trước khi phát hành.",
+          "answer": "Giữ test nhanh cho logic độc lập DB và chạy integration trên PostgreSQL đúng phiên bản mục tiêu với migration thật, query và seed đại diện.",
+          "criterion": "Chỉ ra câu hỏi H2 trả lời được và ca chỉ DB mục tiêu trả lời được."
+        }
+      ]
+    },
+    {
+      "slug": "logging-observability",
+      "module": "testing",
+      "title": "Logging và quan sát ứng dụng",
+      "summary": "Dùng log để kiểm tra giả thuyết, nối request và bảo vệ dữ liệu nhạy cảm.",
+      "prerequisites": "Luồng request, exception và transaction",
+      "lab": {
+        "goal": "Viết log một lỗi bất ngờ có mã đối chiếu, không ghi credential/body tùy tiện.",
+        "starter": "// TODO: tự viết giải pháp theo đề bài\n",
+        "solution": "String requestId = UUID.randomUUID().toString();\nlog.error(\"Unexpected failure requestId={}\", requestId, exception);\n// Chỉ log stack trace trong hệ thống nội bộ với kiểm soát và che dữ liệu phù hợp.\n",
+        "expected": "Thực hiện các trường hợp đúng và lỗi trong bài; đối chiếu response, log và dữ liệu sau thao tác.",
+        "language": "java",
+        "filename": "Exercise.java",
+        "instructions": "Thay TODO bằng tạo requestId và log lỗi với exception. Không thêm credential, body hay password vào log. Chạy/kiểm tra hệ thống log trong project.",
+        "comparison": "whole"
+      },
+      "quiz": {
+        "question": "Log Created xuất hiện trong transaction đã chứng minh commit chưa?",
+        "answers": [
+          "Đã chắc chắn",
+          "Chưa; transaction có thể thất bại sau log đó",
+          "Chỉ cần log INFO"
+        ],
+        "correct": 1,
+        "explanation": "Đối chiếu kết quả transaction, response và dữ liệu sau thao tác."
+      },
+      "understanding": [
+        {
+          "title": "Log trước khi commit",
+          "prompt": "Log Created xuất hiện, sau đó response 500. Làm sao phân biệt đã commit với bị rollback?",
+          "answer": "Nối response và log theo request ID, xem lỗi ở điểm flush/commit rồi đọc DB từ request hoặc transaction khác. Dòng log trước commit chỉ là dấu hiệu đã đến đoạn đó.",
+          "criterion": "Nêu bằng chứng cuối cùng và không ghi credential/body nhạy cảm vào log."
+        },
+        {
+          "title": "Metric không phù hợp",
+          "prompt": "Nhóm muốn thêm userId và requestId vào nhãn metric HTTP. Vấn đề gì xuất hiện và đặt dữ liệu này ở đâu?",
+          "answer": "Mỗi giá trị tạo tổ hợp nhãn mới. Dùng nhãn hữu hạn như route template và status cho metric; giữ ID phù hợp trong trace/log theo chính sách dữ liệu.",
+          "criterion": "Giải thích cardinality và dùng đúng loại tín hiệu để điều tra từng request."
+        }
+      ]
+    },
+    {
+      "slug": "debugging-request-flow",
+      "module": "testing",
+      "title": "Gỡ lỗi theo dấu request qua các tầng",
+      "summary": "Giải thích từng tầng bằng dấu hiệu quan sát được, từ bean được tạo lúc khởi động đến dữ liệu được commit.",
+      "prerequisites": "Web MVC, JPA, transaction và security",
+      "lab": {
+        "goal": "Viết bảng giả thuyết cho 400/401/403/404/500 và thiết kế request phân biệt nguyên nhân.",
+        "starter": "// Hiện tượng: admin GET 200, POST 403\n// TODO: request kiểm tra 1\n// TODO: request kiểm tra 2\n",
+        "solution": "// 1. POST cùng body, admin + token/session CSRF hợp lệ.\n// 2. POST cùng body, reader + token/session CSRF hợp lệ.\n// Nếu 1 qua và 2 bị 403: policy quyền đang phân biệt đúng.\n// Kiểm tra dữ liệu sau mọi request lỗi.\n",
+        "expected": "Chỉ thay một biến mỗi lần; có bằng chứng request đến/chưa đến controller; dữ liệu được đọc lại sau lỗi.",
+        "language": "java",
+        "filename": "Exercise.java",
+        "instructions": "Điền giả thuyết và hai request phân biệt quyền/CSRF vào chú thích. Đây là bài thiết kế kiểm chứng thủ công, không chấm bằng độ giống văn bản.",
+        "comparison": "manual"
+      },
+      "quiz": {
+        "question": "Chỉ nhìn status 403 có xác định được duy nhất nguyên nhân không?",
+        "answers": [
+          "Có",
+          "Không; cần request và dấu vết từng tầng",
+          "Có nếu client là curl"
+        ],
+        "correct": 1,
+        "explanation": "Một status có thể có nhiều nguồn. Thiết kế thí nghiệm giúp loại giả thuyết thay vì đoán."
+      },
+      "understanding": [
+        {
+          "title": "Cô lập lỗi đầu tiên",
+          "prompt": "Admin GET thành công, POST nhận 403. Bạn chỉ được thay một điều kiện mỗi lần. Lập thứ tự kiểm tra.",
+          "answer": "Giữ body và identity, kiểm session cùng CSRF token của request ghi. Dùng admin đủ token làm ca đối chứng, rồi đổi role với token hợp lệ để tách policy.",
+          "criterion": "Tách ít nhất hai giả thuyết và chỉ ra bằng chứng request có tới MVC hay không."
+        },
+        {
+          "title": "Phân biệt 404 ở router và nghiệp vụ",
+          "prompt": "Một URL gõ sai và một URL đúng nhưng ID không có đều trả 404. Kiểm tra ở đâu trước khi sửa repository?",
+          "answer": "Kiểm mapping và dấu vết controller. URL sai không tới handler của API, còn ID thiếu đã chạy lookup. Đối chiếu bằng route đúng với ID có sẵn rồi chỉ đổi ID.",
+          "criterion": "Dùng status cùng một dấu hiệu tầng thực thi, không sửa SQL chỉ dựa vào 404."
+        }
+      ]
+    },
+    {
+      "slug": "http-client-resilience",
+      "module": "integration",
+      "title": "HTTP client, timeout, retry và circuit breaker",
+      "summary": "Xử lý trường hợp đối tác đã ghi nhưng client mất phản hồi.",
+      "prerequisites": "HTTP contract, idempotency và outbox",
+      "lab": {
+        "goal": "Xử lý trường hợp đối tác đã ghi nhưng client mất phản hồi.",
+        "starter": "var factory = new SimpleClientHttpRequestFactory();\nfactory.setConnectTimeout(Duration.ofMillis(100));\n// TODO: chỉ chờ đọc tối đa 300 ms\n\nvar client = RestClient.builder()\n        .requestFactory(factory)\n        .baseUrl(\"http://localhost:8089\")\n        .build();\n",
+        "solution": "var factory = new SimpleClientHttpRequestFactory();\nfactory.setConnectTimeout(Duration.ofMillis(100));\nfactory.setReadTimeout(Duration.ofMillis(300));\n\nvar client = RestClient.builder()\n        .requestFactory(factory)\n        .baseUrl(\"http://localhost:8089\")\n        .build();\n",
+        "expected": "Dùng cùng key để đối soát hoặc retry theo hợp đồng; kiểm bên nhận có đúng một hiệu ứng.",
+        "language": "java",
+        "filename": "Exercise.java",
+        "instructions": "Giữ kết nối và URL của stub, thêm cấu hình read timeout.",
+        "comparison": "whole"
+      },
+      "quiz": {
+        "question": "Timeout sau POST chứng minh điều gì?",
+        "answers": [
+          "Client chưa nhận được kết quả đúng hạn",
+          "Đối tác chắc chắn chưa ghi",
+          "Cần gửi lại với key mới"
+        ],
+        "correct": 0,
+        "explanation": "Timeout một mình không xác định trạng thái nghiệp vụ phía đối tác."
+      },
+      "understanding": [
+        {
+          "title": "Retry vượt deadline",
+          "prompt": "Worker còn 600 ms. Đã dùng 300 ms cho lần đầu; backoff 200 ms và lần tiếp cần đến 300 ms. Có nên chạy lần thử đầy đủ tiếp không?",
+          "answer": "Tổng dự kiến 800 ms vượt deadline. Ràng buộc retry theo thời gian còn lại; nếu chưa có kết quả nghiệp vụ thì ghi trạng thái chờ đối soát hoặc đưa lại vào luồng phục hồi theo hợp đồng.",
+          "criterion": "Tính cả các lần thử và backoff; nêu cách ghi kết quả chưa biết."
+        },
+        {
+          "title": "Cùng lỗi nhưng khác chính sách",
+          "prompt": "A trả 503, B trả 422. Stub của A có thể đã ghi. Khi nào retry, khi nào chuyển việc cho người xử lý?",
+          "answer": "503 có thể retry theo hợp đồng idempotency và deadline; nếu kết quả không rõ, đối soát. 422 là đầu vào không hợp lệ theo giả định, chuyển sửa dữ liệu. Đếm số call và hiệu ứng để kiểm.",
+          "criterion": "Không quyết định chỉ từ kỹ thuật kết nối; nêu điều kiện nghiệp vụ và bằng chứng."
+        }
+      ]
+    },
+    {
+      "slug": "async-scheduling",
+      "module": "async",
+      "title": "Async, executor giới hạn và scheduling nhiều instance",
+      "summary": "Giữ công việc phục hồi được khi hàng đợi đầy hoặc worker dừng.",
+      "prerequisites": "Đa luồng Java (C3–C5 ở bài Vòng đời bean), bean proxy, transaction-bound event và outbox",
+      "lab": {
+        "goal": "Giữ công việc phục hồi được khi hàng đợi đầy hoặc worker dừng.",
+        "starter": "@Bean\nThreadPoolTaskExecutor invitationExecutor() {\n    var executor = new ThreadPoolTaskExecutor();\n    executor.setCorePoolSize(2);\n    executor.setMaxPoolSize(2);\n    // TODO: giới hạn queue ở 4\n    executor.setThreadNamePrefix(\"invite-\");\n    return executor;\n}\n",
+        "solution": "@Bean\nThreadPoolTaskExecutor invitationExecutor() {\n    var executor = new ThreadPoolTaskExecutor();\n    executor.setCorePoolSize(2);\n    executor.setMaxPoolSize(2);\n    executor.setQueueCapacity(4);\n    executor.setThreadNamePrefix(\"invite-\");\n    return executor;\n}\n",
+        "expected": "Với chính sách từ chối mặc định và chưa có slot giải phóng, submit bị từ chối. Kiểm bản ghi outbox còn có thể xử lý lại.",
+        "language": "java",
+        "filename": "Exercise.java",
+        "instructions": "Giữ 2 worker, thêm giới hạn queue.",
+        "comparison": "whole"
+      },
+      "quiz": {
+        "question": "Hai instance đều có @Scheduled. Annotation bảo đảm gì giữa chúng?",
+        "answers": [
+          "Hai instance tự chia đều bản ghi",
+          "Mỗi scheduler chạy theo cấu hình của instance",
+          "Chỉ một instance được chạy"
+        ],
+        "correct": 1,
+        "explanation": "Cần phối hợp ở tầng công việc nếu yêu cầu loại cạnh tranh."
+      },
+      "understanding": [
+        {
+          "title": "Async gọi nội bộ",
+          "prompt": "Service gọi this.deliver() dù deliver có @Async. Log vẫn hiện thread xử lý HTTP. Chứng minh và sửa ở đâu?",
+          "answer": "Trong proxy mode, lời gọi nội bộ bỏ qua interceptor. Chuyển nhiệm vụ sang bean khác rồi test tên thread hoặc latch; mở biên transaction riêng trong worker nếu cần ghi.",
+          "criterion": "Nêu đường gọi và bằng chứng chạy trên executor."
+        },
+        {
+          "title": "Claim hết hạn trong khi đang gửi",
+          "prompt": "Worker A gửi chậm, lease hết hạn và B lấy lại. Làm sao tránh A ghi đè trạng thái của B?",
+          "answer": "Cập nhật có điều kiện theo claim token hoặc version. Nếu cả hai đã gửi, cần idempotency ở downstream; trạng thái claim một mình không thu hồi được call đã gửi.",
+          "criterion": "Phân biệt tranh chấp trạng thái DB với hiệu ứng ở hệ thống nhận."
+        }
+      ]
+    },
+    {
+      "slug": "cache-consistency",
+      "module": "cache",
+      "title": "Cache theo use case và tính nhất quán sau commit",
+      "summary": "Thiết kế key, TTL và invalidation cho danh sách có quyền truy cập.",
+      "prerequisites": "Projection, xác thực/phân quyền và transaction",
+      "lab": {
+        "goal": "Thiết kế key, TTL và invalidation cho danh sách có quyền truy cập.",
+        "starter": "record MembersKey(long groupId, String visibilityScope,\n                  int page, int size, String sort) {}\n\n@Cacheable(cacheNames = \"members\", key = \"#p0.groupId()\")\npublic PageView readMembers(MembersKey key) {\n    return repository.findView(key);\n}\n",
+        "solution": "record MembersKey(long groupId, String visibilityScope,\n                  int page, int size, String sort) {}\n\n@Cacheable(cacheNames = \"members\", key = \"#p0\")\npublic PageView readMembers(MembersKey key) {\n    return repository.findView(key);\n}\n",
+        "expected": "Admin gọi trước có thể làm reader nhận sai kết quả. Test hai identity và cache đã ấm.",
+        "language": "java",
+        "filename": "Exercise.java",
+        "instructions": "Giữ kiểu MembersKey, sửa biểu thức SpEL để dùng toàn bộ key.",
+        "comparison": "whole"
+      },
+      "quiz": {
+        "question": "Cache theo groupId đủ trong trường hợp nào?",
+        "answers": [
+          "Khi cả hai người đều đăng nhập",
+          "Khi dùng Redis",
+          "Khi mọi đầu vào và phạm vi cùng groupId luôn cho cùng kết quả phù hợp quyền"
+        ],
+        "correct": 2,
+        "explanation": "Chọn key từ hợp đồng kết quả và kiểm quyền tại biên dữ liệu."
+      },
+      "understanding": [
+        {
+          "title": "Một key, hai cách sắp xếp",
+          "prompt": "Hai request có cùng groupId và phạm vi, một sort theo tên, một sort theo ngày. Key hiện chỉ dùng ID/phạm vi/trang. Test nào phát hiện sai?",
+          "answer": "Làm ấm cache bằng sort A, gọi sort B có thứ tự kỳ vọng khác, so dữ liệu và số query. Đưa sort và mọi yếu tố ảnh hưởng response vào key chuẩn hóa.",
+          "criterion": "Thiết kế seed làm kết quả hai sort khác nhau và kiểm cả khi cache đã ấm."
+        },
+        {
+          "title": "Cache cũ bị nạp lại sau eviction",
+          "prompt": "Một reader lấy trang cũ trước commit, writer commit và evict, rồi reader mới put kết quả cũ vào cache. TTL và after-commit có ý nghĩa gì?",
+          "answer": "Eviction xảy ra đúng phase nhưng không loại hết race. TTL giới hạn thời gian cache đã put sống; nếu cần mạnh hơn, cân nhắc versioned key hoặc cơ chế phối hợp và test xen kẽ.",
+          "criterion": "Chỉ ra thứ tự tạo lỗi và đánh đổi giữa consistency, độ trễ và độ phức tạp."
+        }
+      ]
+    },
+    {
+      "slug": "api-list-contract",
+      "module": "project",
+      "title": "Thiết kế API danh sách account",
+      "summary": "Từ yêu cầu danh sách có tìm kiếm, lọc, sắp xếp và phân trang đến request có thể kiểm chứng bằng dữ liệu.",
+      "prerequisites": "DTO, pagination và security",
+      "lab": {
+        "goal": "Viết contract account list, giới hạn sort whitelist và không trả password hash.",
+        "starter": "record AccountResponse(/* TODO: trường được phép trả */) {}\n",
+        "solution": "record AccountResponse(long id, String username, String email, List<Long> groupIds) {}\n",
+        "expected": "Response không có password/hash; q rỗng và không tìm thấy được định nghĩa; page/size/sort sai trả 400 rõ ràng.",
+        "language": "java",
+        "filename": "Exercise.java",
+        "instructions": "Điền các field công khai vào record AccountResponse hiện có. Editor đối chiếu DTO; whitelist sort và endpoint danh sách triển khai trong project, không trả password hash.",
+        "comparison": "whole"
+      },
+      "quiz": {
+        "question": "Vì sao không trả thẳng entity có passwordHash?",
+        "answers": [
+          "Vì JSON không hỗ trợ String",
+          "Vì hợp đồng response phải giới hạn dữ liệu được phép công bố",
+          "Vì DB không lưu hash"
+        ],
+        "correct": 1,
+        "explanation": "DTO tường minh giảm rò rỉ trường nội bộ và tránh phụ thuộc API vào mapping persistence."
+      },
+      "understanding": [
+        {
+          "title": "Danh sách có tie-breaker",
+          "prompt": "Có ID 8, 10, 11 cùng ngày tạo và được lọc vào kết quả. Sort ngày giảm dần rồi ID giảm dần, page bắt đầu 0, size 2. Dự đoán trang 0 và 1.",
+          "answer": "Trang 0 là [11,10], trang 1 là [8]. Tổng 3 nếu đó là cả tập khớp. Dùng cùng filter cho count và kiểm API đổi chỉ số đúng khi cần.",
+          "criterion": "Nêu thứ tự và tổng dựa trên tập lọc, giữ seed cố định."
+        },
+        {
+          "title": "Whitelisting và hợp đồng response",
+          "prompt": "Client gửi sort=passwordHash và yêu cầu size=500, vượt max theo hợp đồng. Đề xuất xử lý và cách test không lộ hash.",
+          "answer": "Giới hạn sort theo whitelist, xử lý size theo quy tắc đã công bố và trả DTO không chứa hash. Test từng tham số lỗi, sau đó test payload hợp lệ không có trường nhạy cảm.",
+          "criterion": "Nêu ca đầu vào lỗi và kiểm shape response độc lập với entity."
+        }
+      ]
+    },
+    {
+      "slug": "project-directory",
+      "module": "project",
+      "title": "Dự án: thiết kế danh bạ user và group",
+      "summary": "Tự dựng CRUD, mô hình hóa quan hệ nhiều–nhiều và thử hợp đồng API bằng dữ liệu có sẵn.",
+      "prerequisites": "REST, query và transaction",
+      "lab": {
+        "goal": "Tự triển khai thêm thành viên idempotent và bảo đảm cặp group/user không trùng.",
+        "starter": "@Transactional\npublic void addMember(long groupId, long userId) {\n    // TODO: kiểm tra đối tượng và xử lý cặp đã có\n}\n",
+        "solution": "@Transactional\npublic void addMember(long groupId, long userId) {\n    requireGroup(groupId);\n    requireUser(userId);\n    if (!memberships.existsByGroupIdAndUserId(groupId, userId)) {\n        memberships.save(new Membership(groupId, userId));\n    }\n}\n// Unique constraint bảo vệ cạnh tranh; chọn thêm chính sách xử lý conflict.\n",
+        "expected": "Gọi lặp tuần tự không tạo thêm hàng; ID không có → 404; bổ sung test cạnh tranh theo chiến lược khóa/upsert đã chọn.",
+        "language": "java",
+        "filename": "Exercise.java",
+        "instructions": "Giữ @Transactional và addMember; thay TODO bằng kiểm tra group/user và chỉ tạo cặp chưa có. Unique constraint và xử lý cạnh tranh thực hiện thêm trong project.",
+        "comparison": "whole"
+      },
+      "quiz": {
+        "question": "Kiểm tra exists trước insert đã đủ ngăn trùng khi đồng thời chưa?",
+        "answers": [
+          "Đủ",
+          "Chưa; cần constraint và chiến lược xử lý cạnh tranh",
+          "Chỉ cần try/catch mọi lỗi"
+        ],
+        "correct": 1,
+        "explanation": "Hai transaction có thể cùng quan sát chưa tồn tại. DB phải bảo vệ invariant cuối cùng."
+      },
+      "understanding": [
+        {
+          "title": "Hai lần thêm cùng một thành viên",
+          "prompt": "Hai request đồng thời cùng qua exists rồi insert cặp group/user chưa có. Vì sao kiểm exists chưa đủ? Chọn cách kiểm chứng.",
+          "answer": "Cả hai có thể đọc trạng thái chưa có; dùng unique constraint bảo vệ cặp, kèm chiến lược xử lý conflict/lock hoặc upsert theo contract. Điều phối hai request và đọc DB cuối.",
+          "criterion": "Chứng minh có đúng một liên kết và status của hai request theo chính sách."
+        },
+        {
+          "title": "Xóa nhóm có ràng buộc",
+          "prompt": "Group còn membership, API yêu cầu xóa nhóm và liên kết nhưng giữ account. Nếu bước xóa group thất bại sau bước xóa link thì sao?",
+          "answer": "Trong cùng transaction, lỗi dẫn đến rollback theo chính sách; group, account và link giữ nguyên. Test thất bại sau bước đầu và đọc lại từng bảng.",
+          "criterion": "Nêu thứ tự thao tác, ranh giới transaction và kiểm không xóa nhầm account."
+        }
+      ]
+    },
+    {
+      "slug": "deployment-lifecycle",
+      "module": "project",
+      "title": "Readiness, graceful shutdown và migration khi rollout",
+      "summary": "Giữ request, worker và schema nhất quán khi thay phiên bản đang chạy.",
+      "prerequisites": "Actuator, transaction, worker/outbox và kiểm thử tích hợp",
+      "lab": {
+        "goal": "Giữ request, worker và schema nhất quán khi thay phiên bản đang chạy.",
+        "starter": "server:\n  shutdown: graceful\nspring:\n  lifecycle:\n    # TODO: cho shutdown phase 20 giây\nmanagement:\n  endpoint:\n    health:\n      probes:\n        enabled: true\n",
+        "solution": "server:\n  shutdown: graceful\nspring:\n  lifecycle:\n    timeout-per-shutdown-phase: 20s\nmanagement:\n  endpoint:\n    health:\n      probes:\n        enabled: true\n",
+        "expected": "Quan sát rút traffic, thả latch trong budget và kiểm response. Ca vượt budget cần ghi rõ client/worker quan sát gì.",
+        "language": "yaml",
+        "filename": "application.yaml",
+        "instructions": "Giữ probes và chế độ graceful, bổ sung timeout theo minh họa.",
+        "comparison": "whole"
+      },
+      "quiz": {
+        "question": "V1 và v2 đang cùng chạy, khi nào bỏ cột mà v1 đọc?",
+        "answers": [
+          "Sau khi mọi nơi phụ thuộc đã dùng schema mới",
+          "Ngay khi v2 start lần đầu",
+          "Ngay sau khi tạo cột mới"
+        ],
+        "correct": 0,
+        "explanation": "Chỉ contract sau khi xác nhận không còn phiên bản hay tác vụ phụ thuộc cột cũ."
+      },
+      "understanding": [
+        {
+          "title": "DB lỗi tạm thời",
+          "prompt": "Một cụm có bốn instance, DB dùng chung bị gián đoạn. Vì sao gắn DB vào liveness cho tất cả có thể làm sự cố nặng hơn?",
+          "answer": "Các instance có thể bị restart đồng loạt dù tiến trình còn sống, tăng tải hồi phục. Phân loại probe theo ý nghĩa, xác định readiness/response khi dependency mất và thử lại khi DB phục hồi.",
+          "criterion": "Nêu tác động của probe đến orchestrator, không chỉ tình trạng kết nối DB."
+        },
+        {
+          "title": "Rollout quay lui sau backfill",
+          "prompt": "V2 có status mới, v1 tiếp tục ghi theo schema cũ. Nếu rollback về v1 sau backfill, cần bảo đảm gì?",
+          "answer": "Giữ cấu trúc và đường ghi mà v1 dùng, thiết kế đồng bộ dữ liệu mới cho các ghi còn đến từ v1. Test v1/v2 trên schema expand và hoãn drop đến sau cửa sổ quay lui.",
+          "criterion": "Nêu kiểm chứng theo ma trận phiên bản/schema và mốc migration không còn tương thích."
+        }
+      ]
+    },
+    {
+      "slug": "project-capstone",
+      "module": "project",
+      "title": "Đồ án: tự xây backend account và group",
+      "summary": "Tự chạy một lượt CRUD, kiểm tra dữ liệu sau lỗi và giải thích code theo dấu vết của request.",
+      "prerequisites": "Hoàn thành các phần Core, Web, Data, Security và Testing",
+      "lab": {
+        "goal": "Tự viết backend từ starter, sau đó mới dùng walkthrough để nghiệm thu sản phẩm.",
+        "starter": "// Checklist implementation\n// TODO: DTO + validation\n// TODO: service + transaction\n// TODO: repository + constraint\n// TODO: security policy + test\n",
+        "solution": "// Mốc 1: GET danh sách, DTO không lộ dữ liệu nội bộ.\n// Mốc 2: POST 201/Location và lỗi 400/409.\n// Mốc 3: thay membership nguyên tử và không trùng.\n// Mốc 4: quyền đọc/ghi, CSRF và regression tests.\n",
+        "expected": "Không chỉ thao tác UI có sẵn. Nộp code tự viết + test + bằng chứng dữ liệu sau lỗi; đối chiếu lời giải sau khi tự làm.",
+        "language": "java",
+        "filename": "Exercise.java",
+        "instructions": "Đánh dấu checklist dựa trên implementation và test thật trong project starter. Không coi việc sao chép checklist lời giải vào editor là đã hoàn thành backend.",
+        "comparison": "manual"
+      },
+      "quiz": {
+        "question": "Làm CRUD trên demo có sẵn đã chứng minh tự triển khai backend chưa?",
+        "answers": [
+          "Đã đủ",
+          "Chưa; cần viết implementation và chứng minh bằng test",
+          "Chỉ cần ảnh UI"
+        ],
+        "correct": 1,
+        "explanation": "Walkthrough kiểm chứng hành vi ứng dụng. Bài coding kiểm chứng khả năng tạo ứng dụng; hai mục tiêu khác nhau."
+      },
+      "understanding": [
+        {
+          "title": "Nghiệm thu một lần cập nhật",
+          "prompt": "Đồ án đổi email và groupIds cùng thao tác. Trong ca có ID nhóm không tồn tại, nêu bộ kiểm thử chứng minh tính nguyên tử.",
+          "answer": "Seed account có email/nhóm cũ, gửi PUT email mới và danh sách có ID thiếu; nhận 404 theo đề rồi đọc lại account và membership từ giao dịch độc lập. Thêm ca thành công cùng kiểu payload.",
+          "criterion": "Chứng minh cả email lẫn liên kết giữ nguyên khi lỗi và đổi theo hợp đồng khi thành công."
+        },
+        {
+          "title": "Bằng chứng đủ để bàn giao",
+          "prompt": "API qua ca CRUD đúng, nhưng chưa test quyền và cập nhật lỗi. Chọn ba ca có giá trị về bàn giao và bằng chứng cần nộp.",
+          "answer": "Ví dụ reader không ghi được, cập nhật thiếu group không thay dữ liệu, gửi lại thao tác có hợp đồng idempotent vẫn cho hiệu ứng đúng. Nộp code, seed, test và trạng thái kiểm chứng.",
+          "criterion": "Mỗi ca gắn một invariant thực, có đầu vào/đầu ra tái hiện và vượt quá kiểm tra status."
+        }
+      ]
+    }
+  ],
+  "aliases": {
+    "buoi-01": "mvc-request-flow",
+    "buoi-02": "jpa-fundamentals",
+    "buoi-03": "rest-write",
+    "buoi-04": "jpa-one-to-one",
+    "buoi-05": "jpa-relationships",
+    "buoi-06": "dto-contracts",
+    "buoi-07": "dynamic-query",
+    "buoi-08": "project-directory",
+    "buoi-09": "design-solid",
+    "buoi-10": "bean-registration",
+    "buoi-11": "jpa-query-bulk",
+    "buoi-12": "data-pagination",
+    "buoi-13": "jpa-projections",
+    "buoi-14": "api-contract-design",
+    "buoi-15": "bean-validation",
+    "buoi-16": "api-errors",
+    "buoi-17": "security-lab",
+    "on-tap-java-advanced": "api-list-contract",
+    "on-tap-02": "debugging-request-flow",
+    "thi-lan-02": "project-capstone"
+  },
+  "editorial_note": "35 bài theo chủ đề; đã tách/gộp nội dung, không giữ đơn vị buổi video.",
+  "alias_fragments": {
+    "buoi-01": {
+      "khoi-tao": "boot-configuration",
+      "mysql": "boot-datasource"
+    },
+    "buoi-04": {
+      "fetch": "jpa-fetch-plan",
+      "fetch-heading": "jpa-fetch-plan"
+    },
+    "buoi-06": {
+      "replace": "data-collection-update",
+      "replace-heading": "data-collection-update",
+      "validate": "data-collection-update",
+      "validate-heading": "data-collection-update"
+    },
+    "buoi-07": {
+      "xoa": "data-collection-update",
+      "transaction": "data-collection-update"
+    },
+    "buoi-09": {
+      "di": "ioc-container"
+    },
+    "buoi-12": {
+      "tooling": "boot-configuration"
+    },
+    "buoi-13": {
+      "spec": "dynamic-query",
+      "boundary": "mvc-binding"
+    },
+    "buoi-14": {
+      "binding": "mvc-binding"
+    },
+    "buoi-17": {
+      "logging": "logging-observability",
+      "membership": "data-collection-update"
+    }
+  }
+}

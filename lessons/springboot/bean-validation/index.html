@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Kiểm tra đầu vào trước khi ghi dữ liệu và chỉ ra chính xác trường nào người dùng cần sửa."><title>Validation, constraint tùy biến và i18n · Backend Service</title>
+<link rel="stylesheet" href="../../../assets/styles.css">
+<link rel="stylesheet" href="../../../assets/vendor/prism/prism.css">
+<script src="../../../assets/vendor/prism/prism.js" defer></script>
+<script src="../../../assets/vendor/codemirror/editor.js" defer></script>
+<script src="../../../assets/site.js" defer></script></head><body id="top">
+<a class="skip" href="#noi-dung">Đến nội dung</a>
+<header class="masthead"><div class="mast-inner"><a class="brand" href="../../../index.html"><span class="mark" aria-hidden="true">B</span> Backend Service</a><a class="source" href="../../../lessons/springboot/index.html">Lộ trình Spring ↗</a></div></header><div class="hero"><div class="hero-inner"><div><nav class="crumbs" aria-label="Vị trí hiện tại"><a href="../../../index.html">Trang chủ</a> / <a href="../index.html#web">Spring Web MVC</a></nav><p class="kicker">Bài 13 / 42 · Spring Web MVC</p><h1>Validation, constraint tùy biến và i18n</h1><p class="lead">Kiểm tra đầu vào trước khi ghi dữ liệu và chỉ ra chính xác trường nào người dùng cần sửa.</p><div class="hero-actions"><a class="button" href="#noi-dung">Đọc bài ↓</a><a class="button secondary" href="#bai-tap-code">Tự viết code</a></div></div><div class="flow"><div class="flow-head">Lộ trình trong bài</div><div class="flow-body"><ol><li><b>Hiểu cơ chế</b><span>Spring Web MVC</span></li><li><b>Thử và giải thích</b><span>Đọc code, dự đoán và kiểm tra giả thuyết</span></li><li><b>Tự triển khai</b><span>Viết code và kiểm chứng ở project</span></li></ol></div></div></div></div><div class="layout"><aside class="sidebar"><nav aria-label="Mục lục bài học"><h2>Nội dung bài học</h2><ol><li><a href="#layers">Ba tầng kiểm tra dữ liệu</a></li><li><a href="#custom">Tự khai báo constraint và tách quy tắc null</a></li><li><a href="#locale">Từ khóa thông báo đến ngôn ngữ người dùng</a></li><li><a href="#thuc-hanh">Thực hành và gỡ lỗi</a></li><li><a href="#tu-kiem-tra">Tự kiểm tra</a></li><li><a href="#bai-tap-code">Bài tập lập trình</a></li><li><a href="#kiem-tra-nang-luc">Kiểm tra cách hiểu</a></li><li><a href="#nguon-chinh-thuc">Nguồn chính thức</a></li></ol></nav></aside><main id="noi-dung" tabindex="-1"><div class="callout intro"><strong>Mục tiêu và điều kiện học</strong><p>Thêm validation cho đăng ký, kiểm tra riêng JSON sai kiểu và dữ liệu đúng kiểu nhưng sai quy tắc.</p><p><strong>Cần biết trước:</strong> DTO, request binding và exception. Các bài ứng dụng có thể cần đọc trước phần dữ liệu tương ứng; dùng <a href="../index.html">lộ trình</a> để chọn kiến thức còn thiếu.</p><p class="version-note">Baseline: Java 17 · Spring Boot 3.5.10 · Framework 6.2 · Security 6.5. Mỗi demo có hướng dẫn riêng; ví dụ H2 không chứng minh hành vi trên DB khác.</p></div>
+<section class="chapter" id="layers"><h2>Ba tầng kiểm tra dữ liệu</h2>
+<p>Client nhận cùng HTTP 400 với hai lần gửi username. Một lần không dựng được DTO, lần kia DTO đã dựng xong và bị từ chối. Theo <a href="../mvc-binding/index.html">binding</a> và <a href="../dto-contracts/index.html">DTO</a>, giữ email <code>an@example.test</code> rồi thử ba giá trị username trong mô phỏng.</p>
+<div class="table-wrap"><table><thead><tr><th>Giá trị username</th><th>Jackson tạo DTO</th><th>Validation</th><th>Handler</th></tr></thead><tbody>
+<tr><td><code>{"value":"an_nguyen"}</code></td><td>Không chuyển object thành String</td><td>Chưa chạy</td><td>Chưa chạy · 400</td></tr>
+<tr><td><code>"   "</code></td><td>Có, giá trị là ba dấu cách</td><td><code>@NotBlank</code> từ chối</td><td>Chưa chạy · 400</td></tr>
+<tr><td><code>"an_nguyen"</code></td><td>Có</td><td>Đạt cùng email mẫu</td><td>Chạy · 200 với <code>{"valid":true}</code></td></tr>
+</tbody></table></div>
+<p>Với chữ ký chỉ có <code>@Valid @RequestBody Registration input</code>, MVC phân giải body, rồi validate đối tượng trước khi gọi handler. Lỗi đọc thường là <code>HttpMessageNotReadableException</code>. Ràng buộc trên DTO thường cho <code>MethodArgumentNotValidException</code>. Nếu áp constraint trực tiếp lên tham số hoặc giá trị trả về, MVC có thể kích hoạt method validation với <code>HandlerMethodValidationException</code>. <code>@Valid</code> tự nó đánh dấu kiểm tra lồng nhau.</p>
+<p><strong>Tự đối chiếu.</strong> Mở mô phỏng trong bài, chọn ca username là object và đến bước Jackson. Đổi sang toàn dấu cách, đến bước <code>@Valid</code> và so hai status. Với ca hợp lệ, đi đến handler để xem phản hồi. Các bước của mô phỏng mô tả luồng xử lý theo dữ liệu mẫu.</p>
+<p>Trình duyệt có thể kiểm tra nhanh để phản hồi ngay, nhưng bất cứ client nào cũng có thể gọi HTTP trực tiếp. Backend luôn kiểm tra lại. Jackson đọc JSON và dựng DTO, ví dụ <code>"birthDate":"2000-01-01"</code> thành LocalDate; giá trị <code>"no date"</code> lỗi trước Bean Validation. Sau khi bind, <code>@Valid</code> kích hoạt các constraint của DTO. Khi đã qua các ràng buộc, service mới kiểm tra group ID tồn tại hoặc quy tắc khác cần DB; DB tiếp tục dùng FK và UNIQUE để chặn các ghi bất hợp lệ, kể cả khi có hai request song song.</p><div class="table-wrap"><table><thead><tr><th scope="col">Ràng buộc</th><th scope="col">Nó kiểm tra gì?</th><th scope="col">Lưu ý</th></tr></thead><tbody><tr><td><code>@NotNull</code></td><td>Phải khác null</td><td>Chuỗi rỗng hoặc chỉ dấu cách vẫn khác null.</td></tr><tr><td><code>@NotBlank</code></td><td>Chuỗi có ít nhất một ký tự không phải khoảng trắng</td><td>Bắt cả null, rỗng và toàn khoảng trắng.</td></tr><tr><td><code>@Size</code></td><td>Độ dài chuỗi hoặc kích thước collection</td><td>Thường null hợp lệ; ghép NotBlank hoặc NotNull khi bắt buộc.</td></tr><tr><td><code>@Email</code> / <code>@Pattern</code></td><td>Hình dạng email / regex</td><td>Không chứng minh hộp thư tồn tại; null cần constraint khác.</td></tr><tr><td><code>@Past</code> / <code>@Positive</code></td><td>Ngày trước hiện tại / số lớn hơn 0</td><td>Không dùng @Min cho độ dài chuỗi. Ngày cần kiểu thời gian phù hợp.</td></tr><tr><td><code>@AssertTrue</code></td><td>Giá trị boolean phải true</td><td>Boolean null được chấp nhận riêng bởi constraint này; ghép @NotNull để phân biệt chưa chọn.</td></tr></tbody></table></div><p>Danh sách group ID của account dùng <code>@NotNull @Size(max=20) List&lt;@NotNull @Positive Long&gt;</code>. <code>[]</code> hợp lệ, <code>[0]</code> sai, <code>[999]</code> qua kiểm tra hình dạng nhưng có thể bị service từ chối vì không tồn tại. Với danh sách DTO lồng nhau, dùng <code>List&lt;@Valid Child&gt;</code> để kiểm tra các thuộc tính bên trong từng Child.</p></section><aside class="callout"><strong>Chạy các ví dụ trên máy</strong><p><a download="" href="../../../practice/spring-demo-bundle/downloads/spring-demo-bundle.zip">Tải bộ demo Maven (.zip)</a>. Giải nén và dùng thư mục <code>spring-demo-bundle</code> chứa <code>lessons</code> và <code>practice</code> làm thư mục gốc cho các lệnh trong bài. Khi bài yêu cầu vào thư mục demo, mở thư mục chứa <code>pom.xml</code> của demo đó.</p></aside>
+<section class="chapter" id="custom"><h2>Tự khai báo constraint và tách quy tắc null</h2>
+<figure class="snippet"><figcaption>Constraint của demo, Pattern thuộc java.util.regex</figcaption><pre tabindex="0"><code class="language-java">@Constraint(validatedBy = StrongPassword.Rule.class)
+@Target({ElementType.FIELD, ElementType.METHOD, ElementType.PARAMETER, ElementType.TYPE_USE})
+@Retention(RetentionPolicy.RUNTIME)
+@interface StrongPassword {
+    String message() default "{password.complex}";
+    Class&lt;?&gt;[] groups() default {};
+    Class&lt;? extends Payload&gt;[] payload() default {};
+
+    class Rule implements ConstraintValidator&lt;StrongPassword, String&gt; {
+        private static final Pattern RULE = Pattern.compile(
+            "(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9])(?=.*[^A-Za-z0-9])[!-~]{8,72}");
+        public boolean isValid(String value, ConstraintValidatorContext ctx) {
+            return value == null || RULE.matcher(value).matches();
+        }
+    }
+}</code></pre></figure><p>Bốn lookahead kiểm tra có chữ thường, chữ hoa, số và ký hiệu. <code>[!-~]{8,72}</code> giới hạn vùng ASCII có thể in trừ dấu cách và độ dài. <code>matches()</code> xét toàn chuỗi. Validator không giữ trạng thái theo request. Nó chấp nhận null để <code>@NotBlank</code> chịu trách nhiệm về thiếu giá trị; <code>alllowercase</code> không đạt constraint. Đây là chính sách bài tập, không phải chính sách mật khẩu bắt buộc cho ứng dụng thật.</p><p>Bài đăng ký chỉ kiểm tra dữ liệu, không tạo danh tính, gửi email hoặc lưu password/câu trả lời. Body gồm username (3–20 ký tự ASCII, chữ/số/_), password, email, fullName, phoneNumber (9–15 chữ số, có thể có dấu +), birthDate (quá khứ), address, acceptPolicy (true), gender, securityQuestion và securityAnswer. <code>@Valid @RequestBody Input input</code> đặt ở controller; nếu thiếu @Valid, DTO có thể được dựng nhưng các annotation ràng buộc không tự chạy tại điểm vào này.</p></section>
+<section class="chapter" id="locale"><h2>Từ khóa thông báo đến ngôn ngữ người dùng</h2>
+<figure class="snippet"><figcaption>Thông báo theo locale; {min} và {max} lấy từ constraint</figcaption><pre tabindex="0"><code class="language-java">// GroupInput
+@NotBlank(message = "{name.required}")
+@Size(min = 3, max = 40, message = "{name.size}")
+String name;
+
+// messages.properties (bundle mặc định)
+name.required=Name is required.
+name.size=Name must contain between {min} and {max} characters.
+
+// messages_vi.properties
+name.required=Tên là bắt buộc.
+name.size=Tên dài từ {min} đến {max} ký tự.</code></pre></figure><p><code>{name.required}</code> được tra trong resource bundle. Spring Boot tích hợp message source mặc định với validator; locale của request được MVC xác định, ở demo có thể gửi <code>Accept-Language: vi</code> hoặc <code>en</code>. Kết quả có mã <code>VALIDATION_FAILED</code> ổn định cho ứng dụng client và thông báo có thể thay đổi theo ngôn ngữ. Không trả mật khẩu hoặc rejected value trong JSON lỗi. Nếu thấy nguyên văn <code>{name.required}</code>, đối chiếu basename, file mặc định, tên key và locale thực tế.</p></section>
+<section class="chapter" id="thuc-hanh"><h2>Thực hành và gỡ lỗi</h2>
+<p><strong>W1 · tự viết.</strong> Thêm endpoint kiểm tra đăng ký với record <code>Registration(@NotBlank @Size(min=3,max=20) String username, @NotBlank @Email String email)</code> trong ứng dụng lab. Dùng service fake để đếm lời gọi. Dùng ba body trong bảng và <code>MockMvc</code> để phân biệt hai loại exception ở ca 400, kiểm fake chưa được gọi và kiểm thành công trả 200 + <code>valid:true</code> với một lần gọi. Nếu có Security, kiểm credential và CSRF trước. Sau đó nối <a href="../api-errors/index.html">ProblemDetail</a> để assert code khác nhau cho hai ca lỗi.</p>
+<p><strong>Đối chiếu phần mở rộng.</strong> Demo chung dưới đây có thêm password, ngày sinh và các trường dùng để luyện constraint tùy chỉnh.</p>
+<p>Trong <a href="../buoi-17/demo/README.md">thư mục demo chung</a>, chạy bằng JDK 17 trở lên và Maven. Các lệnh HTTP dùng PowerShell 7. H2 được nạp dữ liệu mẫu mỗi khi khởi động lại. Nếu thực hành theo thứ tự, hãy khởi động lại trước khi cần dùng dữ liệu gốc.</p><figure class="snippet"><figcaption>Cửa sổ 1 · từ thư mục chứa pom.xml</figcaption><pre tabindex="0"><code class="language-powershell">mvn -B -ntp package
+java -jar target/springboot-lessons-demo-0.1.0.jar</code></pre></figure><figure class="snippet"><figcaption>Cửa sổ 2 · PowerShell</figcaption><pre tabindex="0"><code class="language-powershell">function Show-LabResponse {
+    process {
+        $_.StatusCode
+        if ($_.Content -is [byte[]]) { [Text.Encoding]::UTF8.GetString($_.Content) }
+        else { $_.Content }
+    }
+}
+$base = "http://127.0.0.1:8117"
+$auth = "Basic " + [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes("admin:demo-pass"))
+$h = @{ Authorization = $auth }
+$csrf = Invoke-RestMethod "$base/api/csrf" -Headers $h -SessionVariable labSession
+$h[$csrf.headerName] = $csrf.token
+$ok = @{username='student_1'; password='Sample+1234'; email='student@example.test'; fullName='Student One'; phoneNumber='0912345678'; birthDate='2000-01-01'; address='Ha Noi'; acceptPolicy=$true; gender='UNSPECIFIED'; securityQuestion='S1'; securityAnswer='demo'}
+Invoke-RestMethod "$base/api/registration-check" -Method Post -WebSession $labSession -Headers $h -ContentType 'application/json' -Body ($ok | ConvertTo-Json)
+$ok.password = 'alllowercase'
+Invoke-WebRequest "$base/api/registration-check" -Method Post -WebSession $labSession -Headers $h -ContentType 'application/json' -Body ($ok | ConvertTo-Json) -SkipHttpErrorCheck | Show-LabResponse
+foreach ($lang in 'vi','en') {
+    $h['Accept-Language'] = $lang
+    Invoke-WebRequest "$base/api/groups" -Method Post -WebSession $labSession -Headers $h -ContentType 'application/json' -Body '{"name":" "}' -SkipHttpErrorCheck | Show-LabResponse
+}</code></pre></figure><p>Input gốc trả 200 <code>{"valid":true}</code>. Password toàn chữ thường trả 400 có lỗi trường <code>password</code>. Tên group là dấu cách trả 400 ở cả hai locale và chứa lần lượt <code>Tên là bắt buộc.</code>, <code>Name is required.</code>; cũng có thể có lỗi độ dài vì các constraint chạy độc lập. Hãy khôi phục password, thử lần lượt <code>acceptPolicy=$false</code>, <code>acceptPolicy=$null</code> và ngày <code>9999-01-01</code>. Đối chiếu field trả lỗi: acceptPolicy, acceptPolicy, birthDate.</p><p>Trong bản sao, bỏ <code>@Valid</code> ở API registration-check rồi chạy lại request có password sai: dự đoán 200 vì chưa kiểm tra ràng buộc DTO. Gắn lại và xác nhận 400. Đổi ngày thành <code>abc</code>: lỗi lúc đọc JSON khác với ngày hợp lệ về kiểu nhưng nằm trong tương lai. Mở <a href="../api-errors/index.html">Chuẩn hóa lỗi API với ProblemDetail</a> để tìm nơi hai lỗi được chuyển thành hai mã riêng.</p><p>Mã để đối chiếu: <a href="../buoi-17/demo/src/main/java/vn/railway89/lab/Registration.java">Registration.java</a> · <a href="../buoi-17/demo/src/main/java/vn/railway89/lab/Directory.java">Directory.java</a> · <a href="../buoi-17/demo/src/main/java/vn/railway89/lab/ApiErrors.java">ApiErrors.java</a> · <a href="../buoi-17/demo/src/main/resources/data.sql">dữ liệu mẫu</a> · <a href="../buoi-17/demo/verify.py">kiểm tra HTTP</a>.</p></section>
+<section class="chapter" id="tu-kiem-tra"><h2>Tự kiểm tra</h2>
+<details class="question"><summary>Vì sao @Email không thay được @NotBlank?</summary><p>@Email kiểm tra định dạng, null có thể qua. Khi email bắt buộc dùng thêm @NotBlank.</p></details>
+<details class="question"><summary>Chuỗi ngày không parse được có tới @Past không?</summary><p>Không. Jackson báo lỗi trước khi có DTO để validator kiểm tra.</p></details>
+<details class="question"><summary>Dùng @Size cho tuổi được không?</summary><p>Không. @Size kiểm tra kích thước chuỗi, collection, map hoặc mảng; tuổi dùng @Min/@Max hay ràng buộc số phù hợp.</p></details>
+<details class="question"><summary>[999] qua Bean Validation rồi vẫn 404 vì sao?</summary><p>Kiểu và độ lớn của ID đúng; service mới kiểm tra nhóm thật trong DB và phát hiện không tồn tại.</p></details>
+<details class="question"><summary>Tại sao giữ mã lỗi khi đổi ngôn ngữ?</summary><p>Client có thể xử lý ổn định dựa trên mã và field. Message chỉ để hiển thị.</p></details>
+<details class="question"><summary>@Valid ở DTO lồng nhau làm gì?</summary><p>Lan truyền kiểm tra constraint tới các object con; nó không mặc nhiên bắt object con khác null.</p></details></section>
+
+<section class="chapter coding-lab" id="bai-tap-code"><p class="eyebrow">Tự viết trước khi xem lời giải</p>
+<h2>Bài tập lập trình</h2><p>Thêm validation cho đăng ký, kiểm tra riêng JSON sai kiểu và dữ liệu đúng kiểu nhưng sai quy tắc.</p>
+<p class="exercise-instructions"><strong>Cách sửa starter:</strong> Giữ record và controller. Thay các TODO bằng constraint username/email và @Valid trước @RequestBody. Username cần 3–20 ký tự và không trắng; email không trắng, đúng định dạng. Endpoint này chỉ kiểm tra dữ liệu, không lưu đăng ký.</p>
+<p><strong>Tiêu chí kiểm chứng:</strong> Trong snippet: username trắng/quá ngắn/quá dài hoặc email sai → 400; username là object JSON → lỗi binding 400; dữ liệu hợp lệ → 200 với valid=true. Endpoint chỉ kiểm tra, không lưu dữ liệu. Định dạng field lỗi thực hành thêm với advice trong bài.</p>
+<p>Đoạn dưới là bài tập ngắn; các kiểu và phương thức liên quan cần nằm trong project của bài. Editor cho sửa, lưu nháp và tải file; <strong>không biên dịch hoặc chạy Java/Spring</strong>. Chạy test thật ở local theo hướng dẫn project.</p>
+<div class="editor" data-editor data-lesson="bean-validation" data-version="1" data-language="java" data-filename="Exercise.java">
+<label for="editor-bean-validation">Mã của bạn · Exercise.java</label>
+<textarea id="editor-bean-validation" spellcheck="false" autocapitalize="off" autocomplete="off" rows="10">record Registration(
+    // TODO: constraint username và email
+    String username,
+    String email
+) {}
+@RestController
+class RegistrationController {
+    @PostMapping(&quot;/registrations/check&quot;)
+    Map&lt;String, Boolean&gt; check(/* TODO: kích hoạt validation */ @RequestBody Registration request) {
+        return Map.of(&quot;valid&quot;, true);
+    }
+}
+</textarea>
+<div class="editor-actions"><button type="button" data-action="save">Lưu nháp</button><button type="button" data-action="download">Tải mã</button><button type="button" data-action="reset">Khôi phục starter</button></div>
+<p class="editor-status" role="status" aria-live="polite">Nháp tự lưu khi trình duyệt cho phép. Không nhập mật khẩu hoặc token thật.</p>
+<template data-starter>record Registration(
+    // TODO: constraint username và email
+    String username,
+    String email
+) {}
+@RestController
+class RegistrationController {
+    @PostMapping(&quot;/registrations/check&quot;)
+    Map&lt;String, Boolean&gt; check(/* TODO: kích hoạt validation */ @RequestBody Registration request) {
+        return Map.of(&quot;valid&quot;, true);
+    }
+}
+</template>
+</div>
+<details class="hint"><summary>Gợi ý cách làm và tự kiểm tra</summary><p>Viết ra dữ liệu ban đầu, request/lời gọi và trạng thái cuối. Làm trường hợp đúng trước rồi thêm trường hợp lỗi. Tại mỗi bước, đối chiếu cơ chế trong bài; không chỉ sửa cho hết báo lỗi.</p><p>Trong snippet: username trắng/quá ngắn/quá dài hoặc email sai → 400; username là object JSON → lỗi binding 400; dữ liệu hợp lệ → 200 với valid=true. Endpoint chỉ kiểm tra, không lưu dữ liệu. Định dạng field lỗi thực hành thêm với advice trong bài.</p></details>
+<details class="solution"><summary>Lời giải tham khảo · mở sau khi tự làm</summary><p>Đây là hướng giải cho đoạn ngắn, không thay thế implementation và kiểm thử đầy đủ trong project.</p><figure class="snippet"><figcaption>Exercise.java · tham khảo</figcaption><pre tabindex="0"><code class="language-java">record Registration(
+    @NotBlank @Size(min = 3, max = 20) String username,
+    @NotBlank @Email String email
+) {}
+@RestController
+class RegistrationController {
+    @PostMapping(&quot;/registrations/check&quot;)
+    Map&lt;String, Boolean&gt; check(@Valid @RequestBody Registration request) {
+        return Map.of(&quot;valid&quot;, true);
+    }
+}
+</code></pre></figure></details>
+<p class="practice-link"><a href="../../../practice/spring-foundations/index.html">Starter Maven, đề theo mốc và bộ kiểm thử chạy local →</a></p></section><section class="chapter" id="kiem-tra-nang-luc"><h2>Kiểm tra cách hiểu</h2>
+<p>Trước khi mở đáp án, hãy ghi dự đoán, lý do và dấu hiệu bạn sẽ dùng để kiểm chứng.</p>
+<div class="understanding-cases"><section class="understanding-case"><h3>Hai ca HTTP 400</h3><p>Registration.username là String có @NotBlank. So username dạng object với chuỗi ba dấu cách. Jackson, validator và controller chạy đến đâu?</p><details class="question"><summary>Mở đáp án và tiêu chí</summary><p>Object không bind được thành String nên Jackson dừng trước khi có DTO. Chuỗi bind được nhưng @NotBlank từ chối. Cả hai ca không gọi method controller.</p><p><strong>Tự đánh giá.</strong> Chỉ đúng tầng phát sinh, cấu trúc DTO tại điểm dừng và cách chứng minh controller không chạy.</p></details></section><section class="understanding-case"><h3>Mất @Valid sau refactor</h3><p>DTO giữ @NotBlank và @Email, controller vẫn có @RequestBody nhưng bỏ @Valid. Ca nào chứng minh vấn đề ở điểm kích hoạt?</p><details class="question"><summary>Mở đáp án và tiêu chí</summary><p>Dùng JSON đúng kiểu với email sai và các trường khác hợp lệ. So test MVC trước/sau khi bỏ @Valid trong cấu hình bài, kiểm gọi service và status.</p><p><strong>Tự đánh giá.</strong> Giữ payload đủ bind, chỉ đổi @Valid và giải thích khác biệt với lỗi JSON.</p></details></section></div>
+<details class="quick-quiz"><summary>Ôn nhanh bằng trắc nghiệm</summary>
+<form class="quiz" data-quiz data-correct="1"><fieldset><legend>@Email có thay thế kiểm tra bắt buộc không?</legend><label><input type="radio" name="quiz-bean-validation" value="0"> <span>Có</span></label><label><input type="radio" name="quiz-bean-validation" value="1"> <span>Không; cần kết hợp @NotBlank nếu trường bắt buộc</span></label><label><input type="radio" name="quiz-bean-validation" value="2"> <span>Chỉ cần unique DB</span></label></fieldset><button type="submit">Kiểm tra đáp án</button><p role="status" aria-live="polite" data-feedback></p><template data-explanation>Các constraint có mục đích riêng. Kiểm tra định dạng không phải kiểm tra tồn tại và cũng không thay unique constraint.</template></form></details>
+<details><summary>Xem giải thích khi không dùng JavaScript</summary><p><strong>Không; cần kết hợp @NotBlank nếu trường bắt buộc.</strong> Các constraint có mục đích riêng. Kiểm tra định dạng không phải kiểm tra tồn tại và cũng không thay unique constraint.</p></details></section><section id="nguon-chinh-thuc"><h2>Nguồn chính thức và tài liệu đối chiếu</h2><ul><li><a href="https://jakarta.ee/specifications/bean-validation/3.0/jakarta-bean-validation-spec-3.0.html">Jakarta Bean Validation · đặc tả</a></li><li><a href="https://docs.spring.io/spring-framework/reference/6.2/web/webmvc/mvc-controller/ann-validation.html">Spring MVC · validation</a></li><li><a href="https://docs.spring.io/spring-boot/3.5/reference/io/validation.html">Spring Boot · validation và MessageSource</a></li></ul></section><section class="chapter" id="moc-video"><h2>Tài liệu bổ trợ</h2><details class="video-reference"><summary>Nguồn video · xem lại tùy chọn</summary>
+<p>Demo diễn giải đề kiểm tra registration và áp dụng constraint cho group/account. Quy tắc cụ thể của password và format là lựa chọn của bài thực hành để kiểm tra được bằng HTTP.</p><ul><li><span>1:05:24 · Gán group cho account</span></li><li><span>1:31:05 · Validation frontend và backend</span></li><li><span>1:41:44 · Message của constraint</span></li><li><span>1:43:23 · @Valid ở request body</span></li><li><span>1:47:46 · Size và Pattern</span></li><li><span>1:50:34 · Đề kiểm tra đăng ký</span></li><li><span>2:41:42 · Constraint tùy chỉnh</span></li><li><span>2:44:26 · Nguồn message đa ngôn ngữ</span></li><li><span>2:57:38 · Áp dụng cho API group</span></li></ul><h3>Tài liệu chính thức</h3><ul><li><a href="https://jakarta.ee/specifications/bean-validation/3.0/jakarta-bean-validation-spec-3.0.html">Jakarta Bean Validation · đặc tả</a></li><li><a href="https://docs.spring.io/spring-framework/reference/6.2/web/webmvc/mvc-controller/ann-validation.html">Spring MVC · validation</a></li><li><a href="https://docs.spring.io/spring-boot/3.5/reference/io/validation.html">Spring Boot · validation và MessageSource</a></li></ul></details></section><div class="completion"><label><input type="checkbox" data-complete="bean-validation"> Tôi đã tự làm bài tập và giải thích được kết quả</label><p>Đánh dấu để tự theo dõi trên trình duyệt này; đây không phải chứng nhận hay kết quả chấm code.</p><p role="status" data-progress-status aria-live="polite"></p></div><nav class="lesson-navigation" aria-label="Chuyển bài"><a href="../dto-contracts/index.html">← DTO và ranh giới dữ liệu API</a><a href="../api-errors/index.html">Chuẩn hóa lỗi API với ProblemDetail →</a></nav><p><a href="#top">Về đầu trang ↑</a></p></main></div></body></html>

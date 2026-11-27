@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Theo dõi proxy, rollback-only, propagation và trạng thái dữ liệu sau giao dịch."><title>Transaction từ flush đến commit và cạnh tranh · Backend Service</title>
+<link rel="stylesheet" href="../../../assets/styles.css">
+<link rel="stylesheet" href="../../../assets/vendor/prism/prism.css">
+<script src="../../../assets/vendor/prism/prism.js" defer></script>
+<script src="../../../assets/vendor/codemirror/editor.js" defer></script>
+<script src="../../../assets/site.js" defer></script></head><body id="top">
+<a class="skip" href="#noi-dung">Đến nội dung</a>
+<header class="masthead"><div class="mast-inner"><a class="brand" href="../../../index.html"><span class="mark" aria-hidden="true">B</span> Backend Service</a><a class="source" href="../../../lessons/springboot/index.html">Lộ trình Spring ↗</a></div></header><div class="hero"><div class="hero-inner"><div><nav class="crumbs" aria-label="Vị trí hiện tại"><a href="../../../index.html">Trang chủ</a> / <a href="../index.html#data">Dữ liệu và transaction</a></nav><p class="kicker">Bài 17 / 42 · Dữ liệu và transaction</p><h1>Transaction từ flush đến commit và cạnh tranh</h1><p class="lead">Theo dõi proxy, rollback-only, propagation và trạng thái dữ liệu sau giao dịch.</p><div class="hero-actions"><a class="button" href="#noi-dung">Đọc bài ↓</a><a class="button secondary" href="#bai-tap-code">Tự viết code</a></div></div><div class="flow"><div class="flow-head">Lộ trình trong bài</div><div class="flow-body"><ol><li><b>Hiểu cơ chế</b><span>Dữ liệu và transaction</span></li><li><b>Thử và giải thích</b><span>Đọc code, dự đoán và kiểm tra giả thuyết</span></li><li><b>Tự triển khai</b><span>Viết code và kiểm chứng ở project</span></li></ol></div></div></div></div><div class="layout"><aside class="sidebar"><nav aria-label="Mục lục bài học"><h2>Nội dung bài học</h2><ol><li><a href="#tinh-huong">Tình huống</a></li><li><a href="#co-che-1">Biên giao dịch thuộc use case</a></li><li><a href="#co-che-2">Propagation thay đổi điều gì?</a></li><li><a href="#co-che-3">Isolation và invariant</a></li><li><a href="#vi-du">Ví dụ</a></li><li><a href="#lab-web">Dự đoán và đối chiếu ngay trên web</a></li><li><a href="#thuc-hanh">Thực hành áp dụng</a></li><li><a href="#bai-tap-code">Bài tập lập trình</a></li><li><a href="#kiem-tra-nang-luc">Kiểm tra cách hiểu</a></li><li><a href="#nguon-chinh-thuc">Nguồn chính thức</a></li></ol></nav></aside><main id="noi-dung" tabindex="-1"><div class="callout intro"><strong>Mục tiêu và điều kiện học</strong><p>Theo dõi proxy, rollback-only, propagation và trạng thái dữ liệu sau giao dịch.</p><p><strong>Cần biết trước:</strong> Proxy/AOP, JPA và persistence context. Các bài ứng dụng có thể cần đọc trước phần dữ liệu tương ứng; dùng <a href="../index.html">lộ trình</a> để chọn kiến thức còn thiếu.</p><p class="version-note">Baseline: Java 17 · Spring Boot 3.5.10 · Framework 6.2 · Security 6.5. Mỗi demo có hướng dẫn riêng; ví dụ H2 không chứng minh hành vi trên DB khác.</p></div><section class="chapter" id="tinh-huong"><h2>Tình huống</h2><p>Thay thành viên nhóm từ [1,2] thành [2,3]. Nếu thêm thành viên 3 thất bại sau khi bản ghi 1 đã bị xóa và SQL đã flush, nhóm vẫn phải giữ [1,2].</p><p>Kiến thức dùng lại từ <a href="../rest-write/index.html">REST: tạo, cập nhật và định danh tài nguyên</a>.</p></section>
+<section class="chapter" id="co-che-1"><h2>Biên giao dịch thuộc use case</h2><p>Caller đi qua proxy, interceptor mở hoặc tham gia giao dịch rồi gọi service. JpaTransactionManager liên kết tài nguyên với luồng hiện tại trong mô hình đồng bộ. Flush đưa SQL xuống DB, commit mới xác nhận giao dịch. Lỗi constraint có thể xuất hiện khi flush hoặc khi commit tùy constraint và thời điểm flush.</p></section>
+<section class="chapter" id="co-che-2"><h2>Propagation thay đổi điều gì?</h2><p>REQUIRED có thể tạo nhiều phạm vi logic trên cùng giao dịch vật lý. Nếu bean trong đánh dấu rollback-only, việc bean ngoài bắt exception không gỡ cờ; lúc outer thử commit có thể nhận UnexpectedRollbackException. REQUIRES_NEW dùng giao dịch vật lý riêng, có thể đòi thêm connection; dùng khi nghiệp vụ thật sự cần commit độc lập.</p></section>
+<section class="chapter" id="co-che-3"><h2>Isolation và invariant</h2><p>Hai giao dịch cùng đọc phiên bản cũ có thể xung đột. Tùy invariant, chọn @Version để phát hiện cập nhật cũ, khóa phù hợp để tuần tự hóa, hoặc ràng buộc DB cho tính duy nhất. Test bằng hai giao dịch và thứ tự đọc/ghi có kiểm soát trên DB đích.</p></section>
+<section class="chapter" id="vi-du"><h2>Ví dụ</h2>
+<ol aria-label="Các mốc của một transaction" class="core-flow"><li><strong>Qua proxy</strong><span>Interceptor mở hoặc tham gia transaction.</span></li><li><strong>Flush</strong><span>Câu DELETE có thể đã tới DB.</span></li><li><strong>Kết thúc</strong><span>Commit: đọc thấy [2,3]. Rollback: đọc lại [1,2].</span></li></ol>
+<figure class="snippet"><figcaption>Đặt transaction ở service · snippet giả định các kiểu miền đã có</figcaption><pre tabindex="0"><code class="language-java">@Transactional
+public void replaceMembers(long groupId, Set&lt;Long&gt; requestedIds) {
+    Group group = groups.getRequired(groupId);
+    var requestedMembers = members.requireAll(requestedIds);
+    group.replaceMembers(requestedMembers);
+    // Hibernate có thể phát SQL khi flush, trước khi giao dịch commit.
+}</code></pre></figure></section>
+<section class="chapter" id="lab-web"><h2>Dự đoán và đối chiếu ngay trên web</h2><p>Đọc dữ liệu đầu vào, viết dự đoán rồi mở kết quả. Đây là ca thiết kế để lần theo cơ chế.</p>
+<section class="understanding-case"><h3>Lỗi sau flush</h3><p>Seed [1,2]; xóa 1 đã flush, sau đó RuntimeException thoát qua proxy.</p><details class="question"><summary>Mở kết quả dự kiến</summary><p>Lần đọc độc lập sau khi giao dịch kết thúc phải thấy [1,2].</p></details></section>
+<section class="understanding-case"><h3>Giao dịch lồng</h3><p>Outer REQUIRED gọi inner REQUIRED trên bean khác; inner ném RuntimeException, outer bắt và trả bình thường.</p><details class="question"><summary>Mở kết quả dự kiến</summary><p>Giao dịch dùng chung có thể đã rollback-only. Kiểm exception lúc outer hoàn tất và dữ liệu trong DB.</p></details></section>
+</section><section class="chapter" id="thuc-hanh"><h2>Thực hành áp dụng</h2><p><a download="" href="../../../practice/spring-advanced-lab/downloads/spring-advanced-lab.zip">Tải lab Maven nâng cao (.zip)</a>. Giải nén, mở terminal tại thư mục có pom.xml và chạy <code>mvn test</code> với JDK 17 trở lên. Đọc README để xác định ca thuộc bài này và yêu cầu của phần mở rộng.</p><p>Các đề dưới đây mô tả phần cần tự triển khai và bằng chứng phải nộp. Đoạn editor bên dưới luyện cấu hình hoặc một thay đổi nhỏ.</p>
+<div class="callout"><h3>D1 · Thay tập nguyên tử</h3><p>Triển khai thay [1,2] → [2,3]. Kiểm ca thiếu ID và ca ném lỗi sau flush. Chấp nhận khi ca thành công ra [2,3] còn mọi ca lỗi đọc lại [1,2].</p></div>
+<div class="callout"><h3>D2 · Chọn propagation theo hợp đồng</h3><p>So audit ghi cùng giao dịch với audit độc lập qua bean khác. Chứng minh bảng audit và bảng membership sau rollback; giải thích vì sao cần hoặc không cần REQUIRES_NEW.</p></div>
+<div class="callout"><h3>D3 · Hai quản trị viên sửa đồng thời</h3><p>Dùng latch cho hai giao dịch cùng đọc một phiên bản. Giữ đúng invariant bằng version hoặc khóa, rồi assert trạng thái cuối lẫn kết quả trả cho từng caller.</p></div>
+<p>Áp dụng tiếp ở <a href="../jpa-one-to-one/index.html">Ánh xạ quan hệ một–một</a>.</p></section>
+
+<section class="chapter coding-lab" id="bai-tap-code"><p class="eyebrow">Tự viết trước khi xem lời giải</p>
+<h2>Bài tập lập trình</h2><p>Theo dõi proxy, rollback-only, propagation và trạng thái dữ liệu sau giao dịch.</p>
+<p class="exercise-instructions"><strong>Cách sửa starter:</strong> Giữ toàn bộ use case, bổ sung annotation để lời gọi qua proxy dùng chung transaction.</p>
+<p><strong>Tiêu chí kiểm chứng:</strong> Lần đọc độc lập sau khi giao dịch kết thúc phải thấy [1,2].</p>
+<p>Đoạn dưới là bài tập ngắn; các kiểu và phương thức liên quan cần nằm trong project của bài. Editor cho sửa, lưu nháp và tải file; <strong>không biên dịch hoặc chạy Java/Spring</strong>. Chạy test thật ở local theo hướng dẫn project.</p>
+<div class="editor" data-editor data-lesson="spring-transaction" data-version="1" data-language="java" data-filename="Exercise.java">
+<label for="editor-spring-transaction">Mã của bạn · Exercise.java</label>
+<textarea id="editor-spring-transaction" spellcheck="false" autocapitalize="off" autocomplete="off" rows="10">// TODO: đặt biên giao dịch
+public void replaceMembers(long groupId, Set&lt;Long&gt; requestedIds) {
+    Group group = groups.getRequired(groupId);
+    var requestedMembers = members.requireAll(requestedIds);
+    group.replaceMembers(requestedMembers);
+    // Hibernate có thể phát SQL khi flush, trước khi giao dịch commit.
+}
+</textarea>
+<div class="editor-actions"><button type="button" data-action="save">Lưu nháp</button><button type="button" data-action="download">Tải mã</button><button type="button" data-action="reset">Khôi phục starter</button></div>
+<p class="editor-status" role="status" aria-live="polite">Nháp tự lưu khi trình duyệt cho phép. Không nhập mật khẩu hoặc token thật.</p>
+<template data-starter>// TODO: đặt biên giao dịch
+public void replaceMembers(long groupId, Set&lt;Long&gt; requestedIds) {
+    Group group = groups.getRequired(groupId);
+    var requestedMembers = members.requireAll(requestedIds);
+    group.replaceMembers(requestedMembers);
+    // Hibernate có thể phát SQL khi flush, trước khi giao dịch commit.
+}
+</template>
+</div>
+<details class="hint"><summary>Gợi ý cách làm và tự kiểm tra</summary><p>Viết ra dữ liệu ban đầu, request/lời gọi và trạng thái cuối. Làm trường hợp đúng trước rồi thêm trường hợp lỗi. Tại mỗi bước, đối chiếu cơ chế trong bài; không chỉ sửa cho hết báo lỗi.</p><p>Lần đọc độc lập sau khi giao dịch kết thúc phải thấy [1,2].</p></details>
+<details class="solution"><summary>Lời giải tham khảo · mở sau khi tự làm</summary><p>Đây là hướng giải cho đoạn ngắn, không thay thế implementation và kiểm thử đầy đủ trong project.</p><figure class="snippet"><figcaption>Exercise.java · tham khảo</figcaption><pre tabindex="0"><code class="language-java">@Transactional
+public void replaceMembers(long groupId, Set&lt;Long&gt; requestedIds) {
+    Group group = groups.getRequired(groupId);
+    var requestedMembers = members.requireAll(requestedIds);
+    group.replaceMembers(requestedMembers);
+    // Hibernate có thể phát SQL khi flush, trước khi giao dịch commit.
+}
+</code></pre></figure></details>
+<p class="practice-link"><a href="../../../practice/spring-foundations/index.html">Starter Maven, đề theo mốc và bộ kiểm thử chạy local →</a></p></section><section class="chapter" id="kiem-tra-nang-luc"><h2>Kiểm tra cách hiểu</h2>
+<p>Trước khi mở đáp án, hãy ghi dự đoán, lý do và dấu hiệu bạn sẽ dùng để kiểm chứng.</p>
+<div class="understanding-cases"><section class="understanding-case"><h3>Audit cần bền độc lập</h3><p>Nghiệp vụ bị rollback nhưng yêu cầu giữ audit lý do từ chối. Thiết kế hai nhánh và phép đo trước khi chọn propagation.</p><details class="question"><summary>Mở đáp án và tiêu chí</summary><p>Audit ghi cùng giao dịch sẽ rollback theo. Nếu chính sách yêu cầu bền độc lập, gọi qua bean riêng có REQUIRES_NEW, xét thêm connection và việc không đọc phụ thuộc vào thay đổi chưa commit. Đối chiếu audit và membership bằng giao dịch ngoài.</p><p><strong>Tự đánh giá.</strong> Giải thích khác biệt commit và tác động pool, không chỉ nêu tên annotation.</p></details></section><section class="understanding-case"><h3>Hai lượt đọc cùng phiên bản</h3><p>A và B cùng thấy version 4; A cập nhật trước, B vẫn ghi dựa trên dữ liệu cũ. Với optimistic locking, hợp đồng API và test cần nói gì?</p><details class="question"><summary>Mở đáp án và tiêu chí</summary><p>Hành vi cần được phát hiện ở flush/commit. Quy định trả conflict hoặc retry có giới hạn dựa trên việc đọc lại dữ liệu. Điều phối thứ tự và kiểm version cuối.</p><p><strong>Tự đánh giá.</strong> Kiểm cả kết quả của A/B, invariant và trạng thái cuối.</p></details></section></div>
+<details class="quick-quiz"><summary>Ôn nhanh bằng trắc nghiệm</summary>
+<form class="quiz" data-quiz data-correct="1"><fieldset><legend>Đã flush INSERT rồi rollback, vì sao log vẫn có INSERT?</legend><label><input type="radio" name="quiz-spring-transaction" value="0"> <span>Log SQL chứng minh đã commit</span></label><label><input type="radio" name="quiz-spring-transaction" value="1"> <span>Flush đã gửi SQL nhưng giao dịch chưa commit</span></label><label><input type="radio" name="quiz-spring-transaction" value="2"> <span>Hibernate tự tạo giao dịch mới</span></label></fieldset><button type="submit">Kiểm tra đáp án</button><p role="status" aria-live="polite" data-feedback></p><template data-explanation>Dùng lần đọc độc lập sau khi giao dịch kết thúc để xác nhận dữ liệu.</template></form></details>
+<details><summary>Xem giải thích khi không dùng JavaScript</summary><p><strong>Flush đã gửi SQL nhưng giao dịch chưa commit.</strong> Dùng lần đọc độc lập sau khi giao dịch kết thúc để xác nhận dữ liệu.</p></details></section><section class="chapter" id="nguon-chinh-thuc"><h2>Nguồn chính thức</h2><ul>
+<li><a href="https://docs.spring.io/spring-framework/reference/6.2/data-access/transaction/declarative/tx-propagation.html">Framework 6.2 · Propagation</a></li>
+<li><a href="https://docs.spring.io/spring-framework/reference/6.2/data-access/transaction/declarative/annotations.html">Framework 6.2 · Transaction annotations</a></li>
+<li><a href="https://www.postgresql.org/docs/16/transaction-iso.html">PostgreSQL 16 · Isolation</a></li>
+</ul></section><div class="completion"><label><input type="checkbox" data-complete="spring-transaction"> Tôi đã tự làm bài tập và giải thích được kết quả</label><p>Đánh dấu để tự theo dõi trên trình duyệt này; đây không phải chứng nhận hay kết quả chấm code.</p><p role="status" data-progress-status aria-live="polite"></p></div><nav class="lesson-navigation" aria-label="Chuyển bài"><a href="../rest-write/index.html">← REST: tạo, cập nhật và định danh tài nguyên</a><a href="../jpa-one-to-one/index.html">Ánh xạ quan hệ một–một →</a></nav><p><a href="#top">Về đầu trang ↑</a></p></main></div></body></html>

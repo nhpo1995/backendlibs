@@ -1,0 +1,24 @@
+<section id="tinh-huong"><h2>Tình huống</h2><p>Hai ứng dụng cùng dùng module gửi lời mời. Ứng dụng A dùng kênh mặc định, B có một InvitationChannel riêng. Thư viện cần tạo mặc định khi thiếu, và lùi lại khi B tự cấu hình.</p><p>Kiến thức dùng lại từ <a href="../boot-configuration/index.html">Spring Boot: auto-configuration, properties và profiles</a>.</p></section>
+<section id="co-che-1"><h2>Từ artifact đến điều kiện</h2><p>Starter gom dependency. BOM quản lý phiên bản. Auto-configuration đăng ký định nghĩa bean có điều kiện. Boot tìm ứng viên qua AutoConfiguration.imports của thư viện; bản thân dependency nằm trên classpath chưa bảo đảm tạo bean.</p></section>
+<section id="co-che-2"><h2>Đọc match và back off</h2><p>OnClass trả lời thư viện cần thiết có mặt không. OnProperty kiểm tra cờ cấu hình. OnMissingBean xét các định nghĩa đã được xử lý tại thời điểm điều kiện chạy. Đặt điều kiện mặc định trong auto-configuration để cấu hình ứng dụng có cơ hội đăng ký trước.</p></section>
+<section id="co-che-3"><h2>Thiết kế biên thư viện</h2><p>Dùng ConfigurationProperties cho nhóm thuộc tính có kiểu. Kiểm tra giá trị bắt buộc ở startup nếu tính năng bật. Dùng cấu hình tùy biến để override theo hợp đồng bean, thay vì ép người dùng thay đúng tên hoặc bật bean overriding.</p></section>
+<section id="vi-du"><h2>Ví dụ</h2><figure class="snippet"><figcaption>Auto-configuration · giả định InvitationChannel và RecordingChannel thuộc thư viện</figcaption><pre><code class="language-java">@AutoConfiguration
+@ConditionalOnProperty(prefix = &quot;invites&quot;, name = &quot;enabled&quot;, havingValue = &quot;true&quot;)
+class InvitationAutoConfiguration {
+    @Bean
+    @ConditionalOnMissingBean(InvitationChannel.class)
+    InvitationChannel defaultChannel() {
+        return new RecordingChannel();
+    }
+}</code></pre></figure></section>
+<section id="lab-web"><h2>Dự đoán và đối chiếu ngay trên web</h2><p>Đọc dữ liệu đầu vào, viết dự đoán rồi mở kết quả. Đây là ca thiết kế để lần theo cơ chế.</p>
+<section class="understanding-case"><h3>Cờ tắt</h3><p>invites.enabled=false, không có bean người dùng.</p><details class="question"><summary>Mở kết quả dự kiến</summary><p>Không tạo bean mặc định; xem condition report ở OnProperty.</p></details></section>
+<section class="understanding-case"><h3>Back off</h3><p>invites.enabled=true, ứng dụng cung cấp InvitationChannel.</p><details class="question"><summary>Mở kết quả dự kiến</summary><p>Context có bean ứng dụng và không có defaultChannel; kiểm tên bean và identity.</p></details></section>
+</section><section id="thuc-hanh"><h2>Thực hành áp dụng</h2><p><a download href="../../../practice/spring-advanced-lab/downloads/spring-advanced-lab.zip">Tải lab Maven nâng cao (.zip)</a>. Giải nén, mở terminal tại thư mục có pom.xml và chạy <code>mvn test</code> với JDK 17 trở lên. Đọc README để xác định ca thuộc bài này và yêu cầu của phần mở rộng.</p><p>Các đề dưới đây mô tả phần cần tự triển khai và bằng chứng phải nộp. Đoạn editor bên dưới luyện cấu hình hoặc một thay đổi nhỏ.</p>
+<div class="callout"><h3>B2 · Cờ cấu hình</h3><p>Dựng ApplicationContextRunner với auto-configuration. Chạy ba ca: thiếu cờ, cờ true, cờ false. Trước mỗi lần chạy ghi số bean dự kiến; đối chiếu 0/1/0.</p></div>
+<div class="callout"><h3>B2 mở rộng · Override và classpath</h3><p>Giữ cờ true, cung cấp bean người dùng, rồi thêm một điều kiện OnClass và mô phỏng class vắng mặt. Cần test chứng minh back off ở ca override và condition không match ở ca thiếu class.</p></div>
+<p>Áp dụng tiếp ở <a href="../boot-datasource/index.html">Datasource, schema và kết nối cơ sở dữ liệu</a>.</p></section>
+<section id="nguon-chinh-thuc"><h2>Nguồn chính thức</h2><ul>
+<li><a href="https://docs.spring.io/spring-boot/3.5/reference/features/developing-auto-configuration.html">Boot 3.5 · Auto-configuration</a></li>
+<li><a href="https://docs.spring.io/spring-boot/3.5/reference/features/external-config.html">Boot 3.5 · External configuration</a></li>
+</ul></section>

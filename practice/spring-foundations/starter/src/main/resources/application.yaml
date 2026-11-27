@@ -1,0 +1,14 @@
+server:
+  address: 127.0.0.1
+  port: 8181
+spring:
+  datasource:
+    url: jdbc:h2:mem:foundations;DB_CLOSE_DELAY=-1
+    username: sa
+    password:
+  sql:
+    init:
+      mode: always
+  mvc:
+    problemdetails:
+      enabled: true

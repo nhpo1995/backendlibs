@@ -1,0 +1,28 @@
+<section id="tinh-huong"><h2>Tình huống</h2><p>Bản v2 thêm trạng thái lời mời. Trong rollout, v1 và v2 cùng đọc schema; một instance cũ đang giữ request và worker claim thì nhận tín hiệu dừng.</p><p>Kiến thức dùng lại từ <a href="../cache-consistency/index.html">Cache theo use case và tính nhất quán sau commit</a>.</p></section>
+<section id="co-che-1"><h2>Sống khác với sẵn sàng</h2><p>Liveness dùng để phát hiện tiến trình cần phục hồi. Readiness quyết định có tiếp tục gửi traffic tới instance. Cân nhắc phụ thuộc dùng chung trước khi đưa vào probe: DB lỗi đồng thời ở mọi instance có thể làm tất cả báo unavailable nếu đặt constraint sai chỗ.</p></section>
+<section id="co-che-2"><h2>Drain là hợp đồng hai phía</h2><p>Graceful shutdown cho request đang xử lý một khoảng để hoàn tất, còn cách ngừng nhận kết nối mới tùy server. Với worker cần ngừng claim, theo dõi việc in-flight, và để công việc chưa xong sống trong DB. Kiểm budget giữa load balancer, timeout shutdown và thời gian kill của orchestrator.</p></section>
+<section id="co-che-3"><h2>Thay schema theo nhiều bước</h2><p>Expand: thêm cột tương thích v1. Backfill theo lô và kiểm số bản ghi. Chuyển v2 sang dữ liệu mới khi cả đường đọc và ghi đã sẵn sàng; giữ tương thích lúc phiên bản cùng chạy. Contract: chỉ bỏ cột hoặc đường cũ sau khi các tác nhân phụ thuộc đã được gỡ.</p></section>
+<section id="vi-du"><h2>Ví dụ</h2>
+<ol class="core-flow" aria-label="Ba mốc đổi schema"><li><strong>Expand</strong><span>Thêm cột tương thích với bản v1.</span></li><li><strong>Chuyển dữ liệu</strong><span>Backfill và xác nhận cả v1 lẫn v2 đọc, ghi như dự kiến.</span></li><li><strong>Contract</strong><span>Bỏ cột cũ sau cửa sổ quay lui và khi hết caller phụ thuộc.</span></li></ol>
+<figure class="snippet"><figcaption>Cấu hình minh họa · cân bằng với ngân sách dừng của môi trường</figcaption><pre><code class="language-yaml">server:
+  shutdown: graceful
+spring:
+  lifecycle:
+    timeout-per-shutdown-phase: 20s
+management:
+  endpoint:
+    health:
+      probes:
+        enabled: true</code></pre></figure></section>
+<section id="lab-web"><h2>Dự đoán và đối chiếu ngay trên web</h2><p>Đọc dữ liệu đầu vào, viết dự đoán rồi mở kết quả. Đây là ca thiết kế để lần theo cơ chế.</p>
+<section class="understanding-case"><h3>Request đang chạy</h3><p>Giữ request ở latch. Gửi SIGTERM sau khi request đã bắt đầu.</p><details class="question"><summary>Mở kết quả dự kiến</summary><p>Quan sát rút traffic, thả latch trong budget và kiểm response. Ca vượt budget cần ghi rõ client/worker quan sát gì.</p></details></section>
+<section class="understanding-case"><h3>V1 và v2 cùng chạy</h3><p>V2 đổi tên cột, v1 vẫn SELECT cột cũ.</p><details class="question"><summary>Mở kết quả dự kiến</summary><p>Đổi tên trực tiếp làm v1 lỗi. Thêm cấu trúc tương thích trước, kiểm cả hai phiên bản rồi mới bỏ cấu trúc cũ.</p></details></section>
+</section><section id="thuc-hanh"><h2>Thực hành áp dụng</h2><p>Các đề dưới đây mô tả phần cần tự triển khai và bằng chứng phải nộp. Đoạn editor bên dưới luyện cấu hình hoặc một thay đổi nhỏ.</p>
+<div class="callout"><h3>R1 · Thử SIGTERM trong lab</h3><p>Đặt request + worker ở mốc đã biết. Đo thứ tự nhận tín hiệu, dừng nhận việc, hoàn tất trong giới hạn và phục hồi việc chưa xong sau restart.</p></div>
+<div class="callout"><h3>R2 · Ma trận phiên bản/schema</h3><p>Chạy v1 trên schema cũ và expand, v2 trên schema expand. Kiểm backfill, tính tương thích khi quay lui v1 và xác nhận không còn phụ thuộc trước khi contract.</p></div>
+<p>Áp dụng tiếp ở <a href="../project-capstone/index.html">Đồ án: tự xây backend account và group</a>.</p></section>
+<section id="nguon-chinh-thuc"><h2>Nguồn chính thức</h2><ul>
+<li><a href="https://docs.spring.io/spring-boot/3.5/reference/actuator/endpoints.html#actuator.endpoints.kubernetes-probes">Boot 3.5 · Actuator probes</a></li>
+<li><a href="https://docs.spring.io/spring-boot/3.5/reference/web/graceful-shutdown.html">Boot 3.5 · Graceful shutdown</a></li>
+<li><a href="https://docs.spring.io/spring-boot/3.5/how-to/data-initialization.html">Boot 3.5 · Database initialization</a></li>
+</ul></section>

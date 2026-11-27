@@ -4,3 +4,14 @@ target/
 .env
 .env.*
 .DS_Store
+node_modules/
+test-results/
+playwright-report/
+__pycache__/
+*.log
+dist/
+frontend/generated/
+frontend/public/
+/practice/spring-core-lab/downloads/
+/practice/spring-advanced-lab/downloads/
+/practice/spring-demo-bundle/downloads/

@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Theo dấu từ classpath đến bean mặc định và chứng minh khi cấu hình rút lui."><title>Đọc điều kiện và viết cấu hình tự động · Backend Service</title>
+<link rel="stylesheet" href="../../../assets/styles.css">
+<link rel="stylesheet" href="../../../assets/vendor/prism/prism.css">
+<script src="../../../assets/vendor/prism/prism.js" defer></script>
+<script src="../../../assets/vendor/codemirror/editor.js" defer></script>
+<script src="../../../assets/site.js" defer></script></head><body id="top">
+<a class="skip" href="#noi-dung">Đến nội dung</a>
+<header class="masthead"><div class="mast-inner"><a class="brand" href="../../../index.html"><span class="mark" aria-hidden="true">B</span> Backend Service</a><a class="source" href="../../../lessons/springboot/index.html">Lộ trình Spring ↗</a></div></header><div class="hero"><div class="hero-inner"><div><nav class="crumbs" aria-label="Vị trí hiện tại"><a href="../../../index.html">Trang chủ</a> / <a href="../index.html#boot">Spring Boot</a></nav><p class="kicker">Bài 08 / 42 · Spring Boot</p><h1>Đọc điều kiện và viết cấu hình tự động</h1><p class="lead">Theo dấu từ classpath đến bean mặc định và chứng minh khi cấu hình rút lui.</p><div class="hero-actions"><a class="button" href="#noi-dung">Đọc bài ↓</a><a class="button secondary" href="#bai-tap-code">Tự viết code</a></div></div><div class="flow"><div class="flow-head">Lộ trình trong bài</div><div class="flow-body"><ol><li><b>Hiểu cơ chế</b><span>Spring Boot</span></li><li><b>Thử và giải thích</b><span>Đọc code, dự đoán và kiểm tra giả thuyết</span></li><li><b>Tự triển khai</b><span>Viết code và kiểm chứng ở project</span></li></ol></div></div></div></div><div class="layout"><aside class="sidebar"><nav aria-label="Mục lục bài học"><h2>Nội dung bài học</h2><ol><li><a href="#tinh-huong">Tình huống</a></li><li><a href="#co-che-1">Từ artifact đến điều kiện</a></li><li><a href="#co-che-2">Đọc match và back off</a></li><li><a href="#co-che-3">Thiết kế biên thư viện</a></li><li><a href="#vi-du">Ví dụ</a></li><li><a href="#lab-web">Dự đoán và đối chiếu ngay trên web</a></li><li><a href="#thuc-hanh">Thực hành áp dụng</a></li><li><a href="#bai-tap-code">Bài tập lập trình</a></li><li><a href="#kiem-tra-nang-luc">Kiểm tra cách hiểu</a></li><li><a href="#nguon-chinh-thuc">Nguồn chính thức</a></li></ol></nav></aside><main id="noi-dung" tabindex="-1"><div class="callout intro"><strong>Mục tiêu và điều kiện học</strong><p>Theo dấu từ classpath đến bean mặc định và chứng minh khi cấu hình rút lui.</p><p><strong>Cần biết trước:</strong> BeanDefinition, @Bean và cấu hình theo môi trường. Các bài ứng dụng có thể cần đọc trước phần dữ liệu tương ứng; dùng <a href="../index.html">lộ trình</a> để chọn kiến thức còn thiếu.</p><p class="version-note">Baseline: Java 17 · Spring Boot 3.5.10 · Framework 6.2 · Security 6.5. Mỗi demo có hướng dẫn riêng; ví dụ H2 không chứng minh hành vi trên DB khác.</p></div><section class="chapter" id="tinh-huong"><h2>Tình huống</h2><p>Hai ứng dụng cùng dùng module gửi lời mời. Ứng dụng A dùng kênh mặc định, B có một InvitationChannel riêng. Thư viện cần tạo mặc định khi thiếu, và lùi lại khi B tự cấu hình.</p><p>Kiến thức dùng lại từ <a href="../boot-configuration/index.html">Spring Boot: auto-configuration, properties và profiles</a>.</p></section>
+<section class="chapter" id="co-che-1"><h2>Từ artifact đến điều kiện</h2><p>Starter gom dependency. BOM quản lý phiên bản. Auto-configuration đăng ký định nghĩa bean có điều kiện. Boot tìm ứng viên qua AutoConfiguration.imports của thư viện; bản thân dependency nằm trên classpath chưa bảo đảm tạo bean.</p></section>
+<section class="chapter" id="co-che-2"><h2>Đọc match và back off</h2><p>OnClass trả lời thư viện cần thiết có mặt không. OnProperty kiểm tra cờ cấu hình. OnMissingBean xét các định nghĩa đã được xử lý tại thời điểm điều kiện chạy. Đặt điều kiện mặc định trong auto-configuration để cấu hình ứng dụng có cơ hội đăng ký trước.</p></section>
+<section class="chapter" id="co-che-3"><h2>Thiết kế biên thư viện</h2><p>Dùng ConfigurationProperties cho nhóm thuộc tính có kiểu. Kiểm tra giá trị bắt buộc ở startup nếu tính năng bật. Dùng cấu hình tùy biến để override theo hợp đồng bean, thay vì ép người dùng thay đúng tên hoặc bật bean overriding.</p></section>
+<section class="chapter" id="vi-du"><h2>Ví dụ</h2><figure class="snippet"><figcaption>Auto-configuration · giả định InvitationChannel và RecordingChannel thuộc thư viện</figcaption><pre tabindex="0"><code class="language-java">@AutoConfiguration
+@ConditionalOnProperty(prefix = "invites", name = "enabled", havingValue = "true")
+class InvitationAutoConfiguration {
+    @Bean
+    @ConditionalOnMissingBean(InvitationChannel.class)
+    InvitationChannel defaultChannel() {
+        return new RecordingChannel();
+    }
+}</code></pre></figure></section>
+<section class="chapter" id="lab-web"><h2>Dự đoán và đối chiếu ngay trên web</h2><p>Đọc dữ liệu đầu vào, viết dự đoán rồi mở kết quả. Đây là ca thiết kế để lần theo cơ chế.</p>
+<section class="understanding-case"><h3>Cờ tắt</h3><p>invites.enabled=false, không có bean người dùng.</p><details class="question"><summary>Mở kết quả dự kiến</summary><p>Không tạo bean mặc định; xem condition report ở OnProperty.</p></details></section>
+<section class="understanding-case"><h3>Back off</h3><p>invites.enabled=true, ứng dụng cung cấp InvitationChannel.</p><details class="question"><summary>Mở kết quả dự kiến</summary><p>Context có bean ứng dụng và không có defaultChannel; kiểm tên bean và identity.</p></details></section>
+</section><section class="chapter" id="thuc-hanh"><h2>Thực hành áp dụng</h2><p><a download="" href="../../../practice/spring-advanced-lab/downloads/spring-advanced-lab.zip">Tải lab Maven nâng cao (.zip)</a>. Giải nén, mở terminal tại thư mục có pom.xml và chạy <code>mvn test</code> với JDK 17 trở lên. Đọc README để xác định ca thuộc bài này và yêu cầu của phần mở rộng.</p><p>Các đề dưới đây mô tả phần cần tự triển khai và bằng chứng phải nộp. Đoạn editor bên dưới luyện cấu hình hoặc một thay đổi nhỏ.</p>
+<div class="callout"><h3>B2 · Cờ cấu hình</h3><p>Dựng ApplicationContextRunner với auto-configuration. Chạy ba ca: thiếu cờ, cờ true, cờ false. Trước mỗi lần chạy ghi số bean dự kiến; đối chiếu 0/1/0.</p></div>
+<div class="callout"><h3>B2 mở rộng · Override và classpath</h3><p>Giữ cờ true, cung cấp bean người dùng, rồi thêm một điều kiện OnClass và mô phỏng class vắng mặt. Cần test chứng minh back off ở ca override và condition không match ở ca thiếu class.</p></div>
+<p>Áp dụng tiếp ở <a href="../boot-datasource/index.html">Datasource, schema và kết nối cơ sở dữ liệu</a>.</p></section>
+
+<section class="chapter coding-lab" id="bai-tap-code"><p class="eyebrow">Tự viết trước khi xem lời giải</p>
+<h2>Bài tập lập trình</h2><p>Theo dấu từ classpath đến bean mặc định và chứng minh khi cấu hình rút lui.</p>
+<p class="exercise-instructions"><strong>Cách sửa starter:</strong> Giữ factory method, thêm đúng điều kiện trên bean mặc định.</p>
+<p><strong>Tiêu chí kiểm chứng:</strong> Không tạo bean mặc định; xem condition report ở OnProperty.</p>
+<p>Đoạn dưới là bài tập ngắn; các kiểu và phương thức liên quan cần nằm trong project của bài. Editor cho sửa, lưu nháp và tải file; <strong>không biên dịch hoặc chạy Java/Spring</strong>. Chạy test thật ở local theo hướng dẫn project.</p>
+<div class="editor" data-editor data-lesson="boot-auto-configuration" data-version="1" data-language="java" data-filename="Exercise.java">
+<label for="editor-boot-auto-configuration">Mã của bạn · Exercise.java</label>
+<textarea id="editor-boot-auto-configuration" spellcheck="false" autocapitalize="off" autocomplete="off" rows="10">@AutoConfiguration
+@ConditionalOnProperty(prefix = &quot;invites&quot;, name = &quot;enabled&quot;, havingValue = &quot;true&quot;)
+class InvitationAutoConfiguration {
+    @Bean
+    // TODO: cho bean ứng dụng thay mặc định
+    InvitationChannel defaultChannel() {
+        return new RecordingChannel();
+    }
+}
+</textarea>
+<div class="editor-actions"><button type="button" data-action="save">Lưu nháp</button><button type="button" data-action="download">Tải mã</button><button type="button" data-action="reset">Khôi phục starter</button></div>
+<p class="editor-status" role="status" aria-live="polite">Nháp tự lưu khi trình duyệt cho phép. Không nhập mật khẩu hoặc token thật.</p>
+<template data-starter>@AutoConfiguration
+@ConditionalOnProperty(prefix = &quot;invites&quot;, name = &quot;enabled&quot;, havingValue = &quot;true&quot;)
+class InvitationAutoConfiguration {
+    @Bean
+    // TODO: cho bean ứng dụng thay mặc định
+    InvitationChannel defaultChannel() {
+        return new RecordingChannel();
+    }
+}
+</template>
+</div>
+<details class="hint"><summary>Gợi ý cách làm và tự kiểm tra</summary><p>Viết ra dữ liệu ban đầu, request/lời gọi và trạng thái cuối. Làm trường hợp đúng trước rồi thêm trường hợp lỗi. Tại mỗi bước, đối chiếu cơ chế trong bài; không chỉ sửa cho hết báo lỗi.</p><p>Không tạo bean mặc định; xem condition report ở OnProperty.</p></details>
+<details class="solution"><summary>Lời giải tham khảo · mở sau khi tự làm</summary><p>Đây là hướng giải cho đoạn ngắn, không thay thế implementation và kiểm thử đầy đủ trong project.</p><figure class="snippet"><figcaption>Exercise.java · tham khảo</figcaption><pre tabindex="0"><code class="language-java">@AutoConfiguration
+@ConditionalOnProperty(prefix = &quot;invites&quot;, name = &quot;enabled&quot;, havingValue = &quot;true&quot;)
+class InvitationAutoConfiguration {
+    @Bean
+    @ConditionalOnMissingBean(InvitationChannel.class)
+    InvitationChannel defaultChannel() {
+        return new RecordingChannel();
+    }
+}
+</code></pre></figure></details>
+<p class="practice-link"><a href="../../../practice/spring-foundations/index.html">Starter Maven, đề theo mốc và bộ kiểm thử chạy local →</a></p></section><section class="chapter" id="kiem-tra-nang-luc"><h2>Kiểm tra cách hiểu</h2>
+<p>Trước khi mở đáp án, hãy ghi dự đoán, lý do và dấu hiệu bạn sẽ dùng để kiểm chứng.</p>
+<div class="understanding-cases"><section class="understanding-case"><h3>Bật cờ mà không có bean</h3><p>Context có invites.enabled=true và không thấy InvitationChannel. Bạn kiểm tra theo thứ tự nào nếu kiểm thử riêng bằng ApplicationContextRunner lại tạo bean mặc định?</p><details class="question"><summary>Mở đáp án và tiêu chí</summary><p>Kiểm JAR và danh sách AutoConfiguration.imports trước, rồi xác nhận classpath, condition report và profile của app thật. Runner nạp auto-configuration trực tiếp nên không kiểm việc Boot phát hiện nó từ artifact.</p><p><strong>Tự đánh giá.</strong> Phân biệt discovery khỏi condition, và chọn test chạy bằng artifact để xác nhận discovery.</p></details></section><section class="understanding-case"><h3>Override bị bỏ qua</h3><p>Ứng dụng cung cấp bean bằng factory method khai báo trả Object, dù đối tượng thực implements InvitationChannel. Vì sao điều kiện theo loại có thể nhận diện khác kỳ vọng?</p><details class="question"><summary>Mở đáp án và tiêu chí</summary><p>Điều kiện xét metadata kiểu có thể suy ra tại thời điểm đăng ký, trước khi mọi bean được dựng. Dùng kiểu trả về đủ cụ thể và test context có đúng một ứng viên.</p><p><strong>Tự đánh giá.</strong> Chỉ rõ thông tin container thấy trước lúc gọi factory.</p></details></section></div>
+<details class="quick-quiz"><summary>Ôn nhanh bằng trắc nghiệm</summary>
+<form class="quiz" data-quiz data-correct="0"><fieldset><legend>Cờ bật và bean ứng dụng đã có. Bean nào được giữ?</legend><label><input type="radio" name="quiz-boot-auto-configuration" value="0"> <span>Bean ứng dụng</span></label><label><input type="radio" name="quiz-boot-auto-configuration" value="1"> <span>Bean mặc định</span></label><label><input type="radio" name="quiz-boot-auto-configuration" value="2"> <span>Cả hai</span></label></fieldset><button type="submit">Kiểm tra đáp án</button><p role="status" aria-live="polite" data-feedback></p><template data-explanation>OnMissingBean làm cấu hình mặc định rút lui khi đã có bean ứng viên thích hợp.</template></form></details>
+<details><summary>Xem giải thích khi không dùng JavaScript</summary><p><strong>Bean ứng dụng.</strong> OnMissingBean làm cấu hình mặc định rút lui khi đã có bean ứng viên thích hợp.</p></details></section><section class="chapter" id="nguon-chinh-thuc"><h2>Nguồn chính thức</h2><ul>
+<li><a href="https://docs.spring.io/spring-boot/3.5/reference/features/developing-auto-configuration.html">Boot 3.5 · Auto-configuration</a></li>
+<li><a href="https://docs.spring.io/spring-boot/3.5/reference/features/external-config.html">Boot 3.5 · External configuration</a></li>
+</ul></section><div class="completion"><label><input type="checkbox" data-complete="boot-auto-configuration"> Tôi đã tự làm bài tập và giải thích được kết quả</label><p>Đánh dấu để tự theo dõi trên trình duyệt này; đây không phải chứng nhận hay kết quả chấm code.</p><p role="status" data-progress-status aria-live="polite"></p></div><nav class="lesson-navigation" aria-label="Chuyển bài"><a href="../boot-configuration/index.html">← Spring Boot: auto-configuration, properties và profiles</a><a href="../boot-datasource/index.html">Datasource, schema và kết nối cơ sở dữ liệu →</a></nav><p><a href="#top">Về đầu trang ↑</a></p></main></div></body></html>

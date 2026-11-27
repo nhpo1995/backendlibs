@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Theo dõi lúc Spring đọc annotation và chọn bean cho use case lời mời."><title>Đăng ký và lựa chọn bean · Backend Service</title>
+<link rel="stylesheet" href="../../../assets/styles.css">
+<link rel="stylesheet" href="../../../assets/vendor/prism/prism.css">
+<script src="../../../assets/vendor/prism/prism.js" defer></script>
+<script src="../../../assets/vendor/codemirror/editor.js" defer></script>
+<script src="../../../assets/site.js" defer></script></head><body id="top">
+<a class="skip" href="#noi-dung">Đến nội dung</a>
+<header class="masthead"><div class="mast-inner"><a class="brand" href="../../../index.html"><span class="mark" aria-hidden="true">B</span> Backend Service</a><a class="source" href="../../../lessons/springboot/index.html">Lộ trình Spring ↗</a></div></header><div class="hero"><div class="hero-inner"><div><nav class="crumbs" aria-label="Vị trí hiện tại"><a href="../../../index.html">Trang chủ</a> / <a href="../index.html#core">Spring Core</a></nav><p class="kicker">Bài 04 / 42 · Spring Core</p><h1>Đăng ký và lựa chọn bean</h1><p class="lead">Theo dõi lúc Spring đọc annotation và chọn bean cho use case lời mời.</p><div class="hero-actions"><a class="button" href="#noi-dung">Đọc bài ↓</a><a class="button secondary" href="#bai-tap-code">Tự viết code</a></div></div><div class="flow"><div class="flow-head">Lộ trình trong bài</div><div class="flow-body"><ol><li><b>Hiểu cơ chế</b><span>Spring Core</span></li><li><b>Thử và giải thích</b><span>Đọc code, dự đoán và kiểm tra giả thuyết</span></li><li><b>Tự triển khai</b><span>Viết code và kiểm chứng ở project</span></li></ol></div></div></div></div><div class="layout"><aside class="sidebar"><nav aria-label="Mục lục bài học"><h2>Nội dung bài học</h2><ol><li><a href="#diagnose">Giữ hai kênh, chọn đúng kênh cho lời mời</a></li><li><a href="#register">Ai đọc annotation và đọc lúc nào?</a></li><li><a href="#scope">Đăng ký và tái sử dụng là hai quyết định</a></li><li><a href="#thuc-hanh">Thực hành C1 · hai kênh thông báo</a></li><li><a href="#tu-kiem-tra">Kiểm tra hiểu cơ chế</a></li><li><a href="#bai-tap-code">Bài tập lập trình</a></li><li><a href="#kiem-tra-nang-luc">Kiểm tra cách hiểu</a></li><li><a href="#nguon-chinh-thuc">Nguồn chính thức</a></li></ol></nav></aside><main id="noi-dung" tabindex="-1"><div class="callout intro"><strong>Mục tiêu và điều kiện học</strong><p>Chọn kênh email cho service trong context có cả email và audit.</p><p><strong>Cần biết trước:</strong> IoC container và constructor injection. Các bài ứng dụng có thể cần đọc trước phần dữ liệu tương ứng; dùng <a href="../index.html">lộ trình</a> để chọn kiến thức còn thiếu.</p><p class="version-note">Baseline: Java 17 · Spring Boot 3.5.10 · Framework 6.2 · Security 6.5. Mỗi demo có hướng dẫn riêng; ví dụ H2 không chứng minh hành vi trên DB khác.</p></div><section class="chapter" id="diagnose"><h2>Giữ hai kênh, chọn đúng kênh cho lời mời</h2>
+<p><a href="../ioc-container/index.html">Bài IoC</a> dừng ở trường hợp hai ứng viên cùng kiểu. Bây giờ context có <code>email</code> gửi lời mời và <code>audit</code> ghi dấu vết. Service lời mời phải dùng email. Các chức năng khác vẫn có thể lấy danh sách các kênh.</p>
+<div class="callout"><strong>Đầu vào và kết quả</strong><p>Gọi <code>invite("an")</code> phải trả <code>email:an</code>. Tra cứu các bean kiểu <code>Channel</code> vẫn thấy cả <code>email</code> và <code>audit</code>.</p></div></section>
+<section class="chapter" id="register"><h2>Ai đọc annotation và đọc lúc nào?</h2>
+<table><thead><tr><th scope="col">Metadata</th><th scope="col">Thời điểm</th><th scope="col">Tác động</th></tr></thead><tbody>
+<tr><td><code>@Component</code> và stereotype</td><td>Component scan xét các class trong package cấu hình.</td><td>Class đủ điều kiện trở thành định nghĩa bean.</td></tr>
+<tr><td><code>@Bean</code></td><td>Spring xử lý class cấu hình đã đăng ký.</td><td>Đăng ký factory method làm nguồn tạo bean.</td></tr>
+<tr><td><code>@Qualifier</code></td><td>Bean factory giải dependency tại điểm inject.</td><td>Thu hẹp tập ứng viên cùng kiểu.</td></tr>
+<tr><td><code>@PostConstruct</code></td><td>Post-processor xử lý instance đã tạo và nhận dependency.</td><td>Chạy callback khởi tạo. Xem <a href="../bean-lifecycle/index.html">bài Vòng đời bean</a>.</td></tr></tbody></table>
+<p>Annotation là metadata mà một thành phần phải đọc để tạo hành vi. <code>@Retention(RUNTIME)</code> làm metadata có thể đọc lúc chạy. <code>@Target</code> giới hạn vị trí gắn. Đặt annotation lên class rồi gọi <code>new</code> không đăng ký instance vào context.</p>
+<figure class="snippet"><figcaption>Ví dụ · qualifier có tên theo nghiệp vụ</figcaption><pre tabindex="0"><code class="language-java">@Target({ElementType.TYPE, ElementType.METHOD, ElementType.PARAMETER})
+@Retention(RetentionPolicy.RUNTIME)
+@Qualifier
+@interface EmailChannel {}
+
+@Configuration(proxyBeanMethods = false)
+class Channels {
+    @Bean @EmailChannel Channel email() { return to -&gt; "email:" + to; }
+    @Bean Channel audit() { return to -&gt; "audit:" + to; }
+}
+
+@Configuration(proxyBeanMethods = false)
+class Invitations {
+    @Bean InvitationService invitationService(@EmailChannel Channel selected) {
+        return new InvitationService(selected);
+    }
+}</code></pre></figure>
+<p><code>@EmailChannel</code> được Spring hiểu là qualifier nhờ meta-annotation <code>@Qualifier</code>. Nó đánh dấu cả ứng viên và yêu cầu tại điểm inject. <code>@Primary</code> diễn đạt ưu tiên chung khi cần một ứng viên. Một <code>List&lt;Channel&gt;</code> không gắn qualifier vẫn có thể nhận cả hai.</p></section>
+<section class="chapter" id="scope"><h2>Đăng ký và tái sử dụng là hai quyết định</h2>
+<p>Qualifier trả lời <em>chọn định nghĩa nào</em>. Scope trả lời <em>lấy lại instance hay tạo instance khác</em>. Ví dụ hiện tại dùng singleton mặc định. Nếu factory method trong cấu hình <code>proxyBeanMethods = false</code> cần bean khác, khai báo dependency bằng tham số thay vì gọi trực tiếp factory method và kỳ vọng container trả singleton.</p></section>
+<section class="chapter" id="thuc-hanh"><h2>Thực hành C1 · hai kênh thông báo</h2>
+<p>Giữ hai bean <code>email</code> và <code>audit</code>. Trong bài tập lập trình bên dưới, chọn kênh email tại tham số factory dùng để tạo <code>InvitationService</code>. Trước khi mở kết quả, hãy dự đoán <code>invite("an")</code> trả gì và tra cứu theo kiểu <code>Channel</code> còn bao nhiêu bean.</p>
+<details class="question"><summary>Đối chiếu kết quả đã kiểm chứng</summary><p><code>invite("an")</code> trả <code>email:an</code> và context vẫn có cả hai bean. Qualifier thu hẹp ứng viên cho điểm inject này, các bean vẫn tồn tại trong context.</p></details>
+<p>Muốn viết test riêng cho ca 0/1/2 ứng viên? <a download="" href="../../../practice/spring-core-lab/downloads/spring-core-lab.zip">Tải lab Maven (.zip)</a> và mở đề C1 trong <code>README.md</code> đi kèm. Giải nén rồi chạy <code>mvn test</code> tại thư mục chứa <code>pom.xml</code>.</p></section>
+<section class="chapter" id="tu-kiem-tra"><h2>Kiểm tra hiểu cơ chế</h2>
+<details class="question"><summary>Giữ @EmailChannel trên tham số nhưng bỏ nó khỏi bean email. Điều gì xảy ra?</summary><p>Không bean nào đáp ứng qualifier theo cấu hình lab. Context thất bại khi giải dependency. Kiểm tra điểm gắn annotation ở cả hai phía.</p></details>
+<details class="question"><summary>Thêm @Primary cho audit. Lời mời có đổi sang audit không?</summary><p>Không trong cấu hình này. Qualifier trên tham số loại audit khỏi tập ứng viên trước khi cần phân giải ưu tiên.</p></details>
+<details class="question"><summary>Đổi package của một @Component khiến nó không được scan. Cần sửa qualifier hay đăng ký?</summary><p>Kiểm tra đăng ký trước. Qualifier chỉ chọn trong các bean đã có trong context.</p></details></section>
+
+
+<section class="chapter coding-lab" id="bai-tap-code"><p class="eyebrow">Tự viết trước khi xem lời giải</p>
+<h2>Bài tập lập trình</h2><p>Chọn kênh email cho service trong context có cả email và audit.</p>
+<p class="exercise-instructions"><strong>Cách sửa starter:</strong> Giữ factory method và tham số Channel. Thay TODO bằng qualifier đối chiếu với bean email, đã được khai báo trong bài.</p>
+<p><strong>Tiêu chí kiểm chứng:</strong> Gọi invite(&quot;an&quot;) trả email:an. Context vẫn có cả bean email và audit.</p>
+<p>Đoạn dưới là bài tập ngắn; các kiểu và phương thức liên quan cần nằm trong project của bài. Editor cho sửa, lưu nháp và tải file; <strong>không biên dịch hoặc chạy Java/Spring</strong>. Chạy test thật ở local theo hướng dẫn project.</p>
+<div class="editor" data-editor data-lesson="bean-registration" data-version="1" data-language="java" data-filename="Exercise.java">
+<label for="editor-bean-registration">Mã của bạn · Exercise.java</label>
+<textarea id="editor-bean-registration" spellcheck="false" autocapitalize="off" autocomplete="off" rows="10">class Invitations {
+    @Bean
+    InvitationService invitationService(/* TODO: chọn kênh email */ Channel selected) {
+        return new InvitationService(selected);
+    }
+}
+</textarea>
+<div class="editor-actions"><button type="button" data-action="save">Lưu nháp</button><button type="button" data-action="download">Tải mã</button><button type="button" data-action="reset">Khôi phục starter</button></div>
+<p class="editor-status" role="status" aria-live="polite">Nháp tự lưu khi trình duyệt cho phép. Không nhập mật khẩu hoặc token thật.</p>
+<template data-starter>class Invitations {
+    @Bean
+    InvitationService invitationService(/* TODO: chọn kênh email */ Channel selected) {
+        return new InvitationService(selected);
+    }
+}
+</template>
+</div>
+<details class="hint"><summary>Gợi ý cách làm và tự kiểm tra</summary><p>Viết ra dữ liệu ban đầu, request/lời gọi và trạng thái cuối. Làm trường hợp đúng trước rồi thêm trường hợp lỗi. Tại mỗi bước, đối chiếu cơ chế trong bài; không chỉ sửa cho hết báo lỗi.</p><p>Gọi invite(&quot;an&quot;) trả email:an. Context vẫn có cả bean email và audit.</p></details>
+<details class="solution"><summary>Lời giải tham khảo · mở sau khi tự làm</summary><p>Đây là hướng giải cho đoạn ngắn, không thay thế implementation và kiểm thử đầy đủ trong project.</p><figure class="snippet"><figcaption>Exercise.java · tham khảo</figcaption><pre tabindex="0"><code class="language-java">class Invitations {
+    @Bean
+    InvitationService invitationService(@EmailChannel Channel selected) {
+        return new InvitationService(selected);
+    }
+}
+</code></pre></figure></details>
+<p class="practice-link"><a href="../../../practice/spring-foundations/index.html">Starter Maven, đề theo mốc và bộ kiểm thử chạy local →</a></p></section><section class="chapter" id="kiem-tra-nang-luc"><h2>Kiểm tra cách hiểu</h2>
+<p>Trước khi mở đáp án, hãy ghi dự đoán, lý do và dấu hiệu bạn sẽ dùng để kiểm chứng.</p>
+<div class="understanding-cases"><section class="understanding-case"><h3>Qualifier gặp primary</h3><p>Email có @EmailChannel, audit có @Primary. Factory nhận @EmailChannel Channel và nơi khác nhận List&lt;Channel&gt; không gắn qualifier. Hai điểm nhận gì?</p><details class="question"><summary>Mở đáp án và tiêu chí</summary><p>Factory nhận email vì qualifier lọc tập ứng viên trước. List có cả email và audit. Kiểm tra kết quả invite và tập bean theo kiểu trong context.</p><p><strong>Tự đánh giá.</strong> Phân biệt chọn một ứng viên với thu thập collection, không suy từ primary sang việc loại bean.</p></details></section><section class="understanding-case"><h3>Metadata đúng, context vẫn lỗi</h3><p>Class có stereotype tự định nghĩa nhưng nằm ngoài phạm vi scan và chưa được import. Thêm qualifier vào tham số có sửa lỗi không? Cần quan sát gì?</p><details class="question"><summary>Mở đáp án và tiêu chí</summary><p>Qualifier chỉ lọc bean đã đăng ký. Kiểm tra BeanDefinition hoặc kết quả tra cứu kiểu, sau đó thêm đăng ký có chủ đích và kiểm tra context khởi động.</p><p><strong>Tự đánh giá.</strong> Giải thích thứ tự đăng ký rồi mới resolve dependency.</p></details></section></div>
+<details class="quick-quiz"><summary>Ôn nhanh bằng trắc nghiệm</summary>
+<form class="quiz" data-quiz data-correct="1"><fieldset><legend>Nếu bỏ @EmailChannel khỏi bean email nhưng vẫn giữ nó trên tham số selected, điều gì xảy ra?</legend><label><input type="radio" name="quiz-bean-registration" value="0"> <span>Spring tự chọn audit</span></label><label><input type="radio" name="quiz-bean-registration" value="1"> <span>Context không tìm được ứng viên thỏa qualifier</span></label><label><input type="radio" name="quiz-bean-registration" value="2"> <span>Cả hai kênh đều được gọi</span></label></fieldset><button type="submit">Kiểm tra đáp án</button><p role="status" aria-live="polite" data-feedback></p><template data-explanation>Spring chỉ xét các ứng viên phù hợp với qualifier tại điểm inject. Không bean Channel nào mang metadata phù hợp trong cấu hình này.</template></form></details>
+<details><summary>Xem giải thích khi không dùng JavaScript</summary><p><strong>Context không tìm được ứng viên thỏa qualifier.</strong> Spring chỉ xét các ứng viên phù hợp với qualifier tại điểm inject. Không bean Channel nào mang metadata phù hợp trong cấu hình này.</p></details></section><section class="chapter" id="nguon-chinh-thuc"><h2>Nguồn chính thức</h2><ul><li><a href="https://docs.spring.io/spring-framework/reference/6.2/core/beans/classpath-scanning.html">Spring Framework 6.2 · Component scan</a></li><li><a href="https://docs.spring.io/spring-framework/reference/6.2/core/beans/annotation-config/autowired-qualifiers.html">Spring Framework 6.2 · Qualifier</a></li></ul></section><section class="chapter" id="moc-video"><h2>Tài liệu bổ trợ</h2><details class="video-reference"><summary>Nguồn video · xem lại tùy chọn</summary>
+<p>Drive có hai tệp cùng tên và cùng thời lượng. Đã đối chiếu transcript ở các đoạn ôn DI, gỡ lỗi user, tự đăng ký bean và chọn một trong hai dependency. Các đoạn khớp về nội dung chính, câu chữ phụ đề có chênh lệch. Trang này trỏ vào bản ID <code>1FfjHVfoSt9X1SFUB5_y9jX-dMjK2uNQj</code>. Mở tệp còn lại.</p><ul><li><span class="time">13:34</span> Ôn DIP, IoC và DI</li><li><span class="time">23:04</span> Bài tập đổi sang constructor injection</li><li><span class="time">39:02</span> Bắt đầu gỡ lỗi 404 trong Postman</li><li><span class="time">50:04</span> Kiểm tra package đặt controller</li><li><span class="time">52:53</span> Đã vào handler, DB báo lỗi cột full name</li><li><span class="time">1:06:34</span> Đối chiếu tên cột và thuộc tính</li><li><span class="time">1:23:09</span> Spring component và stereotype</li><li><span class="time">1:29:24</span> Thử class có và thiếu @Component</li><li><span class="time">2:07:13</span> Tìm nguyên nhân dependency thiếu bean</li><li><span class="time">2:22:11</span> Cấu hình Java với @Configuration</li><li><span class="time">2:31:51</span> Đặt tên bean</li><li><span class="time">2:32:52</span> Bean scope</li><li><span class="time">2:37:57</span> Singleton và prototype</li><li><span class="time">2:46:08</span> Hai implementation cùng kiểu</li><li><span class="time">2:54:11</span> Chọn mặc định với @Primary</li><li><span class="time">2:57:47</span> Chọn tại điểm inject với @Qualifier</li></ul><h3>Tài liệu chính thức</h3><ul><li><a href="https://docs.spring.io/spring-framework/reference/6.2/core/beans/classpath-scanning.html">Spring Framework 6.2 · Component scanning</a></li><li><a href="https://docs.spring.io/spring-framework/reference/6.2/core/beans/factory-scopes.html">Spring Framework 6.2 · Bean scopes</a></li><li><a href="https://docs.spring.io/spring-framework/reference/6.2/core/beans/annotation-config/autowired-primary.html">Spring Framework 6.2 · @Primary</a></li><li><a href="https://docs.spring.io/spring-framework/reference/6.2/core/beans/annotation-config/autowired-qualifiers.html">Spring Framework 6.2 · Qualifiers</a></li><li><a href="https://docs.oracle.com/cd/E17952_01/mysql-8.4-en/identifiers.html">MySQL 8.4 · Tên bảng và cột</a></li><li><a href="https://jakarta.ee/specifications/persistence/3.1/jakarta-persistence-spec-3.1">Jakarta Persistence · Mapping và @Transient</a></li></ul>
+</details></section><div class="completion"><label><input type="checkbox" data-complete="bean-registration"> Tôi đã tự làm bài tập và giải thích được kết quả</label><p>Đánh dấu để tự theo dõi trên trình duyệt này; đây không phải chứng nhận hay kết quả chấm code.</p><p role="status" data-progress-status aria-live="polite"></p></div><nav class="lesson-navigation" aria-label="Chuyển bài"><a href="../design-solid/index.html">← Thiết kế trách nhiệm và SOLID</a><a href="../bean-lifecycle/index.html">Vòng đời bean và quản lý trạng thái →</a></nav><p><a href="#top">Về đầu trang ↑</a></p></main></div></body></html>

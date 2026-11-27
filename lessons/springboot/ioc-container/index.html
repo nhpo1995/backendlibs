@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Theo dõi lời mời từ constructor injection đến cách Spring dựng đồ thị bean."><title>IoC container và đồ thị dependency · Backend Service</title>
+<link rel="stylesheet" href="../../../assets/styles.css">
+<link rel="stylesheet" href="../../../assets/vendor/prism/prism.css">
+<script src="../../../assets/vendor/prism/prism.js" defer></script>
+<script src="../../../assets/vendor/codemirror/editor.js" defer></script>
+<script src="../../../assets/site.js" defer></script></head><body id="top">
+<a class="skip" href="#noi-dung">Đến nội dung</a>
+<header class="masthead"><div class="mast-inner"><a class="brand" href="../../../index.html"><span class="mark" aria-hidden="true">B</span> Backend Service</a><a class="source" href="../../../lessons/springboot/index.html">Lộ trình Spring ↗</a></div></header><div class="hero"><div class="hero-inner"><div><nav class="crumbs" aria-label="Vị trí hiện tại"><a href="../../../index.html">Trang chủ</a> / <a href="../index.html#core">Spring Core</a></nav><p class="kicker">Bài 02 / 42 · Spring Core</p><h1>IoC container và đồ thị dependency</h1><p class="lead">Theo dõi lời mời từ constructor injection đến cách Spring dựng đồ thị bean.</p><div class="hero-actions"><a class="button" href="#noi-dung">Đọc bài ↓</a><a class="button secondary" href="#bai-tap-code">Tự viết code</a></div></div><div class="flow"><div class="flow-head">Lộ trình trong bài</div><div class="flow-body"><ol><li><b>Hiểu cơ chế</b><span>Spring Core</span></li><li><b>Thử và giải thích</b><span>Đọc code, dự đoán và kiểm tra giả thuyết</span></li><li><b>Tự triển khai</b><span>Viết code và kiểm chứng ở project</span></li></ol></div></div></div></div><div class="layout"><aside class="sidebar"><nav aria-label="Mục lục bài học"><h2>Nội dung bài học</h2><ol><li><a href="#problem">Ai quyết định gửi lời mời qua đâu?</a></li><li><a href="#container">Từ định nghĩa đến đối tượng đang chạy</a></li><li><a href="#resolution">Đọc lỗi như một lỗi dựng đồ thị</a></li><li><a href="#practice">Quan sát và tự kiểm tra</a></li><li><a href="#bai-tap-code">Bài tập lập trình</a></li><li><a href="#kiem-tra-nang-luc">Kiểm tra cách hiểu</a></li><li><a href="#nguon-chinh-thuc">Nguồn chính thức</a></li></ol></nav></aside><main id="noi-dung" tabindex="-1"><div class="callout intro"><strong>Mục tiêu và điều kiện học</strong><p>Tiêm kênh gửi lời mời qua constructor để use case chạy được với fake.</p><p><strong>Cần biết trước:</strong> Java constructor và interface. Các bài ứng dụng có thể cần đọc trước phần dữ liệu tương ứng; dùng <a href="../index.html">lộ trình</a> để chọn kiến thức còn thiếu.</p><p class="version-note">Baseline: Java 17 · Spring Boot 3.5.10 · Framework 6.2 · Security 6.5. Mỗi demo có hướng dẫn riêng; ví dụ H2 không chứng minh hành vi trên DB khác.</p></div><section class="chapter" id="problem"><h2>Ai quyết định gửi lời mời qua đâu?</h2>
+<p>Khi mời An vào nhóm, ứng dụng gọi một <code>Channel</code>. Production có thể dùng email, còn unit test cần một kênh giả trả kết quả ngay. Quyết định chọn kênh nằm ở nơi lắp ghép ứng dụng. <code>InvitationService</code> nhận dependency bắt buộc qua constructor và dùng nó để thực hiện use case.</p>
+<figure class="snippet"><figcaption>Ví dụ · tiêm dependency bằng Java thuần</figcaption><pre tabindex="0"><code class="language-java">interface Channel {
+    String send(String recipient);
+}
+
+class InvitationService {
+    private final Channel channel;
+    InvitationService(Channel channel) { this.channel = channel; }
+    String invite(String recipient) { return channel.send(recipient); }
+}
+
+// Trong test:
+var service = new InvitationService(recipient -&gt; "fake:" + recipient);
+assertThat(service.invite("an")).isEqualTo("fake:an");</code></pre></figure>
+<p id="di">Đây là DI vì caller truyền dependency vào service. Với Spring, container đảm nhiệm việc lắp ghép này. Service vẫn giữ được khả năng chạy bằng Java thuần.</p></section>
+<section class="chapter" id="container"><h2>Từ định nghĩa đến đối tượng đang chạy</h2>
+<ol aria-label="Thứ tự lắp ghép bean" class="core-flow"><li><strong>Đăng ký</strong><span>Container có BeanDefinition cho service và kênh gửi.</span></li><li><strong>Giải dependency</strong><span>Tham số Channel cần một ứng viên phù hợp.</span></li><li><strong>Tạo instance</strong><span>Container gọi factory/constructor, khởi tạo bean và cấp reference cho bên dùng.</span></li></ol>
+<figure class="snippet"><figcaption>Ví dụ · cấu hình tường minh bằng @Bean</figcaption><pre tabindex="0"><code class="language-java">@Configuration(proxyBeanMethods = false)
+class InvitationConfig {
+    @Bean Channel email() { return recipient -&gt; "email:" + recipient; }
+
+    @Bean InvitationService invitationService(Channel selected) {
+        return new InvitationService(selected);
+    }
+}
+// context.getBean(InvitationService.class).invite("an") -&gt; "email:an"</code></pre></figure>
+<p><code>BeanDefinition</code> là mô tả để tạo và quản lý bean. Đối tượng <code>InvitationService</code> sau khi tạo là instance. Trong cấu hình trên, Spring giải tham số <code>selected</code> trước khi gọi factory method. Một dependency vòng qua constructor là tín hiệu để xem lại ranh giới trách nhiệm và chiều phụ thuộc.</p></section>
+<section class="chapter" id="resolution"><h2>Đọc lỗi như một lỗi dựng đồ thị</h2>
+<table><thead><tr><th scope="col">Ứng viên Channel</th><th scope="col">Kết quả trong lab</th><th scope="col">Kiểm tra đầu tiên</th></tr></thead><tbody>
+<tr><td>0</td><td>Context báo thiếu dependency.</td><td>Bean có được đăng ký, scan hoặc import vào context này không?</td></tr>
+<tr><td>1</td><td>Container truyền bean đó vào tham số.</td><td>Đối chiếu kiểu và kết quả của use case.</td></tr>
+<tr><td>2, không có quy tắc chọn</td><td>Context báo nhiều ứng viên.</td><td>Đọc tham số bị lỗi và tên những bean được liệt kê.</td></tr></tbody></table>
+<p>Điều kiện ở hàng cuối giả định hai ứng viên tương đương, tên điểm inject không chọn được một bean và không có qualifier hoặc primary. <a href="../bean-registration/index.html">Bài Đăng ký và lựa chọn bean</a> sẽ cho phép chọn email mà vẫn giữ audit trong context.</p></section>
+<section class="chapter" id="practice"><h2>Quan sát và tự kiểm tra</h2>
+<p>Với constructor <code>InvitationService(Channel channel)</code>, hãy dự đoán Spring sẽ truyền gì khi context có 0, 1 hoặc 2 bean <code>Channel</code>. Mở từng ca để đối chiếu kết quả đã kiểm chứng trên Spring.</p>
+<details class="question"><summary>0 bean · Chỉ đăng ký InvitationService</summary><p>Spring dừng lúc khởi tạo context. Log chỉ ra <code>constructor parameter 0</code> và <code>No qualifying bean of type … Channel</code>. Tham số số 0 là <code>Channel channel</code>. Việc đầu tiên cần kiểm tra là bean Channel đã được đăng ký vào context này chưa.</p></details>
+<details class="question"><summary>1 bean · Đăng ký thêm email</summary><p>Spring truyền bean duy nhất vào constructor. Gọi <code>invite("an")</code> trả <code>email:an</code> trong lab.</p></details>
+<details class="question"><summary>2 bean · Đăng ký thêm audit</summary><p>Spring tìm thấy <code>email</code> và <code>audit</code> nhưng cấu hình này chưa có quy tắc để chọn một. Log báo <code>expected single matching bean but found 2: email,audit</code>. Hãy chỉ rõ ứng viên muốn inject ở bài tiếp theo.</p></details>
+<p>Muốn tự chạy lại trên máy? <a download="" href="../../../practice/spring-core-lab/downloads/spring-core-lab.zip">Tải lab Maven (.zip)</a>, giải nén và mở terminal tại thư mục <code>spring-core-lab</code> chứa <code>pom.xml</code>. Với JDK 17 trở lên và Maven, chạy <code>mvn test</code>. Hai cảnh báo khởi tạo là ca lỗi được tạo có chủ đích. Test đạt khi Spring báo đúng lỗi dự kiến.</p>
+<details class="question"><summary>Giữ nguyên service, thay email bằng fake thì cần sửa ở đâu?</summary><p>Thay ở nơi tạo service hoặc cấu hình bean. Kết quả của use case vẫn đi qua hợp đồng Channel.</p></details>
+<details class="question"><summary>Spring có quản lý mọi object mà factory tự new bên trong method không?</summary><p>Đối tượng factory trả về trở thành bean. Các đối tượng phụ được tạo bên trong factory chỉ chịu quản lý riêng nếu chúng cũng được đăng ký.</p></details>
+<details class="question"><summary>Đã có class triển khai Channel nhưng ứng dụng báo thiếu bean. Kiểm tra gì trước?</summary><p>Kiểm tra đăng ký, package scan hoặc import trước. Class tồn tại trên classpath chỉ cho biết kiểu có mặt, chưa chứng minh container có bean ứng viên.</p></details>
+</section>
+
+<section class="chapter coding-lab" id="bai-tap-code"><p class="eyebrow">Tự viết trước khi xem lời giải</p>
+<h2>Bài tập lập trình</h2><p>Tiêm kênh gửi lời mời qua constructor để use case chạy được với fake.</p>
+<p class="exercise-instructions"><strong>Cách sửa starter:</strong> Giữ lớp InvitationService. Dùng field final và constructor nhận Channel. Interface Channel đã có trong ví dụ ở đầu bài.</p>
+<p><strong>Tiêu chí kiểm chứng:</strong> Caller truyền fake khi tạo service. Service giữ đúng reference được cấp.</p>
+<p>Đoạn dưới là bài tập ngắn; các kiểu và phương thức liên quan cần nằm trong project của bài. Editor cho sửa, lưu nháp và tải file; <strong>không biên dịch hoặc chạy Java/Spring</strong>. Chạy test thật ở local theo hướng dẫn project.</p>
+<div class="editor" data-editor data-lesson="ioc-container" data-version="1" data-language="java" data-filename="Exercise.java">
+<label for="editor-ioc-container">Mã của bạn · Exercise.java</label>
+<textarea id="editor-ioc-container" spellcheck="false" autocapitalize="off" autocomplete="off" rows="10">class InvitationService {
+    // TODO: giữ Channel và nhận nó từ constructor
+}
+</textarea>
+<div class="editor-actions"><button type="button" data-action="save">Lưu nháp</button><button type="button" data-action="download">Tải mã</button><button type="button" data-action="reset">Khôi phục starter</button></div>
+<p class="editor-status" role="status" aria-live="polite">Nháp tự lưu khi trình duyệt cho phép. Không nhập mật khẩu hoặc token thật.</p>
+<template data-starter>class InvitationService {
+    // TODO: giữ Channel và nhận nó từ constructor
+}
+</template>
+</div>
+<details class="hint"><summary>Gợi ý cách làm và tự kiểm tra</summary><p>Viết ra dữ liệu ban đầu, request/lời gọi và trạng thái cuối. Làm trường hợp đúng trước rồi thêm trường hợp lỗi. Tại mỗi bước, đối chiếu cơ chế trong bài; không chỉ sửa cho hết báo lỗi.</p><p>Caller truyền fake khi tạo service. Service giữ đúng reference được cấp.</p></details>
+<details class="solution"><summary>Lời giải tham khảo · mở sau khi tự làm</summary><p>Đây là hướng giải cho đoạn ngắn, không thay thế implementation và kiểm thử đầy đủ trong project.</p><figure class="snippet"><figcaption>Exercise.java · tham khảo</figcaption><pre tabindex="0"><code class="language-java">class InvitationService {
+    private final Channel channel;
+    InvitationService(Channel channel) { this.channel = channel; }
+}
+</code></pre></figure></details>
+<p class="practice-link"><a href="../../../practice/spring-foundations/index.html">Starter Maven, đề theo mốc và bộ kiểm thử chạy local →</a></p></section><section class="chapter" id="kiem-tra-nang-luc"><h2>Kiểm tra cách hiểu</h2>
+<p>Trước khi mở đáp án, hãy ghi dự đoán, lý do và dấu hiệu bạn sẽ dùng để kiểm chứng.</p>
+<div class="understanding-cases"><section class="understanding-case"><h3>Từ class đến bean</h3><p>Có class SmtpChannel implements Channel trên classpath, chưa scan, import hay đăng ký. InvitationService cần Channel. Context sẽ làm gì? Kiểm chứng thế nào?</p><details class="question"><summary>Mở đáp án và tiêu chí</summary><p>Context thất bại nếu không có ứng viên khác. Class hiện diện chưa tạo BeanDefinition. Dùng context test trước và sau khi đăng ký tường minh, kiểm tra reference được đưa vào constructor.</p><p><strong>Tự đánh giá.</strong> Chỉ ra lớp nào chịu trách nhiệm lắp ghép; nêu dấu hiệu khi chưa có bean.</p></details></section><section class="understanding-case"><h3>Chạy cùng use case ngoài Spring</h3><p>Thay email bằng fake ghi tên người nhận vào List. Viết kế hoạch kiểm tra để lỗi trong use case và lỗi wiring không bị trộn.</p><details class="question"><summary>Mở đáp án và tiêu chí</summary><p>Unit test tự new service với fake, gọi invite và kiểm tra danh sách. Context test riêng nạp đúng cấu hình và xác nhận bean được chọn.</p><p><strong>Tự đánh giá.</strong> Giải thích đây vẫn là DI trong test Java thuần và phân biệt bằng chứng của hai test.</p></details></section></div>
+<details class="quick-quiz"><summary>Ôn nhanh bằng trắc nghiệm</summary>
+<form class="quiz" data-quiz data-correct="1"><fieldset><legend>new RegistrationService(fake) có dùng DI không?</legend><label><input type="radio" name="quiz-ioc-container" value="0"> <span>Không</span></label><label><input type="radio" name="quiz-ioc-container" value="1"> <span>Có</span></label><label><input type="radio" name="quiz-ioc-container" value="2"> <span>Chỉ khi fake có @Component</span></label></fieldset><button type="submit">Kiểm tra đáp án</button><p role="status" aria-live="polite" data-feedback></p><template data-explanation>Dependency được cung cấp từ ngoài qua constructor. Annotation không phải điều kiện định nghĩa DI.</template></form></details>
+<details><summary>Xem giải thích khi không dùng JavaScript</summary><p><strong>Có.</strong> Dependency được cung cấp từ ngoài qua constructor. Annotation không phải điều kiện định nghĩa DI.</p></details></section><section class="chapter" id="nguon-chinh-thuc"><h2>Nguồn chính thức</h2><ul><li><a href="https://docs.spring.io/spring-framework/reference/6.2/core/beans/factory-nature.html">Spring Framework 6.2 · Bean lifecycle</a></li><li><a href="https://docs.spring.io/spring-framework/reference/6.2/core/beans/dependencies/factory-collaborators.html">Spring Framework 6.2 · DI và đồ thị dependency</a></li></ul></section><div class="completion"><label><input type="checkbox" data-complete="ioc-container"> Tôi đã tự làm bài tập và giải thích được kết quả</label><p>Đánh dấu để tự theo dõi trên trình duyệt này; đây không phải chứng nhận hay kết quả chấm code.</p><p role="status" data-progress-status aria-live="polite"></p></div><nav class="lesson-navigation" aria-label="Chuyển bài"><a href="../nen-tang-http/index.html">← HTTP, môi trường và cách kiểm chứng backend</a><a href="../design-solid/index.html">Thiết kế trách nhiệm và SOLID →</a></nav><p><a href="#top">Về đầu trang ↑</a></p></main></div></body></html>

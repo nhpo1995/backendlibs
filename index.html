@@ -1,39 +1,10 @@
 <!doctype html>
-<html lang="vi">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Các bài học backend có giải thích, mã nguồn và bài thực hành.">
-  <title>Backend Service</title>
-  <link rel="stylesheet" href="assets/styles.css">
-</head>
-<body>
-  <a class="skip" href="#noi-dung">Đến nội dung</a>
-  <header class="masthead">
-    <div class="mast-inner">
-      <a class="brand" href="index.html"><span aria-hidden="true" class="mark">B</span> Backend Service</a>
-      <a class="source" href="#lessons">Các khóa học</a>
-    </div>
-  </header>
-  <main id="noi-dung" tabindex="-1">
-    <div class="hero">
-      <div class="hero-inner catalog-hero">
-        <p class="kicker">Tài liệu tự học</p>
-        <h1>Backend <em>Service</em></h1>
-        <p class="lead">Học cách một backend nhận request, xử lý dữ liệu và trả response qua bài đọc, mã nguồn và bài thực hành.</p>
-      </div>
-    </div>
-    <section class="catalog" id="lessons" aria-labelledby="lessons-heading">
-      <h2 id="lessons-heading">Các khóa học</h2>
-      <a class="course-card" href="lessons/springboot/index.html">
-        <span><strong>Spring Boot</strong><span>Từ dự án Java và cơ sở dữ liệu đến API REST.</span></span>
-        <span aria-hidden="true">↗</span>
-      </a>
-      <a class="course-card" href="lessons/spring-security/index.html">
-        <span><strong>Spring Security</strong><span>HTTP Basic, BCrypt, tài khoản database và bảo vệ request · Railway 97.</span></span>
-        <span aria-hidden="true">↗</span>
-      </a>
-    </section>
-  </main>
-</body>
-</html>
+<html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Học Spring theo kiến thức cốt lõi, viết code và kiểm chứng bằng test."><title>Tự học backend có thực hành · Backend Service</title>
+<link rel="stylesheet" href="assets/styles.css">
+<link rel="stylesheet" href="assets/vendor/prism/prism.css">
+<script src="assets/vendor/prism/prism.js" defer></script>
+<script src="assets/vendor/codemirror/editor.js" defer></script>
+<script src="assets/site.js" defer></script></head><body id="top">
+<a class="skip" href="#noi-dung">Đến nội dung</a>
+<header class="masthead"><div class="mast-inner"><a class="brand" href="index.html"><span class="mark" aria-hidden="true">B</span> Backend Service</a><a class="source" href="lessons/springboot/index.html">Lộ trình Spring ↗</a></div></header><main id="noi-dung" tabindex="-1"><div class="hero"><div class="hero-inner catalog-hero"><p class="kicker">Giáo trình tự học backend</p><h1>Hiểu cơ chế.<br><em>Tự xây backend.</em></h1><p class="lead">Bài giảng tiếng Việt đi từ nền tảng đến ứng dụng, kèm ví dụ có đầu ra, bài tập lập trình và hướng dẫn kiểm chứng. Học độc lập, không cần theo một video.</p><div class="hero-actions"><a class="button" href="lessons/springboot/index.html">Khám phá lộ trình Spring →</a><a class="button secondary" href="practice/spring-foundations/index.html">Bắt đầu thực hành</a></div></div></div><section class="catalog"><h2>Lộ trình Spring</h2><p>42 bài trong 12 phần, từ container và dependency injection đến dữ liệu, security và kiểm thử.</p><a class="course-card" href="lessons/springboot/index.html#foundations"><span><strong>Nền tảng backend</strong><span>Đọc một request, chuẩn bị môi trường và kiểm chứng kết quả.</span></span><span aria-hidden="true">↗</span></a><a class="course-card" href="lessons/springboot/index.html#core"><span><strong>Spring Core</strong><span>Hiểu container, dependency injection, vòng đời bean và proxy.</span></span><span aria-hidden="true">↗</span></a><a class="course-card" href="lessons/springboot/index.html#boot"><span><strong>Spring Boot</strong><span>Giải thích cấu hình tự động và điều khiển ứng dụng theo môi trường.</span></span><span aria-hidden="true">↗</span></a><a class="course-card" href="lessons/springboot/index.html#web"><span><strong>Spring Web MVC</strong><span>Thiết kế contract, xử lý request, validation và lỗi API.</span></span><span aria-hidden="true">↗</span></a><a class="course-card" href="lessons/springboot/index.html#data"><span><strong>Dữ liệu và transaction</strong><span>Làm chủ ánh xạ, truy vấn, tính nhất quán và hiệu năng.</span></span><span aria-hidden="true">↗</span></a><a class="course-card" href="lessons/springboot/index.html#events"><span><strong>Spring Event và Outbox</strong><span>Nối event trong process với transaction và phục hồi sau lỗi.</span></span><span aria-hidden="true">↗</span></a><a class="course-card" href="lessons/springboot/index.html#security"><span><strong>Spring Security</strong><span>Theo dấu xác thực, phân quyền và bảo vệ các request.</span></span><span aria-hidden="true">↗</span></a><a class="course-card" href="lessons/springboot/index.html#testing"><span><strong>Kiểm thử và vận hành</strong><span>Chứng minh hành vi bằng test và quan sát ứng dụng khi chạy.</span></span><span aria-hidden="true">↗</span></a><a class="course-card" href="lessons/springboot/index.html#integration"><span><strong>Tích hợp API và chịu lỗi</strong><span>Điều khiển timeout, retry và xử lý kết quả chưa biết.</span></span><span aria-hidden="true">↗</span></a><a class="course-card" href="lessons/springboot/index.html#async"><span><strong>Async và scheduling</strong><span>Giới hạn executor và phục hồi công việc giữa nhiều instance.</span></span><span aria-hidden="true">↗</span></a><a class="course-card" href="lessons/springboot/index.html#cache"><span><strong>Cache và nhất quán</strong><span>Chọn key, TTL và invalidation dựa trên dữ liệu và quyền truy cập.</span></span><span aria-hidden="true">↗</span></a><a class="course-card" href="lessons/springboot/index.html#project"><span><strong>Triển khai và dự án</strong><span>Giữ ứng dụng hoạt động khi thay phiên bản và tự nghiệm thu đồ án danh bạ.</span></span><span aria-hidden="true">↗</span></a><div class="learning-guide"><h2>Học và thực hành theo hai nhịp</h2><p>Trên web: đọc bài, sửa đoạn code, tự kiểm tra và lưu nháp. Trong project: tự triển khai Java/Spring rồi chạy test thật. Starter và lời giải tách riêng để bạn có thể tự làm trước khi đối chiếu.</p></div></section><section class="catalog"><h2>Khóa học khác</h2><a class="course-card" href="lessons/spring-security/index.html"><span><strong>Spring Security · Railway 97</strong><span>HTTP Basic, BCrypt, tài khoản database và CSRF.</span></span><span aria-hidden="true">↗</span></a></section></main></body></html>

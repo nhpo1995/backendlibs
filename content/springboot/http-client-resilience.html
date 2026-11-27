@@ -1,0 +1,24 @@
+<section id="tinh-huong"><h2>Tình huống</h2><p>Worker POST lời mời tới đối tác. Stub ghi lời mời ở 50 ms nhưng trả response ở 900 ms, trong khi client chờ 300 ms. Dev cần xác định trạng thái và xử lý lần thử tiếp theo.</p><p>Kiến thức dùng lại từ <a href="../spring-events/index.html">Spring Event, sau commit và transactional outbox</a>.</p></section>
+<section id="co-che-1"><h2>Chờ kết nối, chờ dữ liệu và ngân sách</h2><p>Connect timeout giới hạn giai đoạn thiết lập kết nối theo client đã chọn. Read timeout xử lý tác vụ chờ dữ liệu; ngữ nghĩa cụ thể tùy client. Chốt cả giới hạn toàn luồng gồm thời gian chờ hàng đợi, các lần thử và backoff. Chọn timeout từ số liệu và SLA.</p></section>
+<section id="co-che-2"><h2>Retry cần hợp đồng</h2><p>Khi response bị mất, client thường chưa biết side effect đã xảy ra chưa. Dùng cùng idempotency key nếu đối tác hỗ trợ và định nghĩa vòng đời key. Nếu chỉ có truy vấn đối soát, xác minh trước khi thử lại. Lỗi dữ liệu vĩnh viễn cần phản hồi hoặc chuyển xử lý phù hợp.</p></section>
+<section id="co-che-3"><h2>Circuit breaker bảo vệ điểm gọi</h2><p>Cửa sổ quan sát gom kết quả. Khi vượt ngưỡng, trạng thái mở từ chối gọi phụ thuộc trong thời gian quy định. Sau đó trạng thái thử lại có giới hạn xác định phục hồi. Đo metric số lần gọi thật và giữ kết quả nghiệp vụ tách khỏi tín hiệu breaker.</p></section>
+<section id="vi-du"><h2>Ví dụ</h2><figure class="snippet"><figcaption>RestClient với giá trị timeout minh họa cho stub local</figcaption><pre><code class="language-java">var factory = new SimpleClientHttpRequestFactory();
+factory.setConnectTimeout(Duration.ofMillis(100));
+factory.setReadTimeout(Duration.ofMillis(300));
+
+var client = RestClient.builder()
+        .requestFactory(factory)
+        .baseUrl(&quot;http://localhost:8089&quot;)
+        .build();</code></pre></figure></section>
+<section id="lab-web"><h2>Dự đoán và đối chiếu ngay trên web</h2><p>Đọc dữ liệu đầu vào, viết dự đoán rồi mở kết quả. Đây là ca thiết kế để lần theo cơ chế.</p>
+<section class="understanding-case"><h3>Kết quả chưa biết</h3><p>Stub ghi ở 50 ms, client timeout ở 300 ms.</p><details class="question"><summary>Mở kết quả dự kiến</summary><p>Dùng cùng key để đối soát hoặc retry theo hợp đồng; kiểm bên nhận có đúng một hiệu ứng.</p></details></section>
+<section class="understanding-case"><h3>Lỗi vĩnh viễn</h3><p>Stub trả 400 vì thiếu người nhận.</p><details class="question"><summary>Mở kết quả dự kiến</summary><p>Dừng retry theo policy, lưu trạng thái cần sửa và ghi lý do ở mức an toàn.</p></details></section>
+</section><section id="thuc-hanh"><h2>Thực hành áp dụng</h2><p><a download href="../../../practice/spring-advanced-lab/downloads/spring-advanced-lab.zip">Tải lab Maven nâng cao (.zip)</a>. Giải nén, mở terminal tại thư mục có pom.xml và chạy <code>mvn test</code> với JDK 17 trở lên. Đọc README để xác định ca thuộc bài này và yêu cầu của phần mở rộng.</p><p>Các đề dưới đây mô tả phần cần tự triển khai và bằng chứng phải nộp. Đoạn editor bên dưới luyện cấu hình hoặc một thay đổi nhỏ.</p>
+<div class="callout"><h3>I1 · Mất response sau ghi</h3><p>Dựng stub local ghi theo key rồi trả chậm. Test timeout, gửi lại cùng key và đối soát số lần gửi với số hiệu ứng thật.</p></div>
+<div class="callout"><h3>I2 · Phục hồi dependency</h3><p>Cho stub lần lượt trả 503 và 200. Cố định ngưỡng circuit, thời gian chờ và số lần thử; xác nhận lỗi vĩnh viễn kết thúc sớm và số request đến stub bị chặn đúng lúc.</p></div>
+<p>Áp dụng tiếp ở <a href="../async-scheduling/index.html">Async, executor giới hạn và scheduling nhiều instance</a>.</p></section>
+<section id="nguon-chinh-thuc"><h2>Nguồn chính thức</h2><ul>
+<li><a href="https://docs.spring.io/spring-framework/reference/6.2/integration/rest-clients.html">Framework 6.2 · REST clients</a></li>
+<li><a href="https://www.rfc-editor.org/rfc/rfc9110.html#section-9.2.2">RFC 9110 · Idempotent methods</a></li>
+<li><a href="https://docs.spring.io/spring-cloud-circuitbreaker/reference/index.html">Spring Cloud Circuit Breaker</a></li>
+</ul></section>

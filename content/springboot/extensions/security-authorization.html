@@ -1,0 +1,8 @@
+<section id="error-dispatch"><h2>Không che mất lỗi gốc ở servlet dispatch</h2>
+<p>Security còn có thể kiểm tra lần dispatch nội bộ như ERROR. Trong Spring Boot, một lỗi được gửi qua servlet container có thể đi tới <code>/error</code>. Nếu policy chặn lại luồng này, response cuối có thể khác lỗi ban đầu. Lab HTTP đã phát hiện trường hợp thiếu CSRF bị từ chối 403 nhưng response cuối thành 401 khi error dispatch bị chặn.</p>
+<figure class="snippet"><figcaption>Java · thêm trước các rule URL trong lab</figcaption><pre><code class="language-java">// import jakarta.servlet.DispatcherType;
+http.authorizeHttpRequests(r -> r
+    .dispatcherTypeMatchers(DispatcherType.ERROR).permitAll()
+    // ... các rule đọc/ghi API đã trình bày
+    .anyRequest().denyAll());</code></pre></figure>
+<p>Rule này cho phép xử lý ERROR nội bộ, không cấp quyền cho mọi request thông thường hoặc mở API ghi. Solution có HttpBoundaryTest chạy server RANDOM_PORT để kiểm tra status cuối qua HTTP. MockMvc vẫn hữu ích cho policy và MVC, nhưng một test không bao phủ mọi tầng servlet.</p></section>

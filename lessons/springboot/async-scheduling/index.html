@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Giữ công việc phục hồi được khi hàng đợi đầy hoặc worker dừng."><title>Async, executor giới hạn và scheduling nhiều instance · Backend Service</title>
+<link rel="stylesheet" href="../../../assets/styles.css">
+<link rel="stylesheet" href="../../../assets/vendor/prism/prism.css">
+<script src="../../../assets/vendor/prism/prism.js" defer></script>
+<script src="../../../assets/vendor/codemirror/editor.js" defer></script>
+<script src="../../../assets/site.js" defer></script></head><body id="top">
+<a class="skip" href="#noi-dung">Đến nội dung</a>
+<header class="masthead"><div class="mast-inner"><a class="brand" href="../../../index.html"><span class="mark" aria-hidden="true">B</span> Backend Service</a><a class="source" href="../../../lessons/springboot/index.html">Lộ trình Spring ↗</a></div></header><div class="hero"><div class="hero-inner"><div><nav class="crumbs" aria-label="Vị trí hiện tại"><a href="../../../index.html">Trang chủ</a> / <a href="../index.html#async">Async và scheduling</a></nav><p class="kicker">Bài 37 / 42 · Async và scheduling</p><h1>Async, executor giới hạn và scheduling nhiều instance</h1><p class="lead">Giữ công việc phục hồi được khi hàng đợi đầy hoặc worker dừng.</p><div class="hero-actions"><a class="button" href="#noi-dung">Đọc bài ↓</a><a class="button secondary" href="#bai-tap-code">Tự viết code</a></div></div><div class="flow"><div class="flow-head">Lộ trình trong bài</div><div class="flow-body"><ol><li><b>Hiểu cơ chế</b><span>Async và scheduling</span></li><li><b>Thử và giải thích</b><span>Đọc code, dự đoán và kiểm tra giả thuyết</span></li><li><b>Tự triển khai</b><span>Viết code và kiểm chứng ở project</span></li></ol></div></div></div></div><div class="layout"><aside class="sidebar"><nav aria-label="Mục lục bài học"><h2>Nội dung bài học</h2><ol><li><a href="#tinh-huong">Tình huống</a></li><li><a href="#co-che-1">Giới hạn công việc trong process</a></li><li><a href="#co-che-2">Ranh giới thread và proxy</a></li><li><a href="#co-che-3">Lịch chạy không phải khóa phân tán</a></li><li><a href="#vi-du">Ví dụ</a></li><li><a href="#lab-web">Dự đoán và đối chiếu ngay trên web</a></li><li><a href="#thuc-hanh">Thực hành áp dụng</a></li><li><a href="#async-proxy-lab">Từ Future của Java đến lời gọi qua @Async</a></li><li><a href="#bai-tap-code">Bài tập lập trình</a></li><li><a href="#kiem-tra-nang-luc">Kiểm tra cách hiểu</a></li><li><a href="#nguon-chinh-thuc">Nguồn chính thức</a></li></ol></nav></aside><main id="noi-dung" tabindex="-1"><div class="callout intro"><strong>Mục tiêu và điều kiện học</strong><p>Giữ công việc phục hồi được khi hàng đợi đầy hoặc worker dừng.</p><p><strong>Cần biết trước:</strong> Đa luồng Java (C3–C5 ở bài Vòng đời bean), bean proxy, transaction-bound event và outbox. Các bài ứng dụng có thể cần đọc trước phần dữ liệu tương ứng; dùng <a href="../index.html">lộ trình</a> để chọn kiến thức còn thiếu.</p><p class="version-note">Baseline: Java 17 · Spring Boot 3.5.10 · Framework 6.2 · Security 6.5. Mỗi demo có hướng dẫn riêng; ví dụ H2 không chứng minh hành vi trên DB khác.</p></div><section class="chapter" id="tinh-huong"><h2>Tình huống</h2><p>Hai instance cùng đọc bảng outbox. Đợt cao điểm có 100 lời mời, nhưng mỗi instance chỉ xử lý đồng thời 2. Cần chọn chính sách quá tải và phục hồi khi worker biến mất.</p><p>Ôn <a href="../bean-lifecycle/index.html#java-concurrency">đa luồng Java C3–C5</a> và thử <a href="#async-proxy-lab">lời gọi qua proxy với executor thật</a>. Kiến thức dùng lại từ <a href="../http-client-resilience/index.html">HTTP client, timeout, retry và circuit breaker</a>.</p></section>
+<section class="chapter" id="co-che-1"><h2>Giới hạn công việc trong process</h2><p>Executor quản lý thread và queue. Khi công suất và queue đều đầy, chính sách từ chối phải có hành vi rõ: để lại công việc bền vững để thử sau hoặc trả tín hiệu quá tải. Queue trong RAM mất khi process dừng.</p></section>
+<section class="chapter" id="co-che-2"><h2>Ranh giới thread và proxy</h2><p>Async được gọi qua proxy trong cấu hình thường dùng. Self-invocation không nhảy sang executor theo proxy mặc định. Transaction đồng bộ gắn với thread gọi; task cần biên transaction riêng khi ghi dữ liệu. Truyền trace/request ID theo cơ chế quan sát phù hợp và dọn context khi kết thúc.</p></section>
+<section class="chapter" id="co-che-3"><h2>Lịch chạy không phải khóa phân tán</h2><p>Mỗi instance có scheduler riêng. Worker lấy việc bằng claim có hạn và cập nhật trạng thái có điều kiện. Sau khi hết claim, worker khác có thể tiếp quản. Nếu worker cũ vẫn gửi, cần idempotency ở biên hiệu ứng; claim chỉ giới hạn tranh chấp.</p></section>
+<section class="chapter" id="vi-du"><h2>Ví dụ</h2><figure class="snippet"><figcaption>Executor cố định · worker phải xử lý trường hợp submit bị từ chối</figcaption><pre tabindex="0"><code class="language-java">@Bean
+ThreadPoolTaskExecutor invitationExecutor() {
+    var executor = new ThreadPoolTaskExecutor();
+    executor.setCorePoolSize(2);
+    executor.setMaxPoolSize(2);
+    executor.setQueueCapacity(4);
+    executor.setThreadNamePrefix("invite-");
+    return executor;
+}</code></pre></figure></section>
+<section class="chapter" id="lab-web"><h2>Dự đoán và đối chiếu ngay trên web</h2><p>Đọc dữ liệu đầu vào, viết dự đoán rồi mở kết quả. Đây là ca thiết kế để lần theo cơ chế.</p>
+<section class="understanding-case"><h3>Quá tải</h3><p>Giữ cả 2 thread bằng latch, thêm 4 task vào queue, submit task thứ 7.</p><details class="question"><summary>Mở kết quả dự kiến</summary><p>Với chính sách từ chối mặc định và chưa có slot giải phóng, submit bị từ chối. Kiểm bản ghi outbox còn có thể xử lý lại.</p></details></section>
+<section class="understanding-case"><h3>Worker dừng</h3><p>A claim bản ghi, không gửi và hết thời hạn; B tiếp tục quét.</p><details class="question"><summary>Mở kết quả dự kiến</summary><p>B có thể claim lại theo policy; kiểm trạng thái kết quả và không chấp nhận cập nhật từ claim đã hết hạn.</p></details></section>
+</section><section class="chapter" id="thuc-hanh"><h2>Thực hành áp dụng</h2><p><a download="" href="../../../practice/spring-advanced-lab/downloads/spring-advanced-lab.zip">Tải lab Maven nâng cao (.zip)</a>. Giải nén, mở terminal tại thư mục có pom.xml và chạy <code>mvn test</code> với JDK 17 trở lên. Đọc README để xác định ca thuộc bài này và yêu cầu của phần mở rộng.</p><p>Các đề dưới đây mô tả phần cần tự triển khai và bằng chứng phải nộp. Đoạn editor bên dưới luyện cấu hình hoặc một thay đổi nhỏ.</p>
+<div class="callout"><h3>A1 · Test saturation bằng latch</h3><p>Ghi số task chạy, chờ, bị từ chối. Nghiệm thu khi tài nguyên có giới hạn và mọi task bị từ chối còn trạng thái để retry.</p></div>
+<div class="callout"><h3>A2 · Hai worker và lease</h3><p>Dùng hai worker trên cùng DB cùng claim một tập bản ghi. Dừng một worker, mở lại sau hạn rồi đối chiếu state và hiệu ứng ở stub.</p></div>
+<p>Áp dụng tiếp ở <a href="../cache-consistency/index.html">Cache theo use case và tính nhất quán sau commit</a>.</p></section>
+
+<section class="chapter" id="async-proxy-lab">
+<h2>Từ Future của Java đến lời gọi qua <code>@Async</code></h2>
+<p>Nếu cần ôn phép tăng, vùng khóa, timeout và interrupt, hoàn thành <a href="../bean-lifecycle/index.html#java-concurrency">C3–C5 về đa luồng Java</a> trước. Ca dưới đây tập trung vào việc Spring chặn lời gọi qua proxy và chọn executor.</p>
+<p><a download="" href="../../../practice/spring-core-lab/downloads/spring-core-lab.zip">Tải lab Spring Core (.zip)</a>. Mở terminal ở thư mục có <code>pom.xml</code> và chạy:</p>
+<figure class="snippet"><figcaption>PowerShell · test Spring qua context thật</figcaption><pre tabindex="0"><code class="language-powershell">mvn "-Dtest=InvitationAsyncTest" test</code></pre></figure>
+<ol>
+<li>Mở <code>InvitationAsyncTest.java</code> trong <code>src/test/java/vn/backend/core/</code>. Dự đoán tên thread khi gọi method có <code>@Async("invitationExecutor")</code> qua bean lấy từ context, và khi method khác trong bean gọi qua <code>this</code>. Chạy test. Ca đầu có tiền tố <code>invite-lab-</code>. Ca sau giữ tên thread caller.</li>
+<li>Cho provider giả ném một exception. Kiểm rằng lời gọi qua proxy trả Future và <code>get()</code> ném <code>ExecutionException</code> có nguyên nhân gốc. Với method trả <code>void</code>, không có Future để caller đọc. Spring dùng cơ chế xử lý lỗi async cho trường hợp đó.</li>
+<li>Sau khi hoàn thành starter bên dưới, tự kết hợp với bài A1: giữ worker bằng latch, lấp queue rồi kiểm riêng lúc submit bị từ chối và lúc một task đã được nhận nhưng thực thi thất bại.</li>
+</ol>
+<p><strong>Tự viết.</strong> Mở <code>AsyncCoordinatorStarter.java</code> cùng thư mục test. Bean điều phối đang gọi qua một method dẫn tới <code>this.threadName()</code>. Giữ nguyên <code>Probe</code> và executor, chỉ sửa <code>send()</code> của starter để method có <code>@Async</code> được gọi trên bean đã inject.</p>
+<figure class="snippet"><figcaption>PowerShell · chạy chế độ starter</figcaption><pre tabindex="0"><code class="language-powershell">mvn "-Dtest=InvitationAsyncTest" "-Dasync.starter=true" test</code></pre></figure>
+<p>Ban đầu hai ca quan sát đạt và ca bean điều phối chưa đạt vì tên thread vẫn là caller. Sau khi sửa, cả ba ca đạt và kết quả từ bean điều phối có tiền tố <code>invite-lab-</code>.</p>
+<p>Test hủy ở C5 dùng Future của Java executor. Method Spring trong lab này trả <code>CompletableFuture</code>. Việc hủy future loại này không tự interrupt công việc đang tạo ra kết quả, nên cần thiết kế và thử cơ chế dừng phù hợp nếu nghiệp vụ yêu cầu. Tên thread giúp xác định biên thực thi. Để chứng minh transaction, cần thêm một ca ghi thật và đọc dữ liệu từ bên ngoài transaction.</p>
+</section>
+<section class="chapter coding-lab" id="bai-tap-code"><p class="eyebrow">Tự viết trước khi xem lời giải</p>
+<h2>Bài tập lập trình</h2><p>Giữ công việc phục hồi được khi hàng đợi đầy hoặc worker dừng.</p>
+<p class="exercise-instructions"><strong>Cách sửa starter:</strong> Giữ 2 worker, thêm giới hạn queue.</p>
+<p><strong>Tiêu chí kiểm chứng:</strong> Với chính sách từ chối mặc định và chưa có slot giải phóng, submit bị từ chối. Kiểm bản ghi outbox còn có thể xử lý lại.</p>
+<p>Đoạn dưới là bài tập ngắn; các kiểu và phương thức liên quan cần nằm trong project của bài. Editor cho sửa, lưu nháp và tải file; <strong>không biên dịch hoặc chạy Java/Spring</strong>. Chạy test thật ở local theo hướng dẫn project.</p>
+<div class="editor" data-editor data-lesson="async-scheduling" data-version="1" data-language="java" data-filename="Exercise.java">
+<label for="editor-async-scheduling">Mã của bạn · Exercise.java</label>
+<textarea id="editor-async-scheduling" spellcheck="false" autocapitalize="off" autocomplete="off" rows="10">@Bean
+ThreadPoolTaskExecutor invitationExecutor() {
+    var executor = new ThreadPoolTaskExecutor();
+    executor.setCorePoolSize(2);
+    executor.setMaxPoolSize(2);
+    // TODO: giới hạn queue ở 4
+    executor.setThreadNamePrefix(&quot;invite-&quot;);
+    return executor;
+}
+</textarea>
+<div class="editor-actions"><button type="button" data-action="save">Lưu nháp</button><button type="button" data-action="download">Tải mã</button><button type="button" data-action="reset">Khôi phục starter</button></div>
+<p class="editor-status" role="status" aria-live="polite">Nháp tự lưu khi trình duyệt cho phép. Không nhập mật khẩu hoặc token thật.</p>
+<template data-starter>@Bean
+ThreadPoolTaskExecutor invitationExecutor() {
+    var executor = new ThreadPoolTaskExecutor();
+    executor.setCorePoolSize(2);
+    executor.setMaxPoolSize(2);
+    // TODO: giới hạn queue ở 4
+    executor.setThreadNamePrefix(&quot;invite-&quot;);
+    return executor;
+}
+</template>
+</div>
+<details class="hint"><summary>Gợi ý cách làm và tự kiểm tra</summary><p>Viết ra dữ liệu ban đầu, request/lời gọi và trạng thái cuối. Làm trường hợp đúng trước rồi thêm trường hợp lỗi. Tại mỗi bước, đối chiếu cơ chế trong bài; không chỉ sửa cho hết báo lỗi.</p><p>Với chính sách từ chối mặc định và chưa có slot giải phóng, submit bị từ chối. Kiểm bản ghi outbox còn có thể xử lý lại.</p></details>
+<details class="solution"><summary>Lời giải tham khảo · mở sau khi tự làm</summary><p>Đây là hướng giải cho đoạn ngắn, không thay thế implementation và kiểm thử đầy đủ trong project.</p><figure class="snippet"><figcaption>Exercise.java · tham khảo</figcaption><pre tabindex="0"><code class="language-java">@Bean
+ThreadPoolTaskExecutor invitationExecutor() {
+    var executor = new ThreadPoolTaskExecutor();
+    executor.setCorePoolSize(2);
+    executor.setMaxPoolSize(2);
+    executor.setQueueCapacity(4);
+    executor.setThreadNamePrefix(&quot;invite-&quot;);
+    return executor;
+}
+</code></pre></figure></details>
+<p class="practice-link"><a href="../../../practice/spring-foundations/index.html">Starter Maven, đề theo mốc và bộ kiểm thử chạy local →</a></p></section><section class="chapter" id="kiem-tra-nang-luc"><h2>Kiểm tra cách hiểu</h2>
+<p>Trước khi mở đáp án, hãy ghi dự đoán, lý do và dấu hiệu bạn sẽ dùng để kiểm chứng.</p>
+<div class="understanding-cases"><section class="understanding-case"><h3>Async gọi nội bộ</h3><p>Service gọi this.deliver() dù deliver có @Async. Log vẫn hiện thread xử lý HTTP. Chứng minh và sửa ở đâu?</p><details class="question"><summary>Mở đáp án và tiêu chí</summary><p>Trong proxy mode, lời gọi nội bộ bỏ qua interceptor. Chuyển nhiệm vụ sang bean khác rồi test tên thread hoặc latch; mở biên transaction riêng trong worker nếu cần ghi.</p><p><strong>Tự đánh giá.</strong> Nêu đường gọi và bằng chứng chạy trên executor.</p></details></section><section class="understanding-case"><h3>Claim hết hạn trong khi đang gửi</h3><p>Worker A gửi chậm, lease hết hạn và B lấy lại. Làm sao tránh A ghi đè trạng thái của B?</p><details class="question"><summary>Mở đáp án và tiêu chí</summary><p>Cập nhật có điều kiện theo claim token hoặc version. Nếu cả hai đã gửi, cần idempotency ở downstream; trạng thái claim một mình không thu hồi được call đã gửi.</p><p><strong>Tự đánh giá.</strong> Phân biệt tranh chấp trạng thái DB với hiệu ứng ở hệ thống nhận.</p></details></section></div>
+<details class="quick-quiz"><summary>Ôn nhanh bằng trắc nghiệm</summary>
+<form class="quiz" data-quiz data-correct="1"><fieldset><legend>Hai instance đều có @Scheduled. Annotation bảo đảm gì giữa chúng?</legend><label><input type="radio" name="quiz-async-scheduling" value="0"> <span>Hai instance tự chia đều bản ghi</span></label><label><input type="radio" name="quiz-async-scheduling" value="1"> <span>Mỗi scheduler chạy theo cấu hình của instance</span></label><label><input type="radio" name="quiz-async-scheduling" value="2"> <span>Chỉ một instance được chạy</span></label></fieldset><button type="submit">Kiểm tra đáp án</button><p role="status" aria-live="polite" data-feedback></p><template data-explanation>Cần phối hợp ở tầng công việc nếu yêu cầu loại cạnh tranh.</template></form></details>
+<details><summary>Xem giải thích khi không dùng JavaScript</summary><p><strong>Mỗi scheduler chạy theo cấu hình của instance.</strong> Cần phối hợp ở tầng công việc nếu yêu cầu loại cạnh tranh.</p></details></section><section class="chapter" id="nguon-chinh-thuc"><h2>Nguồn chính thức</h2><ul>
+<li><a href="https://docs.spring.io/spring-framework/reference/6.2/integration/scheduling.html">Framework 6.2 · Executor và scheduling</a></li><li><a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/util/concurrent/CompletableFuture.html#cancel(boolean)">Java 17 · CompletableFuture.cancel</a></li>
+<li><a href="https://docs.spring.io/spring-framework/reference/6.2/data-access/transaction/declarative/tx-decl-explained.html">Framework 6.2 · Declarative transactions</a></li>
+</ul></section><div class="completion"><label><input type="checkbox" data-complete="async-scheduling"> Tôi đã tự làm bài tập và giải thích được kết quả</label><p>Đánh dấu để tự theo dõi trên trình duyệt này; đây không phải chứng nhận hay kết quả chấm code.</p><p role="status" data-progress-status aria-live="polite"></p></div><nav class="lesson-navigation" aria-label="Chuyển bài"><a href="../http-client-resilience/index.html">← HTTP client, timeout, retry và circuit breaker</a><a href="../cache-consistency/index.html">Cache theo use case và tính nhất quán sau commit →</a></nav><p><a href="#top">Về đầu trang ↑</a></p></main></div></body></html>

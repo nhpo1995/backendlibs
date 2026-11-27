@@ -1,74 +1,10 @@
 <!doctype html>
 <html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Buổi 13 · DTO, ModelMapper và tìm kiếm bằng Specification</title><meta name="description" content="Tách hợp đồng JSON khỏi entity và ghép điều kiện lọc theo dữ liệu mà client thực sự gửi.">
-<link rel="stylesheet" href="../../../assets/styles.css"><script src="../../../assets/site.js" defer></script></head>
-<body id="top"><a class="skip" href="#noi-dung">Đến nội dung</a>
-<header class="masthead"><div class="mast-inner"><a class="brand" href="../../../index.html"><span class="mark" aria-hidden="true">B</span> Backend Service</a></div></header>
-<div class="hero"><div class="hero-inner"><div><nav class="crumbs" aria-label="Vị trí hiện tại"><a href="../../../index.html">Khóa học</a> / <a href="../index.html">Spring Boot</a> / Buổi 13</nav>
-<p class="kicker">Railway 89 <span></span> Video 3:20:51</p><h1>DTO, ModelMapper và tìm kiếm bằng Specification</h1><p class="lead">Tách hợp đồng JSON khỏi entity và ghép điều kiện lọc theo dữ liệu mà client thực sự gửi.</p>
-<div class="hero-actions"><a class="button" href="#dto">Bắt đầu bài học ↓</a><a class="button secondary" href="#thuc-hanh">Thực hành</a></div></div><div class="flow"><div class="flow-head"><span aria-hidden="true">● ● ●</span><span>Luồng xử lý</span></div><div class="flow-body"><ol><li><b>Bind</b><span>Query string → ProductFilter</span></li><li><b>Filter</b><span>Specification ghép Predicate bằng AND</span></li><li><b>Map</b><span>JPA Page → DTO → JSON</span></li></ol></div></div></div></div>
-<div class="layout"><aside class="sidebar"><nav aria-labelledby="toc-heading"><h2 id="toc-heading">Nội dung buổi học</h2><ol><li><a href="#dto">DTO là hợp đồng, projection là cách lấy dữ liệu</a></li><li><a href="#spec">Bộ lọc thay đổi theo tham số</a></li><li><a href="#boundary">Binding và quy tắc lọc</a></li><li><a href="#thuc-hanh">Thực hành và gỡ lỗi</a></li><li><a href="#tu-kiem-tra">Tự kiểm tra</a></li><li><a href="#moc-video">Mốc xem lại và nguồn đối chiếu</a></li></ol></nav></aside>
-<main id="noi-dung" tabindex="-1"><div class="callout intro"><strong>Mục tiêu của Buổi 13</strong><p>So sánh ánh xạ DTO và projection ở DB, viết bộ lọc linh hoạt gồm tên, khoảng giá, màu, trạng thái và ghép với phân trang.</p><p>Cần biết trước: Entity, constructor injection, Criteria và Pageable. <a href="../buoi-12/index.html">Ôn Buổi 12</a>.</p></div>
-<section class="chapter" id="dto"><h2>DTO là hợp đồng, projection là cách lấy dữ liệu</h2>
-<p>Ứng dụng có entity Product với <code>id, name, price, color, status</code>. Danh sách chọn sản phẩm chỉ cần <code>id</code> và <code>name</code>, ví dụ <code>{"id":1,"name":"Mouse"}</code>. Nếu trả entity, việc thêm thuộc tính lưu trữ hay quan hệ lazy có thể thay đổi JSON hoặc kích hoạt truy vấn ngoài ý muốn. Chọn rõ DTO cho từng use case: DTO nhập chứa trường người gọi được phép gửi; DTO trả về chứa trường client cần biết.</p><div class="table-wrap"><table><thead><tr><th scope="col">Cách</th><th scope="col">Cột DB đọc</th><th scope="col">Khi phù hợp</th></tr></thead><tbody><tr><td>Mapper viết tay từ entity</td><td>Thường đủ cột entity</td><td>Cần gộp, đổi tên hoặc tính giá trị với quy tắc rõ ràng.</td></tr><tr><td>ModelMapper map sang DTO</td><td>Không thay đổi query lấy entity</td><td>Nhiều thuộc tính trùng tên và kiểu; khai báo mapping tường minh khi lệch.</td></tr><tr><td>JPQL constructor projection</td><td>Chỉ cột xuất hiện trong constructor expression</td><td>Đọc danh sách ít trường hoặc tránh tải object thừa.</td></tr></tbody></table></div><figure class="snippet"><figcaption>Projection chọn cột và ModelMapper tạo DTO từ object đã có</figcaption><pre tabindex="0"><code>record Summary(Long id, String name) {}
-
-@Query("select new vn.railway89.lab.Summary(p.id, p.name) from Product p order by p.id")
-List&lt;Summary&gt; summaries();
-
-@Bean
-ModelMapper modelMapper() {
-    var mapper = new ModelMapper();
-    mapper.getConfiguration().setMatchingStrategy(MatchingStrategies.STRICT);
-    return mapper;
-}
-// Trong controller, mapper là bean được inject qua constructor:
-mapper.map(product, MappedSummary.class);</code></pre></figure><p><code>Summary</code> có constructor đúng thứ tự và kiểu vì là record. Cách ModelMapper dùng JavaBean có constructor không tham số và setter tương ứng, ví dụ <code>setName(String name)</code>. STRICT giảm khớp nhầm, nhưng không đảm bảo DTO mới có dữ liệu đúng. Nếu đổi destination từ <code>name</code> sang <code>label</code>, thêm <code>mapper.typeMap(Product.class, NamedView.class).addMapping(Product::getName, NamedView::setLabel)</code> (với DTO có setter tương ứng), rồi kiểm tra giá trị và kiểu. Không tự map toàn bộ request nhạy cảm sang entity; set rõ những trường được phép đổi.</p></section>
-
-<section class="chapter" id="spec"><h2>Bộ lọc thay đổi theo tham số</h2>
-<p>Client truyền <code>name=lap&amp;minPrice=200&amp;maxPrice=350&amp;color=BLACK&amp;status=ACTIVE</code>. Tên khớp Laptop (300) và Laptop Stand (200); cả hai qua khoảng giá và màu; Laptop Stand bị loại vì INACTIVE. Kết quả duy nhất ID 3. Nếu bỏ <code>status</code> thì có <code>[3,4]</code> theo ID. Không truyền giá có nghĩa là bỏ qua điều kiện; dùng <code>Long</code> thay vì <code>long</code> để phân biệt vắng tham số và giá bằng 0.</p><figure class="snippet"><figcaption>Root chọn thuộc tính entity; CriteriaBuilder dựng biểu thức</figcaption><pre tabindex="0"><code>interface ProductRepository extends JpaRepository&lt;Product, Long&gt;,
-        JpaSpecificationExecutor&lt;Product&gt; {}
-
-static Specification&lt;Product&gt; nameContains(String name) {
-    return (root, query, cb) -&gt;
-        cb.like(cb.lower(root.get("name")), "%" + Like.literal(name) + "%", '!');
-}
-
-// Trong hàm xây dựng từ ProductFilter:
-Specification&lt;Product&gt; spec = (root, query, cb) -&gt; cb.conjunction();
-if (f.name() != null &amp;&amp; !f.name().isBlank()) spec = spec.and(nameContains(f.name().trim()));
-if (f.minPrice() != null) spec = spec.and((root, q, cb) -&gt; cb.ge(root.get("price"), f.minPrice()));
-// Ghép maxPrice, color và status theo cùng quy tắc.
-var result = repo.findAll(spec, pageable).map(ProductView::of);</code></pre></figure><p><code>Specification&lt;Product&gt;</code> là đối tượng có thể sinh <code>Predicate</code> khi Spring Data cung cấp <code>Root</code>, <code>CriteriaQuery</code> và <code>CriteriaBuilder</code>. <code>cb.conjunction()</code> là điều kiện đúng khi chưa có bộ lọc. <code>and()</code> tạo specification mới; phải gán lại. <code>findAll(spec, pageable)</code> áp dụng điều kiện cho kết quả phân trang và truy vấn đếm nếu cần. Đừng thêm fetch join tùy tiện vào spec dùng cho COUNT; nếu join to-many làm trùng root, kiểm tra cả tổng, danh sách và cách đếm riêng.</p></section>
-
-<section class="chapter" id="boundary"><h2>Binding và quy tắc lọc</h2>
-<p><code>@ModelAttribute ProductFilter filter</code> giúp MVC bind query string vào record theo tên component. <code>minPrice=abc</code> sai kiểu trước khi chạy query; <code>minPrice=350&amp;maxPrice=200</code> có đúng kiểu nhưng sai quy tắc, trả 400 do kiểm tra logic. Màu và trạng thái nhận enum, demo dùng chính xác <code>BLACK</code> / <code>WHITE</code> và <code>ACTIVE</code> / <code>INACTIVE</code>. Vì <code>nameContains</code> escape wildcard, <code>name=%25</code> tìm ký tự phần trăm thật.</p><p>So với nhiều đoạn if thêm trực tiếp vào Criteria (Buổi 7), Specification gom điều kiện tái sử dụng cùng một interface; SQL cuối vẫn do JPA dựng. Nếu thêm tham số màu mà không thấy kết quả thay đổi, xác minh URL bind đúng tên, kiểm tra logic có gán <code>spec = spec.and(...)</code>, rồi đọc SQL. Nếu truy vấn chỉ có một điều kiện cố định, derived query hoặc @Query có thể dễ đọc hơn.</p></section>
-
-<section class="chapter" id="thuc-hanh"><h2>Thực hành và gỡ lỗi</h2>
-<p>Trong <a href="../buoi-17/demo/README.md">thư mục demo chung</a>, chạy bằng JDK 17 trở lên và Maven. Các lệnh HTTP dùng PowerShell 7. H2 được nạp dữ liệu mẫu mỗi khi khởi động lại. Nếu thực hành theo thứ tự, hãy khởi động lại trước khi cần dùng dữ liệu gốc.</p><figure class="snippet"><figcaption>Cửa sổ 1 · từ thư mục chứa pom.xml</figcaption><pre tabindex="0"><code>mvn -B -ntp package
-java -jar target/springboot-lessons-demo-0.1.0.jar</code></pre></figure><figure class="snippet"><figcaption>Cửa sổ 2 · PowerShell</figcaption><pre tabindex="0"><code>function Show-LabResponse {
-    process {
-        $_.StatusCode
-        if ($_.Content -is [byte[]]) { [Text.Encoding]::UTF8.GetString($_.Content) }
-        else { $_.Content }
-    }
-}
-$base = "http://127.0.0.1:8117"
-$auth = "Basic " + [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes("admin:demo-pass"))
-$h = @{ Authorization = $auth }
-Invoke-RestMethod "$base/api/products/summary" -Headers $h | ConvertTo-Json
-Invoke-RestMethod "$base/api/products/mapped" -Headers $h | ConvertTo-Json
-Invoke-RestMethod "$base/api/products?name=lap&amp;minPrice=200&amp;maxPrice=350&amp;color=BLACK&amp;status=ACTIVE" -Headers $h | ConvertTo-Json -Depth 4
-Invoke-RestMethod "$base/api/products?name=lap&amp;minPrice=200&amp;maxPrice=350&amp;color=BLACK" -Headers $h | ConvertTo-Json -Depth 4
-Invoke-WebRequest "$base/api/products?minPrice=350&amp;maxPrice=200" -Headers $h -SkipHttpErrorCheck | Show-LabResponse</code></pre></figure><p>Hai lệnh đầu trả sáu object giống nhau, mỗi object chỉ có ID và name. So log SQL: projection chỉ select ID và tên; mapper gọi truy vấn đọc entity đủ thuộc tính rồi thu nhỏ JSON. Lệnh thứ ba có ID 3; lệnh thứ tư có ID 3 và 4; lệnh cuối 400. Thêm <code>size=1&amp;page=2</code> vào lệnh thứ tư, kết quả có riêng ID 4 và <code>totalElements:2</code>.</p><p>Trên bản sao, bỏ phép gán ở nhánh status, chỉ gọi <code>spec.and(...)</code> rồi bỏ kết quả. Chạy lại lệnh có <code>status=ACTIVE</code>. ID 4 lọt vào; log SQL thiếu predicate status. Khôi phục phép gán, build và kiểm tra chỉ còn ID 3. Một lỗi khác là dùng <code>root.get("product_status")</code> thay cho tên thuộc tính <code>status</code>; Criteria dùng tên thuộc tính Java.</p><p>Mã để đối chiếu: <a href="../buoi-17/demo/src/main/java/vn/railway89/lab/Products.java">Products.java</a> · <a href="../buoi-17/demo/src/main/java/vn/railway89/lab/LabApplication.java">LabApplication.java</a> · <a href="../buoi-17/demo/src/main/resources/data.sql">dữ liệu mẫu</a> · <a href="../buoi-17/demo/verify.py">kiểm tra HTTP</a>.</p></section>
-
-<section class="chapter" id="tu-kiem-tra"><h2>Tự kiểm tra</h2>
-<details class="question"><summary>DTO nhỏ hơn entity có tự giảm cột SELECT không?</summary><p>Không. Mapper Java chạy sau SELECT. Dùng projection ngay trong truy vấn để giảm cột.</p></details>
-<details class="question"><summary>Vì sao không dùng long cho giá tùy chọn?</summary><p>Giá trị mặc định 0 khiến khó phân biệt vắng tham số và yêu cầu lọc giá 0.</p></details>
-<details class="question"><summary>AND khác gì OR trong bộ lọc ví dụ?</summary><p>AND bắt buộc thỏa tất cả điều kiện. OR có thể trả cả sản phẩm khác tên nhưng thỏa giá hoặc màu.</p></details>
-<details class="question"><summary>Giá min 350, max 200 nên trả [] hay báo lỗi?</summary><p>Hợp đồng demo trả 400 vì khoảng giá do client gửi không hợp lệ.</p></details>
-<details class="question"><summary>spec.and(...) có đổi object spec gốc không?</summary><p>Không. Giữ kết quả trả về để dùng điều kiện vừa ghép.</p></details>
-<details class="question"><summary>Làm sao biết mapper map sai hay truy vấn lọc sai?</summary><p>Đối chiếu các hàng và cột trong SQL/giá trị entity trước, rồi so DTO và JSON.</p></details></section>
-
-<section class="chapter" id="moc-video"><h2>Mốc xem lại và nguồn đối chiếu</h2>
-<p>Mã dùng ModelMapper ở một endpoint để so với constructor projection. Tên/màu/giá là dữ liệu của demo; phần thiết kế DTO và dùng Specification bám nội dung bản ghi.</p><ul><li>24:05 · Mục đích của DTO</li><li>50:08 · Map từng phần tử</li><li>59:25 · ModelMapper</li><li>1:33:30 · Đăng ký bean mapper</li><li>2:11:55 · Đọc lỗi tham số query</li><li>2:32:19 · Predicate và Specification</li><li>2:36:26 · Ghép các bộ lọc</li><li>2:51:49 · Gom tham số vào object filter</li></ul><h3>Tài liệu chính thức</h3><ul><li><a href="https://docs.spring.io/spring-data/jpa/reference/3.5/repositories/projections.html">Spring Data JPA · projections</a></li><li><a href="https://docs.spring.io/spring-data/jpa/reference/3.5/jpa/specifications.html">Spring Data JPA · specifications</a></li><li><a href="https://modelmapper.org/user-manual/property-mapping/">ModelMapper · property mapping</a></li><li><a href="https://docs.spring.io/spring-framework/reference/6.2/web/webmvc/mvc-controller/ann-methods/modelattrib-method-args.html">Spring MVC · @ModelAttribute</a></li></ul></section>
-<nav class="hero-actions" aria-label="Điều hướng bài học"><a href="../buoi-12/index.html">← Buổi 12</a><a href="../buoi-14/index.html">Buổi 14 →</a><a href="#top">Lên đầu trang ↑</a></nav></main></div></body></html>
+<meta name="description" content="Nội dung được chuyển sang giáo trình theo chủ đề."><title>Bài học đã được tổ chức lại · Backend Service</title>
+<link rel="stylesheet" href="../../../assets/styles.css">
+<link rel="stylesheet" href="../../../assets/vendor/prism/prism.css">
+<script src="../../../assets/vendor/prism/prism.js" defer></script>
+<script src="../../../assets/vendor/codemirror/editor.js" defer></script>
+<script src="../../../assets/site.js" defer></script></head><body id="top">
+<a class="skip" href="#noi-dung">Đến nội dung</a>
+<header class="masthead"><div class="mast-inner"><a class="brand" href="../../../index.html"><span class="mark" aria-hidden="true">B</span> Backend Service</a><a class="source" href="../../../lessons/springboot/index.html">Lộ trình Spring ↗</a></div></header><main class="catalog" id="noi-dung" tabindex="-1"><h1>Bài học đã được tổ chức lại</h1><p>Giáo trình được tách, gộp và sắp xếp theo kiến thức, không theo buổi video. Các project demo vẫn giữ đường dẫn để bạn tiếp tục thực hành.</p><p><a class="button" href="../jpa-projections/index.html">DTO mapping và projection ở tầng truy vấn →</a></p><p><a href="../index.html">Xem toàn bộ lộ trình</a></p><ul><li id="boundary"><a href="../mvc-binding/index.html#boundary">Mở nội dung tương ứng: boundary</a></li><li id="dto"><a href="../jpa-projections/index.html#dto">Mở nội dung tương ứng: dto</a></li><li id="moc-video"><a href="../jpa-projections/index.html#moc-video">Mở nội dung tương ứng: moc-video</a></li><li id="spec"><a href="../dynamic-query/index.html#spec">Mở nội dung tương ứng: spec</a></li><li id="thuc-hanh"><a href="../jpa-projections/index.html#thuc-hanh">Mở nội dung tương ứng: thuc-hanh</a></li><li id="toc-heading"><a href="../jpa-projections/index.html">Mở nội dung tương ứng: toc-heading</a></li><li id="tu-kiem-tra"><a href="../jpa-projections/index.html#tu-kiem-tra">Mở nội dung tương ứng: tu-kiem-tra</a></li></ul></main></body></html>

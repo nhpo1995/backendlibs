@@ -1,0 +1,11 @@
+<section id="trace"><h2>Từ một lỗi người dùng đến chuỗi sự kiện</h2>
+<p>Người dùng báo “lưu group bị lỗi” lúc 10:05. Nếu log chỉ có “Error”, không biết request nào, endpoint nào hoặc nguyên nhân nào. Một mã đối chiếu được gắn vào response và log giúp nối sự kiện mà không phải trả stack trace cho client. Mã này phục vụ tra cứu, không thay quyền truy cập log.</p>
+<p>Trong demo cũ, ApiErrors tạo mã lỗi và log loại exception; xem <a href="../buoi-17/demo/src/main/java/vn/railway89/lab/ApiErrors.java">ApiErrors.java</a>. Dấu vết nên chỉ ra thứ tự: request vào, service thực hiện, lỗi được phân loại, response kết thúc. Với công việc bất đồng bộ hoặc nhiều dịch vụ, phải xét việc truyền context; không giả định ThreadLocal tự đi theo mọi thread.</p>
+<p>Log mô tả sự kiện, metric cho biết xu hướng tổng hợp như số lỗi hoặc độ trễ, trace nối các bước của một thao tác. Không đưa request ID không giới hạn thành mọi nhãn metric vì số tổ hợp có thể tăng rất lớn. Chọn dữ liệu quan sát theo câu hỏi và chi phí lưu/tra.</p></section>
+<section id="practice"><h2>Lab điều tra: response 500 có mã đối chiếu</h2>
+<figure class="snippet"><figcaption>PowerShell · demo lỗi có chủ đích</figcaption><pre><code class="language-powershell">mvn -f lessons/springboot/buoi-17/demo/pom.xml spring-boot:run
+# Terminal khác:
+curl.exe -i -u admin:demo-pass http://127.0.0.1:8117/api/lab/failure</code></pre></figure>
+<p>Endpoint này cố ý ném lỗi để học. Ghi mã đối chiếu trong response, tìm cùng mã ở terminal, so loại exception và status. Body không được chứa nội dung exception giả lập hoặc stack trace. Đây là lab điều tra lỗi, không phải endpoint cho người dùng cuối.</p>
+<ol><li>Ghi câu hỏi chẩn đoán trước khi thêm log.</li><li>Bật DEBUG ở đúng package thay vì TRACE toàn bộ hệ thống.</li><li>Thực hiện một request, lưu dấu vết đủ tái hiện và tắt cấu hình tạm sau thử nghiệm.</li><li>Kiểm log không có Authorization/password/token hoặc toàn bộ body đăng ký.</li><li>Với thao tác tạo, GET lại theo Location sau response thành công để xác nhận trạng thái đã lưu.</li></ol>
+<details class="question"><summary>Log ERROR có exception đầy đủ luôn phù hợp không?</summary><p>Không. Stack trace và message có thể chứa SQL hoặc dữ liệu nhạy cảm. Chọn kênh log nội bộ có kiểm soát, thời hạn lưu và quy tắc che dữ liệu; response cho client có hợp đồng riêng.</p></details></section>

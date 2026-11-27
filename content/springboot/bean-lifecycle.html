@@ -1,0 +1,30 @@
+<section id="scope"><h2>Một bean dùng chung có thể gửi nhầm người như thế nào?</h2>
+<p><a href="../bean-registration/index.html">Bài chọn bean</a> đã gắn kênh email cho <code>InvitationService</code>. Bây giờ hai request cùng dùng service. Nếu service lưu người nhận vào field <code>recipient</code>, request An có thể bị tạm dừng ngay sau khi ghi field. Request Bình ghi đè field trước khi An tiếp tục.</p>
+<table><thead><tr><th scope="col">Bước</th><th scope="col">An</th><th scope="col">Bình</th><th scope="col">Field dùng chung</th></tr></thead><tbody>
+<tr><td>1</td><td>Ghi an rồi dừng</td><td>Chưa chạy</td><td>an</td></tr>
+<tr><td>2</td><td>Đang chờ</td><td>Ghi binh và đọc lại</td><td>binh</td></tr>
+<tr><td>3</td><td>Đọc nhầm binh</td><td>Đã xong</td><td>binh</td></tr></tbody></table>
+<p>Singleton của Spring có phạm vi một định nghĩa bean trong một container. Hai bean cùng class hoặc hai context có thể có instance khác nhau. Singleton hỗ trợ tái sử dụng, nên mọi trạng thái dùng chung phải có quy tắc truy cập phù hợp.</p></section>
+<section id="lifecycle"><h2>Vòng đời của instance do container quản lý</h2>
+<ol class="core-flow" aria-label="Vòng đời của bean"><li><strong>Tạo và nối</strong><span>Constructor nhận dependency bắt buộc.</span></li><li><strong>Khởi tạo</strong><span>Post-processor tham gia xử lý instance. Callback @PostConstruct có thể chuẩn bị tài nguyên cục bộ.</span></li><li><strong>Dùng và đóng</strong><span>Bean đủ điều kiện có callback @PreDestroy khi context đóng bình thường.</span></li></ol>
+<p><code>BeanFactoryPostProcessor</code> thao tác với metadata trước khi các bean thông thường được khởi tạo. <code>BeanPostProcessor</code> xử lý instance; nó có thể bọc đối tượng để bên gọi nhận proxy. Bài AOP sẽ dùng ranh giới này để giải thích tại sao hai lời gọi cùng method có thể khác nhau.</p>
+<p>Prototype tạo instance mới mỗi lần container được yêu cầu. Tiêm một prototype vào singleton qua constructor chỉ giải dependency tại lúc tạo singleton. Khi thật sự cần tạo theo mỗi lần dùng, lấy qua <code>ObjectProvider.getObject()</code>. Caller chịu trách nhiệm tài nguyên cần dọn của prototype; Spring không tự gọi callback hủy prototype.</p></section>
+<section id="stateless"><h2>Giữ người nhận trong từng lời gọi</h2>
+<figure class="snippet"><figcaption>Ví dụ · một service, hai tham số độc lập</figcaption><pre><code class="language-java">class InvitationService {
+    private final Channel channel;
+    InvitationService(Channel channel) { this.channel = channel; }
+
+    String invite(String recipient) {
+        return channel.send(recipient);
+    }
+}</code></pre></figure>
+<p>Việc đổi field thành tham số loại bỏ chỗ ghi đè trong ví dụ. Vẫn phải xác nhận <code>Channel</code> và dependency bên dưới của nó an toàn khi dùng chung. Tài nguyên dùng chung và dữ liệu của mỗi request cần được xem xét riêng.</p></section>
+<section id="practice"><h2>Thực hành C2 · tái hiện lỗi trộn dữ liệu</h2>
+<p>Giữ lời gọi An ở bước ngay sau khi ghi field, cho Bình thực hiện xong rồi cho An tiếp tục. Hãy dự đoán An đọc được gì. Trong bài tập lập trình bên dưới, sửa service để mỗi lời gọi giữ người nhận của riêng mình.</p>
+<details class="question"><summary>Đối chiếu kết quả đã kiểm chứng</summary><p>Ở bản dùng field, An đọc nhầm <code>binh</code>. Khi truyền người nhận qua tham số, hai lời gọi giữ hai giá trị riêng. Kênh mẫu trả <code>email:an</code> và <code>email:binh</code> tương ứng.</p></details>
+<p>Muốn tái hiện lịch xen kẽ bằng latch và tự quan sát callback tạo/hủy bean? <a download href="../../../practice/spring-core-lab/downloads/spring-core-lab.zip">Tải lab Maven (.zip)</a> và mở đề C2 trong <code>README.md</code>. Giải nén rồi chạy <code>mvn test</code> tại thư mục chứa <code>pom.xml</code>.</p>
+<details class="question"><summary>Hai lần getBean singleton, hai lần getBean prototype. Có bao nhiêu init và destroy?</summary><p>Ba lần init, gồm một singleton và hai prototype. Lab ghi một destroy của singleton khi đóng context.</p></details>
+<details class="question"><summary>Tiêm prototype vào singleton rồi gọi service hai lần có tạo hai prototype không?</summary><p>Không. Cùng reference được giữ sau khi singleton được tạo. Đổi cách lấy dependency nếu nghiệp vụ thật sự cần instance mới mỗi lần.</p></details>
+<details class="question"><summary>Đổi service sang prototype có đủ để sửa lỗi gửi nhầm không?</summary><p>Chưa đủ nếu caller giữ một instance và tiếp tục dùng chung, hoặc dependency có state tương tự. Xác định dữ liệu thuộc từng lời gọi rồi đặt nó ở biên phù hợp.</p></details>
+<p>Tiếp tục với <a href="#java-concurrency">ba bài tự viết về đa luồng Java</a> hoặc ôn <a href="../aop-transaction/index.html">Proxy và AOP</a> để theo dõi lời gọi đi qua reference container trả về.</p></section>
+<section id="nguon-chinh-thuc"><h2>Nguồn chính thức</h2><ul><li><a href="https://docs.spring.io/spring-framework/reference/6.2/core/beans/factory-scopes.html">Spring Framework 6.2 · Bean scopes</a></li><li><a href="https://docs.spring.io/spring-framework/reference/6.2/core/beans/factory-extension.html">Spring Framework 6.2 · Extension points</a></li><li><a href="https://docs.spring.io/spring-framework/reference/6.2/core/beans/factory-nature.html">Spring Framework 6.2 · Lifecycle callbacks</a></li><li><a href="https://docs.oracle.com/javase/specs/jls/se17/html/jls-17.html#jls-17.4.5">Java 17 JLS · Happens-before</a></li><li><a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/util/concurrent/Future.html">Java 17 · Future</a></li><li><a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/util/concurrent/atomic/AtomicInteger.html">Java 17 · AtomicInteger</a></li></ul></section>

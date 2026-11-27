@@ -1,0 +1,25 @@
+<section id="tinh-huong"><h2>Tình huống</h2><p>Sau khi tạo nhóm, hệ thống gửi lời mời. Nếu transaction tạo nhóm rollback hoặc tiến trình dừng sau commit, thông báo cần tuân theo hợp đồng của ứng dụng.</p><p>Kiến thức dùng lại từ <a href="../data-collection-update/index.html">Thay thế tập liên kết và tính nhất quán</a>.</p></section>
+<section id="co-che-1"><h2>Event bên trong process</h2><p>ApplicationEventPublisher chuyển event cho cơ chế phát của context. Với multicaster mặc định, listener thường chạy đồng bộ trên thread publish. Event giúp tách bên phát và bên nhận; nó không tự tạo hàng đợi bền vững. Dùng payload bất biến chứa định danh và dữ liệu cần thiết thay vì giữ entity lazy.</p></section>
+<section id="co-che-2"><h2>Listener gắn transaction</h2><p>TransactionalEventListener mặc định AFTER_COMMIT. Nếu rollback, listener phase này không chạy. Publish ngoài giao dịch không gọi listener này theo cấu hình mặc định. Nếu callback cần ghi DB bền vững, thiết kế biên ghi riêng phù hợp; commit gốc đã diễn ra.</p></section>
+<section id="co-che-3"><h2>Khoảng trống sau commit</h2><p>Sau commit tiến trình có thể dừng trước khi gửi. Ghi lời mời và bản ghi outbox bằng cùng database transaction. Worker xử lý bản ghi đã commit, retry và đánh dấu. Nếu gửi xong nhưng chưa đánh dấu thì có thể giao lại; bảo vệ hiệu ứng bằng event ID hoặc idempotency key.</p></section>
+<section id="vi-du"><h2>Ví dụ</h2>
+<ol class="core-flow" aria-label="Đường đi của một lời mời dùng Outbox"><li><strong>Trong transaction</strong><span>Ghi lời mời và outbox cùng nhau.</span></li><li><strong>Sau commit</strong><span>Worker lấy bản ghi đã commit rồi gửi với event ID.</span></li><li><strong>Sau gửi</strong><span>Đánh dấu đã gửi. Nếu dừng trước mốc này, lần sau có thể giao lại.</span></li></ol>
+<figure class="snippet"><figcaption>Callback sau commit · phương án listener trong process để so với Outbox</figcaption><pre><code class="language-java">record InvitationCreated(UUID eventId, long invitationId) {}
+
+@TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+public void onInvitation(InvitationCreated event) {
+    notifier.send(event.invitationId());
+}</code></pre></figure></section>
+<section id="lab-web"><h2>Dự đoán và đối chiếu ngay trên web</h2><p>Đọc dữ liệu đầu vào, viết dự đoán rồi mở kết quả. Đây là ca thiết kế để lần theo cơ chế.</p>
+<section class="understanding-case"><h3>Rollback</h3><p>Publish InvitationCreated rồi ném lỗi rollback trong giao dịch.</p><details class="question"><summary>Mở kết quả dự kiến</summary><p>Listener thường đồng bộ có thể đã chạy; listener AFTER_COMMIT không chạy.</p></details></section>
+<section class="understanding-case"><h3>Giao lại</h3><p>Worker gửi xong nhưng chết trước khi đánh dấu outbox.</p><details class="question"><summary>Mở kết quả dự kiến</summary><p>Lần chạy sau có thể gửi lại, nên dùng lại key và kiểm số hiệu ứng bên nhận.</p></details></section>
+</section><section id="thuc-hanh"><h2>Thực hành áp dụng</h2><p><a download href="../../../practice/spring-advanced-lab/downloads/spring-advanced-lab.zip">Tải lab Maven nâng cao (.zip)</a>. Giải nén, mở terminal tại thư mục có pom.xml và chạy <code>mvn test</code> với JDK 17 trở lên. Đọc README để xác định ca thuộc bài này và yêu cầu của phần mở rộng.</p><p>Các đề dưới đây mô tả phần cần tự triển khai và bằng chứng phải nộp. Đoạn editor bên dưới luyện cấu hình hoặc một thay đổi nhỏ.</p>
+<div class="callout"><h3>E1 · Bảng phase</h3><p>Quan sát 3 ca commit, rollback, publish ngoài giao dịch. Đếm listener thường và AFTER_COMMIT; đọc dữ liệu ở lần đọc độc lập.</p></div>
+<div class="callout"><h3>E2 · Khôi phục sau restart</h3><p>Ghi outbox cùng lời mời. Dừng worker sau commit trước khi gửi; khởi động lại và chứng minh bản ghi còn được xử lý.</p></div>
+<div class="callout"><h3>E3 · Một hiệu ứng sau giao lại</h3><p>Gửi hai lần cùng event ID, tái hiện lỗi sau gửi trước ack. Kiểm hiệu ứng bên nhận và giải thích phạm vi khóa idempotency.</p></div>
+<p>Áp dụng tiếp ở <a href="../http-client-resilience/index.html">HTTP client, timeout, retry và circuit breaker</a>.</p></section>
+<section id="nguon-chinh-thuc"><h2>Nguồn chính thức</h2><ul>
+<li><a href="https://docs.spring.io/spring-framework/reference/6.2/core/beans/context-introduction.html">Framework 6.2 · Application events</a></li>
+<li><a href="https://docs.spring.io/spring-framework/reference/6.2/data-access/transaction/event.html">Framework 6.2 · Transaction-bound events</a></li>
+<li><a href="https://docs.aws.amazon.com/prescriptive-guidance/latest/cloud-design-patterns/transactional-outbox.html">AWS · Transactional outbox</a></li>
+</ul></section>
