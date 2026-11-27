@@ -1,6 +1,8 @@
 # Backend Service · Giáo trình Spring theo chủ đề
 
-[Trang chủ](index.html) dẫn tới [lộ trình Spring](lessons/springboot/index.html) với 42 bài trong 12 phần. Bài đọc đi từ container, Web MVC và JPA đến Event, Security, kiểm thử, tích hợp API, async, cache và triển khai. Video là nguồn xem lại tùy chọn ở cuối bài.
+[Trang chủ](index.html) dẫn tới [lộ trình Spring](lessons/springboot/index.html) với 42 bài trong 12 phần. Bài đọc đi từ container, Web MVC và JPA đến Event, Security, kiểm thử, tích hợp API, async, cache và triển khai. Các mốc xem lại được ghi ở cuối bài dưới dạng văn bản.
+
+[Spring Security · Railway 97](lessons/spring-security/index.html) là khóa riêng về HTTP Basic, BCrypt, tài khoản database và CSRF, có demo độc lập trên H2.
 
 FE hiện dùng **React + TypeScript + Vite**, có trang chủ, trang nhóm và trang bài học riêng. Chọn Spring Core/Security chỉ mở bài thuộc nhóm đó; các URL/hash cũ vẫn được chuyển đúng bài/nhóm. Nội dung bài được giữ riêng trong `content/`, xuất thành dữ liệu cho React và tải theo từng bài. Prism tô màu ví dụ chỉ đọc; CodeMirror tô màu ngay trong ô gõ, có số dòng và hoàn tác. Không có khung xem trước riêng. Editor không biên dịch/chạy Java; nháp và tiến độ lưu trên trình duyệt, chưa đồng bộ tài khoản.
 

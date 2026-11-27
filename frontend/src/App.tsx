@@ -163,6 +163,19 @@ function HomePage() {
         </p>
         <ModuleAccordion />
       </section>
+      <section className="catalog">
+        <h2>Khóa học khác</h2>
+        <a
+          className="course-card"
+          href={`${import.meta.env.BASE_URL}lessons/spring-security/index.html`}
+        >
+          <span>
+            <strong>Spring Security · Railway 97</strong>
+            <span>HTTP Basic, BCrypt, tài khoản database và CSRF.</span>
+          </span>
+          <span aria-hidden="true">↗</span>
+        </a>
+      </section>
     </main>
   );
 }

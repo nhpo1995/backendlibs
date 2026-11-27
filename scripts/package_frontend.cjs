@@ -14,8 +14,9 @@ if (process.argv.includes('--stage')) {
     fs.cpSync(source, path.join(staging, name), { recursive: true, filter: filename => {
       const relative = path.relative(root, filename).split(path.sep).join('/');
       if (relative.split('/').some(part => ['target', '.git', '.idea', 'node_modules', '__pycache__'].includes(part) || part.startsWith('.env'))) return false;
+      if (relative === 'lessons/COURSES.md' || /^lessons\/[^/]+\/PROGRESS\.md$/.test(relative)) return false;
       if (/^(lessons\/springboot(?:\/[^/]+)?|practice\/[^/]+)\/index\.html$/.test(relative)) return false;
-      if (relative === 'assets/site.js' || relative === 'assets/editor-entry.js' || relative.startsWith('assets/vendor/codemirror/editor.js')) return false;
+      if (relative === 'assets/editor-entry.js' || relative.startsWith('assets/vendor/codemirror/editor.js')) return false;
       return true;
     } });
   };

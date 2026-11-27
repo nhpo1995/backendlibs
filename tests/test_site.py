@@ -51,15 +51,16 @@ class CurriculumTest(unittest.TestCase):
                             cache[target] = BeautifulSoup(target.read_text(encoding="utf-8"), "html.parser")
                         self.assertIsNotNone(cache[target].find(id=unquote(url.fragment)), f"missing #{url.fragment} in {target}")
 
-    def test_alias_video_links_stay_with_their_actual_source(self):
-        soup = BeautifulSoup((ROOT / "lessons/springboot/buoi-06/index.html").read_text(encoding="utf-8"), "html.parser")
-        self.assertEqual(soup.select_one("#moc-video a")["href"], "../dto-contracts/index.html#moc-video")
-        for old, canonical in json.loads((ROOT / "content/springboot/course.json").read_text(encoding="utf-8"))["aliases"].items():
-            original = subprocess.check_output(["git", "show", f"HEAD:lessons/springboot/{old}/index.html"], cwd=ROOT, encoding="utf-8")
-            before = {a["href"] for a in BeautifulSoup(original, "html.parser").select("a[href]") if "drive.google.com/file/" in a["href"]}
-            current = BeautifulSoup((ROOT / f"lessons/springboot/{canonical}/index.html").read_text(encoding="utf-8"), "html.parser")
-            after = {a["href"] for a in current.select("a[href]")}
-            self.assertTrue(before <= after, f"lost optional video pointers: {old}: {before - after}")
+    def test_video_bookmarks_keep_visible_timestamps_without_drive_links(self):
+        root = ROOT / "lessons/springboot"
+        alias = BeautifulSoup((root / "buoi-06/index.html").read_text(encoding="utf-8"), "html.parser")
+        self.assertEqual(alias.select_one("#moc-video a")["href"], "../dto-contracts/index.html#moc-video")
+        for page in [ROOT / "index.html", *ROOT.glob("lessons/*/index.html"), *ROOT.glob("lessons/*/*/index.html")]:
+            soup = BeautifulSoup(page.read_text(encoding="utf-8"), "html.parser")
+            with self.subTest(page=page.relative_to(ROOT)):
+                self.assertFalse(any("drive.google.com" in a["href"] for a in soup.select("a[href]")))
+        lesson = BeautifulSoup((root / "dto-contracts/index.html").read_text(encoding="utf-8"), "html.parser")
+        self.assertRegex(lesson.select_one("#moc-video").get_text(" ", strip=True), r"\d+:\d+")
 
     def test_build_is_repeatable_without_changing_output(self):
         paths = [ROOT / "index.html", *sorted((ROOT / "lessons").rglob("index.html")), *sorted((ROOT / "practice").glob("*/index.html"))]

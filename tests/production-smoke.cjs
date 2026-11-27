@@ -9,7 +9,7 @@ const assert = require('node:assert/strict');
   const prefix = process.env.PUBLIC_BASE || '/';
   const files = fs.readdirSync(root, { recursive: true }).map(file => file.split(path.sep).join('/'));
   assert(!files.some(file => file.split('/').some(part => ['target', 'node_modules', '.git', '.env'].includes(part))), 'Private or generated Java files were packaged');
-  assert(!files.includes('assets/site.js'), 'Legacy DOM script must not run alongside React');
+  assert(files.includes('assets/site.js'), 'The standalone Spring Security lesson needs its existing script');
   const server = http.createServer((request, response) => {
     const url = new URL(request.url, 'http://localhost');
     if (!url.pathname.startsWith(prefix)) { response.writeHead(404).end(); return; }
@@ -30,6 +30,21 @@ const assert = require('node:assert/strict');
     await page.locator('.cm-content').fill(lab.solution);
     await page.locator('[data-action="check"]').click();
     await page.locator('[data-code-check-result="match"]').waitFor();
+    await page.goto(origin + prefix);
+    assert.equal(await page.locator('script[src*="/assets/site.js"]').count(), 0, 'Legacy script must not run on React');
+    await page.getByRole('link', { name: /Spring Security · Railway 97/ }).click();
+    await page.waitForURL('**/lessons/spring-security/index.html');
+    await page.getByRole('heading', { level: 1, name: 'Spring Security' }).waitFor();
+    await page.getByRole('link', { name: /Buổi 12/ }).click();
+    await page.waitForURL('**/lessons/spring-security/buoi-12/index.html');
+    await page.getByRole('heading', { level: 1, name: /Danh tính trước/ }).waitFor();
+    const legacyScript = await page.locator('script[src*="/assets/site.js"], script[src$="assets/site.js"]').getAttribute('src');
+    assert.equal((await fetch(new URL(legacyScript, page.url()))).status, 200);
+    const securityPom = new URL('demo/pom.xml', page.url());
+    assert.equal((await fetch(securityPom)).status, 200);
+    assert.equal(await page.locator('a[href*="drive.google.com"]').count(), 0);
+    await page.getByRole('link', { name: 'Backend Service' }).click();
+    await page.waitForURL(origin + prefix + 'index.html');
     await page.goto(origin + prefix);
     await page.getByRole('button', { name: /^Spring Core/ }).click();
     await page.locator('[data-module="core"]:visible').waitFor();
@@ -68,6 +83,6 @@ const assert = require('node:assert/strict');
       assert.equal(await page.locator('h1').textContent(), title, directory);
     }
     assert.deepEqual(errors, []);
-    console.log(`PASS production ${prefix}: ${routes.length} real deep links, selected module, reload, draft, resources and no JS errors.`);
+    console.log(`PASS production ${prefix}: ${routes.length} React deep links, Spring Security catalog and lesson, reload, draft and resources.`);
   } finally { await browser.close(); await new Promise(resolve => server.close(resolve)); }
 })().catch(error => { console.error(error); process.exitCode = 1; });

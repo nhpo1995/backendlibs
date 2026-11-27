@@ -159,7 +159,27 @@ def render_lesson(lesson, course, number):
             existing.add(link["href"])
         if pointers.contents:
             details.append(pointers)
+    for link in soup.select("a[href]"):
+        if "drive.google.com" not in link["href"]:
+            continue
+        parent = link.parent
+        if re.search(r"[?&#]t=\d", link["href"]) or "time" in link.get("class", []):
+            # Keep the visible time and the bookmark anchors as plain text.
+            link.name = "span"
+            del link["href"]
+            link.attrs.pop("target", None)
+            link.attrs.pop("rel", None)
+            link.attrs.pop("aria-label", None)
+            for decoration in link.select("[aria-hidden=true]"):
+                decoration.decompose()
+        elif parent.name == "li" and parent.get_text(" ", strip=True) == link.get_text(" ", strip=True):
+            parent.decompose()
+        else:
+            link.unwrap()
     if video:
+        for items in video.select("ul"):
+            if not items.find("li"):
+                items.decompose()
         video.extract()
     for footer in list(soup.select("footer.references")):
         # Its useful references have already been collected above.
@@ -229,7 +249,7 @@ def render_home(course):
     body = head("Tự học backend có thực hành", "Học Spring theo kiến thức cốt lõi, viết code và kiểm chứng bằng test.", "")
     body += f'''<main id="noi-dung" tabindex="-1"><div class="hero"><div class="hero-inner catalog-hero"><p class="kicker">Giáo trình tự học backend</p><h1>Hiểu cơ chế.<br><em>Tự xây backend.</em></h1><p class="lead">Bài giảng tiếng Việt đi từ nền tảng đến ứng dụng, kèm ví dụ có đầu ra, bài tập lập trình và hướng dẫn kiểm chứng. Học độc lập, không cần theo một video.</p><div class="hero-actions"><a class="button" href="lessons/springboot/index.html">Khám phá lộ trình Spring →</a><a class="button secondary" href="practice/spring-foundations/index.html">Bắt đầu thực hành</a></div></div></div><section class="catalog"><h2>Lộ trình Spring</h2><p>{len(course["lessons"])} bài trong {len(course["modules"])} phần, từ container và dependency injection đến dữ liệu, security và kiểm thử.</p>'''
     body += "".join(f'<a class="course-card" href="lessons/springboot/index.html#{esc(m["id"])}"><span><strong>{esc(m["title"])}</strong><span>{esc(m["summary"])}</span></span><span aria-hidden="true">↗</span></a>' for m in course["modules"])
-    body += '<div class="learning-guide"><h2>Học và thực hành theo hai nhịp</h2><p>Trên web: đọc bài, sửa đoạn code, tự kiểm tra và lưu nháp. Trong project: tự triển khai Java/Spring rồi chạy test thật. Starter và lời giải tách riêng để bạn có thể tự làm trước khi đối chiếu.</p></div></section></main></body></html>\n'
+    body += '<div class="learning-guide"><h2>Học và thực hành theo hai nhịp</h2><p>Trên web: đọc bài, sửa đoạn code, tự kiểm tra và lưu nháp. Trong project: tự triển khai Java/Spring rồi chạy test thật. Starter và lời giải tách riêng để bạn có thể tự làm trước khi đối chiếu.</p></div></section><section class="catalog"><h2>Khóa học khác</h2><a class="course-card" href="lessons/spring-security/index.html"><span><strong>Spring Security · Railway 97</strong><span>HTTP Basic, BCrypt, tài khoản database và CSRF.</span></span><span aria-hidden="true">↗</span></a></section></main></body></html>\n'
     (ROOT / "index.html").write_text(body, encoding="utf-8")
 
 

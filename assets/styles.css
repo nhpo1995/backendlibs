@@ -328,7 +328,7 @@ main p { max-width: var(--measure); }
   text-decoration: none;
   vertical-align: .04em;
 }
-.time:hover { background: #d8ebce; text-decoration: underline; }
+a.time:hover { background: #d8ebce; text-decoration: underline; }
 .callout {
   padding: .85rem 1.1rem;
   background: #edf2e7;

@@ -1,0 +1,250 @@
+<!doctype html>
+<html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Tự học Spring Security: HTTP Basic, UserDetailsService, BCrypt, CSRF và rollback với demo Spring Boot chạy độc lập.">
+<title>Buổi 12 · HTTP Basic và xác thực từ database | Spring Security</title>
+<link rel="stylesheet" href="../../../assets/styles.css"><script src="../../../assets/site.js" defer></script></head>
+<body id="top"><a class="skip" href="#noi-dung">Đến nội dung</a>
+<header class="masthead"><div class="mast-inner"><a class="brand" href="../../../index.html"><span class="mark" aria-hidden="true">B</span> Backend Service</a></div></header>
+<div class="hero"><div class="hero-inner"><div>
+<nav class="crumbs" aria-label="Vị trí hiện tại"><a href="../../../index.html">Khóa học</a> / <a href="../index.html">Spring Security</a> / Buổi 12</nav>
+<p class="kicker">Railway 97 <span></span> 30.01.2026</p><h1>Danh tính trước<br><em>mỗi request</em></h1>
+<p class="lead">Từ HTTP 401 đến xác thực bằng tài khoản trong database. Lưu BCrypt hash, gửi CSRF token và kiểm tra dữ liệu sau một lần xử lý lỗi.</p>
+<div class="hero-actions"><a class="button" href="#bai-toan">Bắt đầu bài học ↓</a><a class="button secondary" href="#khoi-tao">Chạy demo</a></div></div>
+<div class="flow" aria-label="Luồng xác thực"><div class="flow-head"><span>● ● ●</span><span>HTTP Basic</span></div><div class="flow-body"><div class="route"><b>GET</b> /api/me</div><ol><li><strong>Filter</strong><span>Đọc Authorization</span></li><li><strong>Provider</strong><span>Tìm user, kiểm tra hash</span></li><li><strong>Controller</strong><span>Nhận Principal</span></li></ol><div class="response"><span>200 OK</span><code>username: teacher</code></div></div></div>
+</div></div>
+<div class="layout"><aside class="sidebar"><nav aria-labelledby="toc-heading"><h2 id="toc-heading">Nội dung bài học</h2><ol><li><a href="#bai-toan">1. Từ API mở đến API có danh tính</a></li><li><a href="#khoi-tao">2. Chuẩn bị dự án và quan sát 401</a></li><li><a href="#filter-chain">3. HTTP Basic đi qua lớp bảo vệ thế nào?</a></li><li><a href="#user-details">4. Tìm đúng tài khoản trong database</a></li><li><a href="#bcrypt">5. Lưu BCrypt hash và kiểm tra mật khẩu</a></li><li><a href="#tao-account">6. Tạo account rồi dùng chính account ấy</a></li><li><a href="#csrf">7. Vì sao GET được nhưng POST bị 403?</a></li><li><a href="#transaction">8. Thực hành: lỗi HTTP có đồng nghĩa dữ liệu chưa đổi?</a></li><li><a href="#kiem-tra">9. Tự kiểm chứng và gỡ lỗi</a></li><li><a href="#tu-kiem-tra">10. Câu hỏi tự kiểm tra</a></li><li><a href="#nguon">Ghi chú nguồn và mốc xem lại</a></li></ol></nav></aside>
+<main id="noi-dung" tabindex="-1"><div class="callout intro"><strong>Mục tiêu và kiến thức cần có</strong><p>Sau bài này, bạn có thể giải thích đường đi của thông tin Basic, nạp tài khoản từ database, lưu và kiểm tra BCrypt hash, xử lý lỗi CSRF, rồi chứng minh transaction có rollback hay không.</p><p>Cần biết Java class/interface, HTTP GET/POST, JSON, entity và repository JPA. Nếu chưa quen, đọc <a href="../../springboot/buoi-01/index.html">bài API đọc sản phẩm</a>. Bài hiện tại cung cấp đủ mã và dữ liệu để thực hành độc lập.</p></div>
+<section class="chapter" id="bai-toan" aria-labelledby="bai-toan-heading"><header class="chapter-top"><h2 id="bai-toan-heading">1. Từ API mở đến API có danh tính</h2></header>
+<p>Một hệ thống quản lý tài khoản có API đọc danh sách và tạo tài khoản. Nếu ai biết URL cũng có thể gọi, dữ liệu chưa được bảo vệ. Mục tiêu đầu tiên là chỉ cho tài khoản đã tồn tại, cung cấp đúng mật khẩu, đi qua lớp bảo vệ để đến controller.</p>
+<p><strong>Authentication — xác thực:</strong> xác định người gửi request là ai. <strong>Authorization — phân quyền:</strong> quyết định danh tính ấy được làm gì. Ví dụ, Linh đăng nhập đúng nhưng chưa chắc được phép tạo đề thi của giáo viên. Bài này hoàn thiện xác thực; việc gán role và giới hạn từng thao tác thuộc bài kế tiếp.</p>
+<div class="table-wrap"><table><thead><tr><th>Request trong demo</th><th>Dữ liệu đầu vào</th><th>Kết quả</th></tr></thead><tbody>
+<tr><td>GET /api/me</td><td>Không có Basic Auth</td><td>401, yêu cầu xác thực</td></tr>
+<tr><td>GET /api/me</td><td>teacher / mật khẩu sai</td><td>401</td></tr>
+<tr><td>GET /api/me</td><td>unknown / Learn123!</td><td>401, dù mật khẩu trùng với tài khoản mẫu</td></tr>
+<tr><td>GET /api/me</td><td>teacher / Learn123!</td><td>200, JSON của teacher</td></tr>
+<tr><td>POST /api/accounts</td><td>Basic Auth đúng, thiếu CSRF token</td><td>403, không tạo tài khoản</td></tr>
+<tr><td>POST /api/accounts</td><td>Basic Auth đúng, token và cookie cùng phiên, JSON hợp lệ</td><td>201, tạo tài khoản có password hash</td></tr>
+</tbody></table></div>
+<p>Trong demo, tất cả tài khoản xác thực thành công đều được đọc và tạo account. Tên <code>teacher</code> chỉ là username mẫu, không tự biến tài khoản thành role giáo viên. Mật khẩu trong bài là dữ liệu thực hành cục bộ.</p>
+</section>
+<section class="chapter" id="khoi-tao" aria-labelledby="khoi-tao-heading"><header class="chapter-top"><h2 id="khoi-tao-heading">2. Chuẩn bị dự án và quan sát 401</h2></header>
+<p>Cần JDK 17 trở lên, Maven 3.6.3 trở lên và terminal hoặc Postman. Demo dùng Spring Boot <strong>3.5.13</strong>, Spring Security do Boot quản lý và H2 trong bộ nhớ. Không cần cài MySQL. Dữ liệu được tạo lại mỗi lần khởi động; server chỉ lắng nghe <code>127.0.0.1</code>, cổng <code>8912</code>.</p>
+<p>Mở terminal tại thư mục repository, chuyển vào thư mục demo rồi chạy:</p>
+<figure class="snippet"><figcaption>PowerShell hoặc Bash · khởi chạy</figcaption><pre tabindex="0"><code>cd lessons/spring-security/buoi-12/demo
+mvn spring-boot:run</code></pre></figure>
+<p>Giữ terminal này chạy. Khi thấy <code>Started SecurityLessonApplication</code>, mở terminal thứ hai và gọi API. Các lệnh <code>curl.exe</code> dành cho Windows; trên macOS/Linux dùng <code>curl</code>.</p>
+<figure class="snippet"><figcaption>Windows · thiếu thông tin, sai mật khẩu, đúng mật khẩu</figcaption><pre tabindex="0"><code>curl.exe -i -H &quot;Accept: application/json&quot; http://127.0.0.1:8912/api/me
+curl.exe -i -u teacher:wrong http://127.0.0.1:8912/api/me
+curl.exe -i -u teacher:Learn123! http://127.0.0.1:8912/api/me</code></pre></figure>
+<p>Lần lượt nhận <code>401</code>, <code>401</code>, <code>200</code>. Phản hồi cuối có dạng <code>{"id":1,"username":"teacher","displayName":"Teacher"}</code>, không có mật khẩu. Phản hồi 401 có header <code>WWW-Authenticate: Basic ...</code> để client biết cơ chế xác thực.</p>
+<h3>Vì sao thêm starter đã làm API bị chặn?</h3>
+<p>Khi tạo một ứng dụng web mới chỉ có controller và thêm dependency <code>spring-boot-starter-security</code>, Boot tự cấu hình bảo vệ nếu bạn chưa cung cấp cấu hình thay thế. Tài khoản mặc định là <code>user</code>, mật khẩu ngẫu nhiên in trong log. Với yêu cầu chấp nhận JSON, client thường nhận 401; trình duyệt yêu cầu HTML có thể được chuyển sang trang đăng nhập.</p>
+<p>Demo tải về ở đây đã ở bước hoàn chỉnh: có cấu hình HTTP Basic và <code>UserDetailsService</code> riêng, nên dùng <code>teacher</code> thay vì <code>user</code>. Nếu muốn tái hiện bước starter mặc định, hãy dùng một project thử riêng chỉ có Spring Web, Security và controller GET đơn giản; chưa chép các bean bảo mật của demo vào project ấy.</p>
+<p>Khi dựng lại từ đầu, tạo Maven project với các starter <code>web</code>, <code>data-jpa</code>, <code>security</code>, <code>validation</code> và H2. Dùng <a href="demo/pom.xml">pom.xml hoàn chỉnh</a> để giữ phiên bản nhất quán, đặt các class dưới package <code>vn.railway97.security</code> và giữ class main ở package gốc để component scan tìm thấy chúng.</p>
+</section>
+<section class="chapter" id="filter-chain" aria-labelledby="filter-chain-heading"><header class="chapter-top"><h2 id="filter-chain-heading">3. HTTP Basic đi qua lớp bảo vệ thế nào?</h2></header>
+<p>Client gửi header <code>Authorization: Basic &lt;Base64(username:password)&gt;</code>. Tùy chọn <code>-u</code> của curl và tab Authorization → Basic Auth của Postman tạo header này giúp bạn. Base64 chỉ đổi cách biểu diễn, có thể khôi phục lại username và mật khẩu; khi truyền qua mạng thực tế phải dùng HTTPS.</p>
+<ol class="steps"><li><strong>Nhận request:</strong> các servlet filter chạy trước controller. <code>BasicAuthenticationFilter</code> lấy thông tin Basic từ header.</li><li><strong>Tìm tài khoản:</strong> filter chuyển yêu cầu xác thực đến <code>AuthenticationManager</code>; <code>DaoAuthenticationProvider</code> dùng <code>UserDetailsService</code> để lấy danh tính và password hash.</li><li><strong>Kiểm tra mật khẩu:</strong> provider dùng <code>PasswordEncoder.matches(rawPassword, storedHash)</code>. Không khớp hoặc không tìm thấy user thì xác thực thất bại.</li><li><strong>Gắn danh tính:</strong> khi thành công, thông tin xác thực được đặt vào security context. Quy tắc <code>authenticated()</code> cho request đã xác thực đi tiếp.</li><li><strong>Chạy controller:</strong> controller nhận <code>Principal</code>; <code>principal.getName()</code> là username đã xác thực. Vì vậy <code>/api/me</code> không nhận username từ query string để quyết định danh tính.</li></ol>
+<p>Cấu hình hoàn chỉnh bên dưới khai báo hai bean. <code>HttpSecurity</code> là builder được Spring truyền vào; <code>http.build()</code> trả về chuỗi filter. Lambda <code>auth -&gt; ...</code> nhận đối tượng cấu hình các quy tắc truy cập.</p>
+<figure class="snippet"><figcaption>SecurityConfig.java</figcaption><pre tabindex="0"><code>package vn.railway97.security;
+
+import jakarta.servlet.DispatcherType;
+import org.springframework.context.annotation.*;
+import org.springframework.security.config.Customizer;
+import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.web.SecurityFilterChain;
+
+@Configuration
+public class SecurityConfig {
+    @Bean
+    SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+        http.authorizeHttpRequests(auth -&gt; auth
+                .dispatcherTypeMatchers(DispatcherType.ERROR).permitAll()
+                .anyRequest().authenticated())
+            .httpBasic(Customizer.withDefaults());
+        // CSRF remains enabled. All API calls require authentication.
+        return http.build();
+    }
+    @Bean
+    PasswordEncoder passwordEncoder() {
+        return new BCryptPasswordEncoder();
+    }
+}</code></pre></figure>
+<p><code>dispatcherTypeMatchers(ERROR).permitAll()</code> cho phép bước dispatch lỗi nội bộ hiển thị đúng lỗi gốc. Nó không mở các request bình thường tới API, cũng không mở URL <code>/error</code> cho mọi client. Nếu chặn luôn bước xử lý lỗi, một lỗi CSRF 403 có thể bị che thành 401 ở lượt dispatch tiếp theo.</p>
+<p>CSRF vẫn bật. Cấu hình này không lưu đăng nhập bằng JWT và không có endpoint login tự viết. Trong các lệnh thực hành, gửi Basic Auth trên từng request; cookie được giữ riêng để gắn CSRF token với phiên.</p>
+</section>
+<section class="chapter" id="user-details" aria-labelledby="user-details-heading"><header class="chapter-top"><h2 id="user-details-heading">4. Tìm đúng tài khoản trong database</h2></header>
+<p>Bảng <code>accounts</code> chứa <code>id</code>, <code>username</code> duy nhất, <code>password_hash</code> và <code>display_name</code>. Tài khoản mẫu là <code>teacher</code>, tên hiển thị <code>Teacher</code>. Password hash được tạo khi khởi động từ mật khẩu mẫu <code>Learn123!</code>.</p>
+<p>Bắt đầu bằng <a href="demo/src/main/java/vn/railway97/security/Account.java">entity Account</a> và repository bên dưới. <code>Optional</code> biểu diễn trường hợp truy vấn không tìm thấy bản ghi; tên <code>findByUsername</code> được Spring Data diễn giải thành truy vấn theo thuộc tính username.</p>
+<figure class="snippet"><figcaption>AccountRepository.java</figcaption><pre tabindex="0"><code>package vn.railway97.security;
+
+import java.util.Optional;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+public interface AccountRepository extends JpaRepository&lt;Account, Long&gt; {
+    Optional&lt;Account&gt; findByUsername(String username);
+}</code></pre></figure><figure class="snippet"><figcaption>DatabaseUserDetailsService.java</figcaption><pre tabindex="0"><code>package vn.railway97.security;
+
+import java.util.List;
+import org.springframework.security.core.userdetails.*;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+@Service
+public class DatabaseUserDetailsService implements UserDetailsService {
+    private final AccountRepository accounts;
+    public DatabaseUserDetailsService(AccountRepository accounts) {
+        this.accounts = accounts;
+    }
+    @Override
+    @Transactional(readOnly = true)
+    public UserDetails loadUserByUsername(String username) {
+        Account account = accounts.findByUsername(username)
+                .orElseThrow(() -&gt; new UsernameNotFoundException(&quot;Không tìm thấy tài khoản&quot;));
+        return new User(account.username, account.passwordHash, List.of());
+    }
+}</code></pre></figure>
+<p>Constructor injection truyền repository vào service. <code>@Service</code> đăng ký đối tượng thành bean; viết class mà không đăng ký bean thì Spring Security không tự dùng class đó. Một cách thay thế là trả đối tượng service từ phương thức <code>@Bean</code>, nhưng không cần dùng cả hai cách cùng lúc.</p>
+<p><code>loadUserByUsername</code> chỉ nhận username và trả thông tin tài khoản, không nhận mật khẩu thô để tự so sánh. Nếu không có username, ném <code>UsernameNotFoundException</code>; provider xử lý thất bại xác thực và client nhận 401. Nếu có, trả <code>org.springframework.security.core.userdetails.User</code> chứa username, hash đã lưu và danh sách authority. Đây là đối tượng của Security, khác entity <code>Account</code>.</p>
+<p>Danh sách authority rỗng vẫn đủ cho quy tắc <code>authenticated()</code>. Nếu sau này đổi thành <code>hasRole("TEACHER")</code>, cần nạp authority tương ứng; đăng nhập đúng không tự cấp role.</p>
+<h3>Kiểm chứng username không tồn tại</h3>
+<figure class="snippet"><figcaption>Windows · cùng mật khẩu, khác username</figcaption><pre tabindex="0"><code>curl.exe -i -u unknown:Learn123! http://127.0.0.1:8912/api/me
+curl.exe -i -u teacher:Learn123! http://127.0.0.1:8912/api/me</code></pre></figure>
+<p>Request đầu phải là 401, request sau là 200. Nếu cả hai đều 200, đặt breakpoint trong <code>loadUserByUsername</code>: kiểm tra username đầu vào, bản ghi repository trả về và nhánh không tìm thấy. Việc luôn trả một user dựng sẵn cho mọi username sẽ làm mất kiểm tra danh tính.</p>
+<p>Nếu viết điều kiện so sánh String, dùng <code>"teacher".equals(username)</code>. Toán tử <code>==</code> so tham chiếu đối tượng, không kiểm tra nội dung chuỗi. Với database, để repository tìm đúng username sẽ tránh việc hard-code các điều kiện này.</p>
+</section>
+<section class="chapter" id="bcrypt" aria-labelledby="bcrypt-heading"><header class="chapter-top"><h2 id="bcrypt-heading">5. Lưu BCrypt hash và kiểm tra mật khẩu</h2></header>
+<p>Mật khẩu thô đi từ client tới server để xác thực hoặc tạo tài khoản. Trong database, lưu kết quả băm một chiều thay vì mật khẩu đọc được. BCrypt thêm salt ngẫu nhiên, nên hai lần <code>encode</code> cùng mật khẩu thường tạo hai chuỗi khác nhau. Không giải mã hash để lấy lại mật khẩu, và không gọi <code>encode(raw).equals(storedHash)</code> để xác thực.</p>
+<figure class="snippet"><figcaption>Minh họa Java · chạy trong test có PasswordEncoder</figcaption><pre tabindex="0"><code>String hash = encoder.encode(&quot;Study123!&quot;);
+boolean correct = encoder.matches(&quot;Study123!&quot;, hash); // true
+boolean wrong = encoder.matches(&quot;wrong&quot;, hash);       // false</code></pre></figure>
+<p>Ở bước tạo, dùng <code>encoder.encode(form.password())</code> đúng một lần trước khi lưu. Ở bước đăng nhập, <code>UserDetailsService</code> trả nguyên hash đã lưu; provider gọi <code>matches</code>. Nếu encode lại hash mỗi lần đọc, bạn đã băm một chuỗi hash thành dữ liệu khác và mật khẩu gốc sẽ không khớp.</p>
+<p>Demo khai báo tường minh <code>new BCryptPasswordEncoder()</code>, nên lưu chuỗi BCrypt dài 60 ký tự. Đó là lựa chọn của demo, không phải khẳng định mọi cấu hình Spring Security mặc định đều dùng đúng bean này. <code>DelegatingPasswordEncoder</code> có định dạng thêm tiền tố như <code>{bcrypt}</code>; đừng trộn hai định dạng mà chưa cấu hình encoder tương ứng.</p>
+<p>Demo giới hạn mật khẩu 8–64 ký tự ASCII in được, không chứa dấu cách, để mọi mật khẩu hợp lệ đều nằm trong giới hạn 72 byte của BCrypt. Đây là quy tắc đơn giản cho bài thực hành; hệ thống cần mật khẩu Unicode phải kiểm tra độ dài byte và thiết kế chính sách riêng.</p>
+<h3>Kiểm chứng dữ liệu đã lưu</h3>
+<p>Trong terminal thứ hai, vào thư mục demo và chạy <code>mvn verify</code>. Test <code>createsAccountStoresHashAndAuthenticatesTheNewAccount</code> tạo tài khoản qua HTTP, truy vấn <code>password_hash</code> trực tiếp bằng JDBC trong cùng tiến trình rồi kiểm tra độ dài, <code>matches</code> đúng/sai và đăng nhập bằng tài khoản vừa tạo.</p>
+<figure class="snippet"><figcaption>Kiểm tra trong test · không trả hash qua API</figcaption><pre tabindex="0"><code>String hash = jdbc.queryForObject(
+    &quot;select password_hash from accounts where username=&#x27;linh&#x27;&quot;, String.class);
+assertThat(hash).isNotEqualTo(&quot;Study123!&quot;).hasSize(60);
+assertThat(encoder.matches(&quot;Study123!&quot;, hash)).isTrue();</code></pre></figure>
+<p>H2 ở đây nằm trong bộ nhớ của từng tiến trình JVM. Mở một SQL client khác với cùng chuỗi URL không có nghĩa đang xem database của server. Test JDBC cùng tiến trình là cách kiểm chứng tự động trong bài; API chỉ trả DTO không chứa password hoặc hash.</p>
+</section>
+<section class="chapter" id="tao-account" aria-labelledby="tao-account-heading"><header class="chapter-top"><h2 id="tao-account-heading">6. Tạo account rồi dùng chính account ấy</h2></header>
+<p>Đích thực hành là tạo <code>linh</code> bằng <code>teacher</code>, sau đó gọi <code>/api/me</code> bằng mật khẩu của Linh. API tạo vẫn được bảo vệ: account đang có cấp thông tin Basic ở header, account mới nằm trong body. Hai phần này phục vụ hai mục đích khác nhau.</p>
+<p>Trên PowerShell, dùng đoạn sau sau khi server đã khởi động. <code>WebRequestSession</code> giữ cookie; <code>/api/csrf</code> trả token và tên header cần gửi. Phải dùng lại đúng session khi POST.</p>
+<figure class="snippet"><figcaption>PowerShell · lấy token và tạo account</figcaption><pre tabindex="0"><code>$base = &#x27;http://127.0.0.1:8912&#x27;
+$basic = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(&#x27;teacher:Learn123!&#x27;))
+$headers = @{ Authorization = &quot;Basic $basic&quot; }
+$session = New-Object Microsoft.PowerShell.Commands.WebRequestSession
+$csrf = Invoke-RestMethod &quot;$base/api/csrf&quot; -Headers $headers -WebSession $session
+$headers[$csrf.headerName] = $csrf.token
+$body = @{ username = &#x27;linh&#x27;; password = &#x27;Study123!&#x27;; displayName = &#x27;Linh&#x27; } | ConvertTo-Json
+Invoke-RestMethod &quot;$base/api/accounts&quot; -Method Post -Headers $headers -WebSession $session -ContentType &#x27;application/json&#x27; -Body $body</code></pre></figure>
+<p>Nhận <code>201 Created</code> với JSON chứa id, username và displayName; header <code>Location</code> trỏ tới <code>/api/accounts/{id}</code>. Dùng <code>Invoke-WebRequest</code> thay <code>Invoke-RestMethod</code> nếu cần xem cả status và headers. Gọi lại với username <code>linh</code> sẽ nhận 409, không tạo thêm tài khoản.</p>
+<figure class="snippet"><figcaption>Windows · xác thực bằng account mới</figcaption><pre tabindex="0"><code>curl.exe -i -u linh:Study123! http://127.0.0.1:8912/api/me
+curl.exe -i -u linh:wrong http://127.0.0.1:8912/api/me</code></pre></figure>
+<p>Nhận 200 với username <code>linh</code>, sau đó 401. Nếu cần lặp lại toàn bộ từ đầu, dừng server bằng Ctrl+C rồi khởi động lại; dữ liệu trong bộ nhớ được tạo mới. Khi cổng 8912 đã dùng, đặt <code>$env:SERVER_PORT = '8913'</code> trước lúc chạy và đổi <code>$base</code> cùng các URL.</p>
+<h3>Đối chiếu bước lưu trong service</h3>
+<figure class="snippet"><figcaption>AccountService.java</figcaption><pre tabindex="0"><code>package vn.railway97.security;
+
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
+import org.springframework.http.HttpStatus;
+
+@Service
+public class AccountService {
+    private final AccountRepository accounts;
+    private final PasswordEncoder encoder;
+    public AccountService(AccountRepository accounts, PasswordEncoder encoder) {
+        this.accounts = accounts;
+        this.encoder = encoder;
+    }
+    @Transactional
+    public Account create(String username, String password, String displayName) {
+        return accounts.saveAndFlush(new Account(username, encoder.encode(password), displayName));
+    }
+    @Transactional
+    public void renameAtomically(long id, String displayName) {
+        saveNameThenFail(id, displayName);
+    }
+    public void renameWithoutServiceTransaction(long id, String displayName) {
+        saveNameThenFail(id, displayName);
+    }
+    private void saveNameThenFail(long id, String displayName) {
+        var account = accounts.findById(id)
+                .orElseThrow(() -&gt; new ResponseStatusException(HttpStatus.NOT_FOUND));
+        account.displayName = displayName;
+        accounts.saveAndFlush(account);
+        throw new IllegalStateException(&quot;Lỗi mô phỏng sau khi lưu tên&quot;);
+    }
+}</code></pre></figure>
+<p><code>saveAndFlush</code> ghi thay đổi xuống database trong transaction hiện tại; <strong>flush chưa phải commit</strong>. <code>create</code> hoàn tất bình thường thì transaction mới commit trước khi controller gửi kết quả. Ràng buộc UNIQUE ở database chống trùng username; <a href="demo/src/main/java/vn/railway97/security/ApiErrors.java">advice của demo</a> chuyển vi phạm này thành 409.</p>
+<p>Controller dùng <code>@Valid</code> cho DTO đầu vào, trả 400 nếu username không đúng mẫu 3–40 ký tự chữ/số/dấu chấm/gạch dưới/gạch ngang, password sai chính sách hoặc tên hiển thị rỗng/quá 80 ký tự. <a href="demo/src/main/java/vn/railway97/security/AccountController.java">Xem controller và DTO đầy đủ</a>. Không trả thẳng entity ra JSON để tránh làm lộ hash khi entity thay đổi.</p>
+<h3>Làm cùng kịch bản bằng Postman</h3>
+<ol><li>GET <code>/api/csrf</code>, tab Authorization chọn Basic Auth, nhập teacher và Learn123!. Ghi token cùng headerName từ JSON; giữ cookie JSESSIONID của host này trong cookie jar.</li><li>POST <code>/api/accounts</code>, giữ Authorization của teacher, thêm header theo headerName và token đã lấy. Tab Body chọn raw → JSON, nhập dữ liệu account mới như trong đoạn PowerShell.</li><li>Send, kiểm tra 201 và Location. GET <code>/api/me</code> bằng username/password mới để chứng minh dữ liệu tạo ra dùng được để xác thực.</li></ol>
+</section>
+<section class="chapter" id="csrf" aria-labelledby="csrf-heading"><header class="chapter-top"><h2 id="csrf-heading">7. Vì sao GET được nhưng POST bị 403?</h2></header>
+<p>CSRF bảo vệ các thao tác thay đổi dữ liệu khỏi request ngoài ý muốn lợi dụng thông tin xác thực mà trình duyệt tự đính kèm. HTTP Basic không tự loại bỏ nguy cơ này: trình duyệt cũng có thể nhớ và gửi thông tin Basic.</p>
+<p>Với cấu hình của demo, GET không đòi CSRF token. POST cần token hợp lệ được gửi kèm cookie phiên đã sinh token. Mật khẩu đúng chỉ giải quyết xác thực, chưa đáp ứng kiểm tra CSRF. Filter CSRF có thể từ chối request trước khi filter Basic chạy, nên một POST chưa có credentials cũng có thể trả 403; hãy dùng GET khi muốn kiểm tra riêng lỗi 401.</p>
+<ol><li>Tạo một request POST có Basic Auth đúng nhưng bỏ header CSRF: nhận 403.</li><li>GET <code>/api/accounts</code> với Basic Auth để kiểm tra username định tạo chưa xuất hiện. Controller tạo chưa được chạy.</li><li>Lấy token bằng <code>/api/csrf</code>, gửi lại POST cùng cookie phiên: nhận 201 nếu JSON hợp lệ.</li><li>Nếu vẫn 403, so host <code>127.0.0.1</code>/<code>localhost</code>, cookie, token và tên header. Không lấy token bằng session này rồi gửi với session khác.</li></ol>
+<p>Trong Postman, phần Authorization và Body có thể cùng được gửi trong một request. Đổi sang tab Body không xóa cấu hình Basic đã nhập. Tương tự, token là header bổ sung, không thay cho Authorization và không đặt vào trường password.</p>
+</section>
+<section class="chapter" id="transaction" aria-labelledby="transaction-heading"><header class="chapter-top"><h2 id="transaction-heading">8. Thực hành: lỗi HTTP có đồng nghĩa dữ liệu chưa đổi?</h2></header>
+<p>Giả sử account teacher ban đầu có <code>displayName = Teacher</code>. Ta đổi tên thành <code>Changed</code>, gọi save, rồi cố tình ném <code>IllegalStateException</code>. Hai đường xử lý đều trả 500, nhưng dữ liệu cuối phụ thuộc phạm vi transaction. Đây là bài thử lỗi có chủ đích, chỉ chạy trên dữ liệu mẫu.</p>
+<p>Trong <code>AccountService</code> ở trên, phương thức <code>renameAtomically</code> có <code>@Transactional</code>; controller gọi qua Spring bean nên proxy mở transaction bao quanh toàn bộ phương thức. RuntimeException thoát ra làm rollback, kể cả dữ liệu đã flush. Phương thức <code>renameWithoutServiceTransaction</code> không mở transaction bao ngoài; lời gọi <code>saveAndFlush</code> của repository có transaction riêng và commit trước lỗi tiếp theo.</p>
+<figure class="snippet"><figcaption>PowerShell · tái hiện hai ca trên teacher</figcaption><pre tabindex="0"><code>$me = Invoke-RestMethod &quot;$base/api/me&quot; -Headers $headers
+$id = $me.id
+$rename = @{ displayName = &#x27;Changed&#x27; } | ConvertTo-Json
+try {
+    Invoke-RestMethod &quot;$base/api/lab/accounts/$id/rename?atomic=true&quot; -Method Post -Headers $headers -WebSession $session -ContentType &#x27;application/json&#x27; -Body $rename
+} catch { $_.Exception.Message }
+Invoke-RestMethod &quot;$base/api/accounts/$id&quot; -Headers $headers
+try {
+    Invoke-RestMethod &quot;$base/api/lab/accounts/$id/rename?atomic=false&quot; -Method Post -Headers $headers -WebSession $session -ContentType &#x27;application/json&#x27; -Body $rename
+} catch { $_.Exception.Message }
+Invoke-RestMethod &quot;$base/api/accounts/$id&quot; -Headers $headers</code></pre></figure>
+<p>Chạy sau phần tạo account, dùng lại <code>$base</code>, <code>$headers</code>, <code>$session</code>. Cả hai khối try đều báo HTTP 500. Sau <code>atomic=true</code>, tên vẫn là Teacher; sau <code>atomic=false</code>, tên là Changed. Nếu muốn làm lại với trạng thái Teacher, khởi động lại server và lấy CSRF token mới.</p>
+<div class="table-wrap"><table><thead><tr><th>Ca thử từ trạng thái Teacher</th><th>HTTP</th><th>Tên đọc lại</th></tr></thead><tbody><tr><td>Service có transaction, lỗi runtime sau save</td><td>500</td><td>Teacher</td></tr><tr><td>Repository commit riêng, lỗi service sau save</td><td>500</td><td>Changed</td></tr></tbody></table></div>
+<p>Ví dụ chuyển tiền giúp hiểu tính nguyên tử: A có 100.000, B có 250.000, A chuyển 50.000 cho B thì kết quả phải là A = 50.000 và B = 300.000. Nếu hai update cùng một transaction và có lỗi trước commit thì cả hai thay đổi phải được rollback. Ghi có mà không trừ tiền sẽ làm tổng tăng sai từ 350.000 lên 400.000. Demo account ở đây kiểm tra rollback bằng exception, không mô phỏng mất điện hoặc xử lý chuyển tiền đồng thời.</p>
+<p>Mặc định Spring rollback với <code>RuntimeException</code> và <code>Error</code>; checked exception cần chính sách như <code>rollbackFor</code> nếu muốn rollback. Đừng bắt rồi nuốt exception và giả định transaction tự biết có lỗi. Với cơ chế proxy mặc định, gọi phương thức <code>@Transactional</code> bằng <code>this</code> trong cùng đối tượng không đi qua proxy để tạo transaction mới. Phương thức riêng <code>saveNameThenFail</code> trong demo chỉ dùng chung phần thao tác; transaction được mở tại phương thức public mà controller gọi.</p>
+<h3>Khi bỏ annotation mà dữ liệu vẫn không đổi</h3>
+<p>Đừng kết luận rollback chỉ từ status 500. Đặt breakpoint trước save, kiểm tra id đúng, tên mới thật sự khác tên cũ, DTO đã được map và save đã chạy. Xem còn annotation ở class, caller hay transaction bao ngoài không; xác nhận ứng dụng đã chạy bản build mới và đang đọc đúng database. Đọc lại qua một request khác sau khi xử lý đã kết thúc.</p>
+</section>
+<section class="chapter" id="kiem-tra" aria-labelledby="kiem-tra-heading"><header class="chapter-top"><h2 id="kiem-tra-heading">9. Tự kiểm chứng và gỡ lỗi</h2></header>
+<p>Dừng và khởi động lại demo nếu cần đưa dữ liệu về trạng thái gốc. Chạy bộ kiểm tra ngay trong thư mục demo:</p>
+<figure class="snippet"><figcaption>Maven · HTTP thực và H2</figcaption><pre tabindex="0"><code>mvn verify</code></pre></figure>
+<p>Bộ test khởi động ứng dụng ở cổng ngẫu nhiên và gửi HTTP thực, không giả lập repository. Bảy test kiểm tra: tài khoản mẫu; thiếu/sai/không tồn tại danh tính; tạo account và kiểm tra hash; từ chối ghi thiếu CSRF và giữ dữ liệu; input sai/username trùng; rollback; commit riêng trước lỗi service. Test không bọc transaction ở bên ngoài nên quan sát được commit/rollback thực của service.</p>
+<p><a href="demo/src/test/java/vn/railway97/security/AuthenticationTest.java">Đọc toàn bộ test</a> và <a href="demo/README.md">hướng dẫn demo</a>. Nếu cần thử bằng MySQL, phải cấu hình driver, datasource và database riêng rồi chạy lại các ca kiểm chứng; kết quả H2 không thay cho xác nhận MySQL.</p>
+<div class="table-wrap"><table><thead><tr><th>Dấu hiệu</th><th>Cần kiểm tra</th><th>Xác nhận đã sửa</th></tr></thead><tbody>
+<tr><td>Connection refused</td><td>Server đã Started chưa, đúng cổng chưa? Đây là lỗi kết nối trước HTTP.</td><td>Gọi GET không credentials nhận 401 thay cho lỗi kết nối.</td></tr>
+<tr><td>GET 401 dù mật khẩu tưởng đúng</td><td>Username tồn tại không, database đang lưu BCrypt hash đúng định dạng không, service có thành bean không?</td><td>teacher đúng mật khẩu → 200; teacher sai và unknown → 401.</td></tr>
+<tr><td>Username bất kỳ đều vào được</td><td>loadUserByUsername có bỏ qua đầu vào và trả cố định một user không?</td><td>unknown / Learn123! phải 401.</td></tr>
+<tr><td>GET 200 nhưng POST 403</td><td>CSRF header/token, cookie phiên, host có trùng nhau không?</td><td>POST đúng phiên và token → 201; bỏ token → 403, dữ liệu không tăng.</td></tr>
+<tr><td>POST 400</td><td>Content-Type JSON, tên trường và constraint; JSON không dùng dấu nháy đơn.</td><td>Đúng mẫu đầu vào → 201; dữ liệu sai không được lưu.</td></tr>
+<tr><td>POST 409</td><td>Username đã dùng, kể cả từ lần thực hành trước.</td><td>Chọn username khác; chỉ có một bản ghi cho username cũ.</td></tr>
+<tr><td>500 sau rename nhưng dữ liệu đã đổi</td><td>Service thiếu transaction bao toàn bộ nghiệp vụ hoặc lỗi xảy ra sau commit.</td><td>Ca atomic từ Teacher giữ Teacher; ca không atomic đổi Changed.</td></tr>
+</tbody></table></div>
+</section>
+<section class="chapter" id="tu-kiem-tra" aria-labelledby="tu-kiem-tra-heading"><header class="chapter-top"><h2 id="tu-kiem-tra-heading">10. Câu hỏi tự kiểm tra</h2></header>
+<details><summary>1. Đăng nhập đúng có bảo đảm được tạo đề thi không?</summary><p>Không. Xác thực cho biết danh tính; quy tắc phân quyền quyết định quyền tạo đề. Demo này mới yêu cầu authenticated, chưa có role giáo viên.</p></details>
+<details><summary>2. loadUserByUsername có phải tự nhận và so mật khẩu client không?</summary><p>Không. Nó tìm username và trả UserDetails với hash đã lưu. DaoAuthenticationProvider dùng PasswordEncoder kiểm tra mật khẩu nhận từ cơ chế Basic.</p></details>
+<details><summary>3. Hai lần BCrypt encode cùng mật khẩu khác chuỗi thì dùng cách gì xác nhận?</summary><p>Dùng matches(mật_khẩu_thô, hash_đã_lưu). Salt ngẫu nhiên làm các hash khác nhau; không so trực tiếp hai kết quả encode, không giải mã hash.</p></details>
+<details><summary>4. Vì sao body chứa password mới nhưng Authorization vẫn là teacher?</summary><p>Header xác thực người đang gọi API tạo. Body mô tả account sẽ được tạo. Sau khi tạo thành công, mới dùng thông tin account mới cho request tiếp theo.</p></details>
+<details><summary>5. POST đúng Basic nhưng thiếu token thì dữ liệu có được tạo không?</summary><p>Trong demo, request bị chặn bởi CSRF, trả 403 và controller chưa tạo dữ liệu. Lấy token, giữ cùng cookie phiên, gửi lại rồi đọc danh sách xác nhận.</p></details>
+<details><summary>6. Cùng HTTP 500, tại sao một lần giữ tên cũ và một lần đổi tên?</summary><p>Có transaction service thì lỗi runtime thoát ra trước commit khiến thay đổi rollback. Không có transaction service thì repository đã commit save trước khi lỗi xảy ra.</p></details>
+<details><summary>7. Có thể gửi hash trong database thay cho mật khẩu để đăng nhập không?</summary><p>Không. Client gửi mật khẩu thô qua kênh HTTPS. Provider kiểm tra nó với hash đã lưu; gửi chuỗi hash làm mật khẩu không khớp mật khẩu gốc.</p></details>
+<details><summary>8. Gọi GET bằng username không tồn tại nhưng mật khẩu đúng của teacher phải ra gì?</summary><p>401. Việc dùng đúng một mật khẩu không làm username khác trở thành tài khoản hợp lệ. Đây là ca cần thử để phát hiện service bỏ qua lookup.</p></details>
+</section>
+<section class="chapter" id="nguon" aria-labelledby="nguon-heading"><header class="chapter-top"><h2 id="nguon-heading">Ghi chú nguồn và mốc xem lại</h2></header>
+<p>Bài được biên soạn từ Railway 97, Buổi 12 ngày 30.01.2026. Phần đầu là transaction, phần sau là HTTP Basic và chuyển xác thực từ dữ liệu tạm sang database. Mã trong demo được dựng lại để chạy độc lập bằng H2, DTO tối giản và phiên bản ghi trong pom.xml; không phải bản sao project trên lớp. Đã đọc phụ đề đến lời chào ở 2:59:11 và đối chiếu khung hình phần repository.</p>
+<p>Các đoạn minh họa tạm cho username tùy ý dùng chung mật khẩu được thay bằng lookup username thực. BCrypt được giải thích bằng cơ chế băm và matches. Đoạn cuối nguồn có thao tác tắt CSRF; demo giữ bảo vệ và thêm endpoint lấy token, kiểm thử lỗi 403 cùng cookie phiên. Phân quyền và ghép frontend được hẹn ở buổi sau, chưa triển khai trong bài này.</p>
+<ul><li>10:15–20:56 · Transaction và đề thử lỗi sau save.</li><li>49:47–1:06:04 · Chữa bài, kiểm tra dữ liệu sau lỗi.</li><li>1:06:53 · Authentication và authorization.</li><li>1:09:01–1:18:45 · Starter, 401, SecurityFilterChain và HTTP Basic.</li><li>1:19:01–1:33:09 · UserDetailsService, BCrypt, so sánh String.</li><li>2:23:29 · Đăng ký service thành bean.</li><li>2:27:37–2:34:50 · Lookup database và encode khi tạo.</li><li>2:56:32–2:58:06 · CSRF và tạo account rồi xác thực.</li></ul>
+<h3>Tài liệu chính thức theo dòng phiên bản của demo</h3>
+<ul><li><a href="https://docs.spring.io/spring-boot/3.5/reference/web/spring-security.html">Spring Boot 3.5 · tự cấu hình Security</a></li><li><a href="https://docs.spring.io/spring-security/reference/6.5/servlet/authentication/passwords/basic.html">Spring Security 6.5 · HTTP Basic</a></li><li><a href="https://docs.spring.io/spring-security/reference/6.5/servlet/authentication/passwords/dao-authentication-provider.html">DaoAuthenticationProvider · UserDetailsService và PasswordEncoder</a></li><li><a href="https://docs.spring.io/spring-security/reference/6.5/features/authentication/password-storage.html">Password storage · băm mật khẩu và salt</a></li><li><a href="https://docs.spring.io/spring-security/reference/6.5/servlet/exploits/csrf.html">CSRF · cơ chế và token</a></li><li><a href="https://docs.spring.io/spring-framework/reference/6.2/data-access/transaction/declarative/rolling-back.html">Spring Framework 6.2 · rollback</a></li></ul>
+</section>
+<footer class="references"><p><a href="../index.html">← Danh mục Spring Security</a> · <a href="#top">Về đầu trang ↑</a></p></footer>
+</main></div></body></html>
