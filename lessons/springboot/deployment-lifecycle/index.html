@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Giữ request, worker và schema nhất quán khi thay phiên bản đang chạy."><title>Readiness, graceful shutdown và migration khi rollout · Backend Service</title>
+<link rel="stylesheet" href="../../../assets/styles.css">
+<link rel="stylesheet" href="../../../assets/vendor/prism/prism.css">
+<script src="../../../assets/vendor/prism/prism.js" defer></script>
+<script src="../../../assets/vendor/codemirror/editor.js" defer></script>
+<script src="../../../assets/site.js" defer></script></head><body id="top">
+<a class="skip" href="#noi-dung">Đến nội dung</a>
+<header class="masthead"><div class="mast-inner"><a class="brand" href="../../../index.html"><span class="mark" aria-hidden="true">B</span> Backend Service</a><a class="source" href="../../../lessons/springboot/index.html">Lộ trình Spring ↗</a></div></header><div class="hero"><div class="hero-inner"><div><nav class="crumbs" aria-label="Vị trí hiện tại"><a href="../../../index.html">Trang chủ</a> / <a href="../index.html#project">Triển khai và dự án</a></nav><p class="kicker">Bài 41 / 42 · Triển khai và dự án</p><h1>Readiness, graceful shutdown và migration khi rollout</h1><p class="lead">Giữ request, worker và schema nhất quán khi thay phiên bản đang chạy.</p><div class="hero-actions"><a class="button" href="#noi-dung">Đọc bài ↓</a><a class="button secondary" href="#bai-tap-code">Tự viết code</a></div></div><div class="flow"><div class="flow-head">Lộ trình trong bài</div><div class="flow-body"><ol><li><b>Hiểu cơ chế</b><span>Triển khai và dự án</span></li><li><b>Thử và giải thích</b><span>Đọc code, dự đoán và kiểm tra giả thuyết</span></li><li><b>Tự triển khai</b><span>Viết code và kiểm chứng ở project</span></li></ol></div></div></div></div><div class="layout"><aside class="sidebar"><nav aria-label="Mục lục bài học"><h2>Nội dung bài học</h2><ol><li><a href="#tinh-huong">Tình huống</a></li><li><a href="#co-che-1">Sống khác với sẵn sàng</a></li><li><a href="#co-che-2">Drain là hợp đồng hai phía</a></li><li><a href="#co-che-3">Thay schema theo nhiều bước</a></li><li><a href="#vi-du">Ví dụ</a></li><li><a href="#lab-web">Dự đoán và đối chiếu ngay trên web</a></li><li><a href="#thuc-hanh">Thực hành áp dụng</a></li><li><a href="#bai-tap-code">Bài tập lập trình</a></li><li><a href="#kiem-tra-nang-luc">Kiểm tra cách hiểu</a></li><li><a href="#nguon-chinh-thuc">Nguồn chính thức</a></li></ol></nav></aside><main id="noi-dung" tabindex="-1"><div class="callout intro"><strong>Mục tiêu và điều kiện học</strong><p>Giữ request, worker và schema nhất quán khi thay phiên bản đang chạy.</p><p><strong>Cần biết trước:</strong> Actuator, transaction, worker/outbox và kiểm thử tích hợp. Các bài ứng dụng có thể cần đọc trước phần dữ liệu tương ứng; dùng <a href="../index.html">lộ trình</a> để chọn kiến thức còn thiếu.</p><p class="version-note">Baseline: Java 17 · Spring Boot 3.5.10 · Framework 6.2 · Security 6.5. Mỗi demo có hướng dẫn riêng; ví dụ H2 không chứng minh hành vi trên DB khác.</p></div><section class="chapter" id="tinh-huong"><h2>Tình huống</h2><p>Bản v2 thêm trạng thái lời mời. Trong rollout, v1 và v2 cùng đọc schema; một instance cũ đang giữ request và worker claim thì nhận tín hiệu dừng.</p><p>Kiến thức dùng lại từ <a href="../cache-consistency/index.html">Cache theo use case và tính nhất quán sau commit</a>.</p></section>
+<section class="chapter" id="co-che-1"><h2>Sống khác với sẵn sàng</h2><p>Liveness dùng để phát hiện tiến trình cần phục hồi. Readiness quyết định có tiếp tục gửi traffic tới instance. Cân nhắc phụ thuộc dùng chung trước khi đưa vào probe: DB lỗi đồng thời ở mọi instance có thể làm tất cả báo unavailable nếu đặt constraint sai chỗ.</p></section>
+<section class="chapter" id="co-che-2"><h2>Drain là hợp đồng hai phía</h2><p>Graceful shutdown cho request đang xử lý một khoảng để hoàn tất, còn cách ngừng nhận kết nối mới tùy server. Với worker cần ngừng claim, theo dõi việc in-flight, và để công việc chưa xong sống trong DB. Kiểm budget giữa load balancer, timeout shutdown và thời gian kill của orchestrator.</p></section>
+<section class="chapter" id="co-che-3"><h2>Thay schema theo nhiều bước</h2><p>Expand: thêm cột tương thích v1. Backfill theo lô và kiểm số bản ghi. Chuyển v2 sang dữ liệu mới khi cả đường đọc và ghi đã sẵn sàng; giữ tương thích lúc phiên bản cùng chạy. Contract: chỉ bỏ cột hoặc đường cũ sau khi các tác nhân phụ thuộc đã được gỡ.</p></section>
+<section class="chapter" id="vi-du"><h2>Ví dụ</h2>
+<ol aria-label="Ba mốc đổi schema" class="core-flow"><li><strong>Expand</strong><span>Thêm cột tương thích với bản v1.</span></li><li><strong>Chuyển dữ liệu</strong><span>Backfill và xác nhận cả v1 lẫn v2 đọc, ghi như dự kiến.</span></li><li><strong>Contract</strong><span>Bỏ cột cũ sau cửa sổ quay lui và khi hết caller phụ thuộc.</span></li></ol>
+<figure class="snippet"><figcaption>Cấu hình minh họa · cân bằng với ngân sách dừng của môi trường</figcaption><pre tabindex="0"><code class="language-yaml">server:
+  shutdown: graceful
+spring:
+  lifecycle:
+    timeout-per-shutdown-phase: 20s
+management:
+  endpoint:
+    health:
+      probes:
+        enabled: true</code></pre></figure></section>
+<section class="chapter" id="lab-web"><h2>Dự đoán và đối chiếu ngay trên web</h2><p>Đọc dữ liệu đầu vào, viết dự đoán rồi mở kết quả. Đây là ca thiết kế để lần theo cơ chế.</p>
+<section class="understanding-case"><h3>Request đang chạy</h3><p>Giữ request ở latch. Gửi SIGTERM sau khi request đã bắt đầu.</p><details class="question"><summary>Mở kết quả dự kiến</summary><p>Quan sát rút traffic, thả latch trong budget và kiểm response. Ca vượt budget cần ghi rõ client/worker quan sát gì.</p></details></section>
+<section class="understanding-case"><h3>V1 và v2 cùng chạy</h3><p>V2 đổi tên cột, v1 vẫn SELECT cột cũ.</p><details class="question"><summary>Mở kết quả dự kiến</summary><p>Đổi tên trực tiếp làm v1 lỗi. Thêm cấu trúc tương thích trước, kiểm cả hai phiên bản rồi mới bỏ cấu trúc cũ.</p></details></section>
+</section><section class="chapter" id="thuc-hanh"><h2>Thực hành áp dụng</h2><p>Các đề dưới đây mô tả phần cần tự triển khai và bằng chứng phải nộp. Đoạn editor bên dưới luyện cấu hình hoặc một thay đổi nhỏ.</p>
+<div class="callout"><h3>R1 · Thử SIGTERM trong lab</h3><p>Đặt request + worker ở mốc đã biết. Đo thứ tự nhận tín hiệu, dừng nhận việc, hoàn tất trong giới hạn và phục hồi việc chưa xong sau restart.</p></div>
+<div class="callout"><h3>R2 · Ma trận phiên bản/schema</h3><p>Chạy v1 trên schema cũ và expand, v2 trên schema expand. Kiểm backfill, tính tương thích khi quay lui v1 và xác nhận không còn phụ thuộc trước khi contract.</p></div>
+<p>Áp dụng tiếp ở <a href="../project-capstone/index.html">Đồ án: tự xây backend account và group</a>.</p></section>
+
+<section class="chapter coding-lab" id="bai-tap-code"><p class="eyebrow">Tự viết trước khi xem lời giải</p>
+<h2>Bài tập lập trình</h2><p>Giữ request, worker và schema nhất quán khi thay phiên bản đang chạy.</p>
+<p class="exercise-instructions"><strong>Cách sửa starter:</strong> Giữ probes và chế độ graceful, bổ sung timeout theo minh họa.</p>
+<p><strong>Tiêu chí kiểm chứng:</strong> Quan sát rút traffic, thả latch trong budget và kiểm response. Ca vượt budget cần ghi rõ client/worker quan sát gì.</p>
+<p>Đoạn dưới là bài tập ngắn; các kiểu và phương thức liên quan cần nằm trong project của bài. Editor cho sửa, lưu nháp và tải file; <strong>không biên dịch hoặc chạy Java/Spring</strong>. Chạy test thật ở local theo hướng dẫn project.</p>
+<div class="editor" data-editor data-lesson="deployment-lifecycle" data-version="1" data-language="yaml" data-filename="application.yaml">
+<label for="editor-deployment-lifecycle">Mã của bạn · application.yaml</label>
+<textarea id="editor-deployment-lifecycle" spellcheck="false" autocapitalize="off" autocomplete="off" rows="10">server:
+  shutdown: graceful
+spring:
+  lifecycle:
+    # TODO: cho shutdown phase 20 giây
+management:
+  endpoint:
+    health:
+      probes:
+        enabled: true
+</textarea>
+<div class="editor-actions"><button type="button" data-action="save">Lưu nháp</button><button type="button" data-action="download">Tải mã</button><button type="button" data-action="reset">Khôi phục starter</button></div>
+<p class="editor-status" role="status" aria-live="polite">Nháp tự lưu khi trình duyệt cho phép. Không nhập mật khẩu hoặc token thật.</p>
+<template data-starter>server:
+  shutdown: graceful
+spring:
+  lifecycle:
+    # TODO: cho shutdown phase 20 giây
+management:
+  endpoint:
+    health:
+      probes:
+        enabled: true
+</template>
+</div>
+<details class="hint"><summary>Gợi ý cách làm và tự kiểm tra</summary><p>Viết ra dữ liệu ban đầu, request/lời gọi và trạng thái cuối. Làm trường hợp đúng trước rồi thêm trường hợp lỗi. Tại mỗi bước, đối chiếu cơ chế trong bài; không chỉ sửa cho hết báo lỗi.</p><p>Quan sát rút traffic, thả latch trong budget và kiểm response. Ca vượt budget cần ghi rõ client/worker quan sát gì.</p></details>
+<details class="solution"><summary>Lời giải tham khảo · mở sau khi tự làm</summary><p>Đây là hướng giải cho đoạn ngắn, không thay thế implementation và kiểm thử đầy đủ trong project.</p><figure class="snippet"><figcaption>application.yaml · tham khảo</figcaption><pre tabindex="0"><code class="language-yaml">server:
+  shutdown: graceful
+spring:
+  lifecycle:
+    timeout-per-shutdown-phase: 20s
+management:
+  endpoint:
+    health:
+      probes:
+        enabled: true
+</code></pre></figure></details>
+<p class="practice-link"><a href="../../../practice/spring-foundations/index.html">Starter Maven, đề theo mốc và bộ kiểm thử chạy local →</a></p></section><section class="chapter" id="kiem-tra-nang-luc"><h2>Kiểm tra cách hiểu</h2>
+<p>Trước khi mở đáp án, hãy ghi dự đoán, lý do và dấu hiệu bạn sẽ dùng để kiểm chứng.</p>
+<div class="understanding-cases"><section class="understanding-case"><h3>DB lỗi tạm thời</h3><p>Một cụm có bốn instance, DB dùng chung bị gián đoạn. Vì sao gắn DB vào liveness cho tất cả có thể làm sự cố nặng hơn?</p><details class="question"><summary>Mở đáp án và tiêu chí</summary><p>Các instance có thể bị restart đồng loạt dù tiến trình còn sống, tăng tải hồi phục. Phân loại probe theo ý nghĩa, xác định readiness/response khi dependency mất và thử lại khi DB phục hồi.</p><p><strong>Tự đánh giá.</strong> Nêu tác động của probe đến orchestrator, không chỉ tình trạng kết nối DB.</p></details></section><section class="understanding-case"><h3>Rollout quay lui sau backfill</h3><p>V2 có status mới, v1 tiếp tục ghi theo schema cũ. Nếu rollback về v1 sau backfill, cần bảo đảm gì?</p><details class="question"><summary>Mở đáp án và tiêu chí</summary><p>Giữ cấu trúc và đường ghi mà v1 dùng, thiết kế đồng bộ dữ liệu mới cho các ghi còn đến từ v1. Test v1/v2 trên schema expand và hoãn drop đến sau cửa sổ quay lui.</p><p><strong>Tự đánh giá.</strong> Nêu kiểm chứng theo ma trận phiên bản/schema và mốc migration không còn tương thích.</p></details></section></div>
+<details class="quick-quiz"><summary>Ôn nhanh bằng trắc nghiệm</summary>
+<form class="quiz" data-quiz data-correct="0"><fieldset><legend>V1 và v2 đang cùng chạy, khi nào bỏ cột mà v1 đọc?</legend><label><input type="radio" name="quiz-deployment-lifecycle" value="0"> <span>Sau khi mọi nơi phụ thuộc đã dùng schema mới</span></label><label><input type="radio" name="quiz-deployment-lifecycle" value="1"> <span>Ngay khi v2 start lần đầu</span></label><label><input type="radio" name="quiz-deployment-lifecycle" value="2"> <span>Ngay sau khi tạo cột mới</span></label></fieldset><button type="submit">Kiểm tra đáp án</button><p role="status" aria-live="polite" data-feedback></p><template data-explanation>Chỉ contract sau khi xác nhận không còn phiên bản hay tác vụ phụ thuộc cột cũ.</template></form></details>
+<details><summary>Xem giải thích khi không dùng JavaScript</summary><p><strong>Sau khi mọi nơi phụ thuộc đã dùng schema mới.</strong> Chỉ contract sau khi xác nhận không còn phiên bản hay tác vụ phụ thuộc cột cũ.</p></details></section><section class="chapter" id="nguon-chinh-thuc"><h2>Nguồn chính thức</h2><ul>
+<li><a href="https://docs.spring.io/spring-boot/3.5/reference/actuator/endpoints.html#actuator.endpoints.kubernetes-probes">Boot 3.5 · Actuator probes</a></li>
+<li><a href="https://docs.spring.io/spring-boot/3.5/reference/web/graceful-shutdown.html">Boot 3.5 · Graceful shutdown</a></li>
+<li><a href="https://docs.spring.io/spring-boot/3.5/how-to/data-initialization.html">Boot 3.5 · Database initialization</a></li>
+</ul></section><div class="completion"><label><input type="checkbox" data-complete="deployment-lifecycle"> Tôi đã tự làm bài tập và giải thích được kết quả</label><p>Đánh dấu để tự theo dõi trên trình duyệt này; đây không phải chứng nhận hay kết quả chấm code.</p><p role="status" data-progress-status aria-live="polite"></p></div><nav class="lesson-navigation" aria-label="Chuyển bài"><a href="../project-directory/index.html">← Dự án: thiết kế danh bạ user và group</a><a href="../project-capstone/index.html">Đồ án: tự xây backend account và group →</a></nav><p><a href="#top">Về đầu trang ↑</a></p></main></div></body></html>

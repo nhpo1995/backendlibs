@@ -1,0 +1,15 @@
+<section id="async-proxy-lab">
+  <h2>Từ Future của Java đến lời gọi qua <code>@Async</code></h2>
+  <p>Nếu cần ôn phép tăng, vùng khóa, timeout và interrupt, hoàn thành <a href="../bean-lifecycle/index.html#java-concurrency">C3–C5 về đa luồng Java</a> trước. Ca dưới đây tập trung vào việc Spring chặn lời gọi qua proxy và chọn executor.</p>
+  <p><a download href="../../../practice/spring-core-lab/downloads/spring-core-lab.zip">Tải lab Spring Core (.zip)</a>. Mở terminal ở thư mục có <code>pom.xml</code> và chạy:</p>
+  <figure class="snippet"><figcaption>PowerShell · test Spring qua context thật</figcaption><pre><code class="language-powershell">mvn "-Dtest=InvitationAsyncTest" test</code></pre></figure>
+  <ol>
+    <li>Mở <code>InvitationAsyncTest.java</code> trong <code>src/test/java/vn/backend/core/</code>. Dự đoán tên thread khi gọi method có <code>@Async("invitationExecutor")</code> qua bean lấy từ context, và khi method khác trong bean gọi qua <code>this</code>. Chạy test. Ca đầu có tiền tố <code>invite-lab-</code>. Ca sau giữ tên thread caller.</li>
+    <li>Cho provider giả ném một exception. Kiểm rằng lời gọi qua proxy trả Future và <code>get()</code> ném <code>ExecutionException</code> có nguyên nhân gốc. Với method trả <code>void</code>, không có Future để caller đọc. Spring dùng cơ chế xử lý lỗi async cho trường hợp đó.</li>
+    <li>Sau khi hoàn thành starter bên dưới, tự kết hợp với bài A1: giữ worker bằng latch, lấp queue rồi kiểm riêng lúc submit bị từ chối và lúc một task đã được nhận nhưng thực thi thất bại.</li>
+  </ol>
+  <p><strong>Tự viết.</strong> Mở <code>AsyncCoordinatorStarter.java</code> cùng thư mục test. Bean điều phối đang gọi qua một method dẫn tới <code>this.threadName()</code>. Giữ nguyên <code>Probe</code> và executor, chỉ sửa <code>send()</code> của starter để method có <code>@Async</code> được gọi trên bean đã inject.</p>
+  <figure class="snippet"><figcaption>PowerShell · chạy chế độ starter</figcaption><pre><code class="language-powershell">mvn "-Dtest=InvitationAsyncTest" "-Dasync.starter=true" test</code></pre></figure>
+  <p>Ban đầu hai ca quan sát đạt và ca bean điều phối chưa đạt vì tên thread vẫn là caller. Sau khi sửa, cả ba ca đạt và kết quả từ bean điều phối có tiền tố <code>invite-lab-</code>.</p>
+  <p>Test hủy ở C5 dùng Future của Java executor. Method Spring trong lab này trả <code>CompletableFuture</code>. Việc hủy future loại này không tự interrupt công việc đang tạo ra kết quả, nên cần thiết kế và thử cơ chế dừng phù hợp nếu nghiệp vụ yêu cầu. Tên thread giúp xác định biên thực thi. Để chứng minh transaction, cần thêm một ca ghi thật và đọc dữ liệu từ bên ngoài transaction.</p>
+</section>

@@ -1,0 +1,22 @@
+<section id="tinh-huong"><h2>Tình huống</h2><p>Hai người xem danh sách nhóm với phạm vi dữ liệu khác nhau. Cache theo mỗi groupId có thể trả sai tập dữ liệu. Thay đổi thành viên cũng có thể khiến cache cũ hơn DB.</p><p>Kiến thức dùng lại từ <a href="../async-scheduling/index.html">Async, executor giới hạn và scheduling nhiều instance</a>.</p></section>
+<section id="co-che-1"><h2>Key đại diện cho kết quả</h2><p>Key phải chứa mọi yếu tố làm đổi response: phạm vi được phép, bộ lọc, phân trang và sort. Authorization vẫn phải được thực thi theo hợp đồng của hệ thống. Cache DTO bất biến và đo hit/miss, độ trễ, số query trước khi chọn điểm cache.</p></section>
+<section id="co-che-2"><h2>TTL là giới hạn vận hành</h2><p>TTL do cache provider và cấu hình quyết định. Dữ liệu bớt truy vấn hơn khi TTL dài nhưng cửa sổ stale có thể tăng. Cache local ở từng instance cần cách lan truyền invalidation hoặc chấp nhận độ trễ đó. Tải đồng thời trên miss có thể dồn DB; cân nhắc hạn chế nhiều loader cùng key và kiểm hành vi provider.</p></section>
+<section id="co-che-3"><h2>Invalidation theo kết quả ghi</h2><p>Thay membership trong transaction. Cần liên kết xóa cache với commit thành công bằng orchestration hoặc cache transaction-aware phù hợp thao tác. Eviction sau commit vẫn có thể gặp đọc đồng thời và lỗi truyền giữa các instance. Ghi rõ mức consistency, TTL và yêu cầu phục hồi.</p></section>
+<section id="vi-du"><h2>Ví dụ</h2><figure class="snippet"><figcaption>Cache DTO theo key đầy đủ · caller kiểm quyền và xây scope tin cậy</figcaption><pre><code class="language-java">record MembersKey(long groupId, String visibilityScope,
+                  int page, int size, String sort) {}
+
+@Cacheable(cacheNames = &quot;members&quot;, key = &quot;#p0&quot;)
+public PageView readMembers(MembersKey key) {
+    return repository.findView(key);
+}</code></pre></figure></section>
+<section id="lab-web"><h2>Dự đoán và đối chiếu ngay trên web</h2><p>Đọc dữ liệu đầu vào, viết dự đoán rồi mở kết quả. Đây là ca thiết kế để lần theo cơ chế.</p>
+<section class="understanding-case"><h3>Key thiếu phạm vi</h3><p>Admin thấy 20 thành viên, reader chỉ thấy 12. Cache chỉ dùng groupId.</p><details class="question"><summary>Mở kết quả dự kiến</summary><p>Admin gọi trước có thể làm reader nhận sai kết quả. Test hai identity và cache đã ấm.</p></details></section>
+<section class="understanding-case"><h3>Ghi rollback</h3><p>Cache hiện có trang [1,2]. DB cố ghi [2,3] rồi rollback.</p><details class="question"><summary>Mở kết quả dự kiến</summary><p>Dữ liệu cuối vẫn [1,2]. Kiểm cache và DB sau rollback, rồi so ca commit thành công.</p></details></section>
+</section><section id="thuc-hanh"><h2>Thực hành áp dụng</h2><p><a download href="../../../practice/spring-advanced-lab/downloads/spring-advanced-lab.zip">Tải lab Maven nâng cao (.zip)</a>. Giải nén, mở terminal tại thư mục có pom.xml và chạy <code>mvn test</code> với JDK 17 trở lên. Đọc README để xác định ca thuộc bài này và yêu cầu của phần mở rộng.</p><p>Các đề dưới đây mô tả phần cần tự triển khai và bằng chứng phải nộp. Đoạn editor bên dưới luyện cấu hình hoặc một thay đổi nhỏ.</p>
+<div class="callout"><h3>K1 · Đo key và query</h3><p>Dùng hai phạm vi, hai kiểu sort và hai trang. Khẳng định tập kết quả độc lập và số query giảm khi gọi lại cùng key.</p></div>
+<div class="callout"><h3>K2 · Invalidation ở hai instance</h3><p>Ghi membership rồi kiểm ở instance còn lại. Chạy cả commit, rollback và một lượt đọc xen kẽ. Nêu TTL, cửa sổ stale chấp nhận và cách phát hiện mất invalidation.</p></div>
+<p>Áp dụng tiếp ở <a href="../deployment-lifecycle/index.html">Readiness, graceful shutdown và migration khi rollout</a>.</p></section>
+<section id="nguon-chinh-thuc"><h2>Nguồn chính thức</h2><ul>
+<li><a href="https://docs.spring.io/spring-framework/reference/6.2/integration/cache.html">Framework 6.2 · Cache abstraction</a></li>
+<li><a href="https://docs.spring.io/spring-framework/docs/6.2.x/javadoc-api/org/springframework/cache/transaction/TransactionAwareCacheDecorator.html">Framework 6.2 · Transaction-aware cache</a></li>
+</ul></section>

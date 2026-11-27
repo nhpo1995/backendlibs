@@ -1,0 +1,39 @@
+<section id="boi-canh"><h2>Xác định danh tính trước khi nhận lời mời</h2>
+<p>Trong danh bạ có bản ghi thành viên An và Linh. Dịch vụ học tập lại có hai danh tính đăng nhập riêng, <code>admin</code> và <code>reader</code>. Khi client gửi <code>GET /api/groups</code> để chọn nhóm trước khi mời thành viên, Spring lấy danh tính từ đâu và ai gọi <code>matches</code>?</p>
+<p>Cần biết <a href="../mvc-request-flow/index.html">ranh giới filter và MVC</a> cùng <a href="../dto-contracts/index.html">ranh giới dữ liệu API</a>. Hết bài, bạn có thể theo credential đến provider, phân biệt từ chối xác thực với lỗi controller và chọn đúng test cho password hay role.</p></section>
+<section id="identity"><h2>Xác thực khác với bản ghi account</h2>
+<p>Client nói “tôi là An” chưa đủ để backend tin. Authentication kiểm tra bằng chứng danh tính theo cơ chế được chọn. Authorization quyết định danh tính đó được phép làm gì. Trong các demo danh bạ cũ, account tạo qua CRUD chỉ là dữ liệu nghiệp vụ; nó không tự trở thành tài khoản đăng nhập khi security đang dùng danh tính in-memory.</p>
+<p>Trong lab mới cũng có hai user học tập <code>admin</code> và <code>reader</code>, cùng mật khẩu mẫu <code>demo-pass</code>. Chúng chỉ dành cho localhost. Tạo một group hoặc đổi tên account không thay đổi credential của hai user này.</p></section>
+<section id="flow"><h2>Theo dấu HTTP Basic qua filter chain</h2>
+<div data-article-slot></div>
+<p>Header Basic mang <code>username:password</code> được mã hóa biểu diễn bằng Base64 và có thể đọc ngược. Dùng TLS khi gửi credential qua mạng và tránh ghi header <code>Authorization</code> trong log.</p></section>
+<section id="authentication-decisions"><h2>Đối chiếu ba request GET /api/groups</h2>
+<p>Đọc bảng để dự đoán trước: hai request cùng trả 401 có đi đến <code>DaoAuthenticationProvider</code> như nhau không?</p>
+<div class="table-wrap"><table><thead><tr><th>Input tới GET /api/groups</th><th>Quyết định của chain trong solution</th><th>Dấu hiệu cần ghi</th></tr></thead><tbody>
+<tr><td>Không có Authorization</td><td><code>BasicAuthenticationFilter</code> cho đi tiếp. <code>AuthorizationFilter</code> gặp rule yêu cầu danh tính. <code>ExceptionTranslationFilter</code> gọi entry point.</td><td>401 và <code>WWW-Authenticate: Basic</code>. Provider và controller đều chưa chạy.</td></tr>
+<tr><td><code>reader:wrong</code></td><td><code>DaoAuthenticationProvider</code> tải user, nhưng <code>PasswordEncoder.matches(...)</code> trả false. Basic filter bắt lỗi và gọi entry point.</td><td>401 và <code>WWW-Authenticate: Basic</code>. Provider đã chạy, controller chưa chạy.</td></tr>
+<tr><td><code>reader:demo-pass</code></td><td>Filter đặt <code>Authentication</code> mang <code>ROLE_READER</code> vào context. Rule đọc <code>authenticated()</code> cho request đến <code>GroupController.list()</code>.</td><td>200 và JSON danh sách nhóm.</td></tr>
+</tbody></table></div>
+<h3>Kiểm chứng bằng demo tải từ web</h3>
+<p><a href="../../../practice/spring-foundations/downloads/spring-foundations-solution.zip" download>Tải ZIP demo Spring Foundations</a>. Giải nén và mở PowerShell trong thư mục có <code>pom.xml</code>. Cần JDK 17 trở lên và Maven. Chạy lệnh sau rồi đợi log báo server đã lên cổng 8181. Demo dùng H2 trong bộ nhớ và hai user mẫu.</p>
+<figure class="snippet"><figcaption>PowerShell · khởi động demo trong thư mục có pom.xml</figcaption><pre><code class="language-powershell">mvn spring-boot:run</code></pre></figure>
+<p>Mở PowerShell thứ hai. Ba lệnh giữ nguyên HTTP method và URL, chỉ thay credential. So status và header của từng response với bảng.</p>
+<figure class="snippet"><figcaption>PowerShell · thiếu credential, sai mật khẩu, đúng mật khẩu</figcaption><pre><code class="language-powershell">curl.exe -i http://127.0.0.1:8181/api/groups
+curl.exe -i -u reader:wrong http://127.0.0.1:8181/api/groups
+curl.exe -i -u reader:demo-pass http://127.0.0.1:8181/api/groups</code></pre></figure>
+<p>Hai phản hồi 401 có thể giống nhau. Muốn chứng minh chúng dừng ở hai chỗ khác nhau, đặt breakpoint trong <code>DaoAuthenticationProvider.additionalAuthenticationChecks(...)</code> và <code>GroupController.list()</code>: request thiếu credential không vào cả hai; sai mật khẩu chỉ vào provider; đúng mật khẩu đi qua cả hai. Không xuất credential hay hash vào log.</p>
+<details class="question"><summary>Đổi rule GET thành chỉ ADMIN. Reader nhập đúng password sẽ dừng ở đâu?</summary><p>Provider vẫn xác thực thành công, tạo authority ROLE_READER. Bước authorization từ chối và response của lab là 403. So với GET đủ quyền để kiểm rằng password đúng vẫn tạo được danh tính.</p></details></section>
+<section id="password"><h2>Hash mật khẩu và kiểm tra đúng cách</h2>
+<figure class="snippet"><figcaption>Java · encode lúc lưu, matches lúc đăng nhập</figcaption><pre><code class="language-java">PasswordEncoder encoder = new BCryptPasswordEncoder();
+String stored = encoder.encode("demo-pass");
+boolean good = encoder.matches("demo-pass", stored); // true
+boolean bad = encoder.matches("wrong", stored);      // false
+String another = encoder.encode("demo-pass");
+// Không kiểm tra password bằng another.equals(stored).</code></pre></figure>
+<p>PasswordEncoder thực hiện biến đổi một chiều phục vụ so khớp. BCrypt dùng salt, nên encode cùng password nhiều lần có thể cho chuỗi khác. Hash mang thông tin phục vụ kiểm tra; matches dùng raw password cùng hash đã lưu. Giá trị work factor phải được chọn theo đo đạc và yêu cầu vận hành, không sao chép con số từ một tutorial như chuẩn chung.</p>
+<p>DelegatingPasswordEncoder có thể hỗ trợ định dạng gắn ID thuật toán như <code>{bcrypt}</code> để chuyển đổi chiến lược. Không tự thêm/bỏ prefix nếu encoder đang dùng không mong định dạng đó. Khi tích hợp DB, kiểm tra độ dài cột không cắt hash và response DTO không công bố hash.</p></section>
+<section id="practice"><h2>Thực hành và gỡ lỗi</h2>
+<ol><li>Viết test encoder với hai lần encode của cùng mật khẩu mẫu. Dùng <code>matches</code> với mật khẩu đúng/sai để giải thích vì sao không so hai chuỗi hash.</li><li>Viết test API bằng <code>httpBasic</code> để đi qua provider và encoder thật. Chạy <code>mvn -Dtest=SecurityTest test</code> trong thư mục giải nén.</li><li>So sánh với test <code>user(...)</code>: test này đưa danh tính vào context, không chứng minh luồng kiểm raw password qua provider.</li><li>Giải thích vì sao CRUD account chưa đủ tạo chức năng đăng nhập.</li></ol>
+<details class="question"><summary>Có nên trả “user không tồn tại” khác “sai password” cho mọi ứng dụng?</summary><p>Thông báo phân biệt có thể lộ danh sách username. Thiết kế thông báo và log phải xét mục tiêu bảo mật, hỗ trợ người dùng và giới hạn tần suất; không chỉ thay chuỗi ở controller.</p></details>
+<details class="question"><summary>Tại sao không lưu hash trong editor của bài học?</summary><p>Editor lưu nháp trên trình duyệt để học code, không phải kho bí mật. Chỉ dùng credential mẫu của lab và không nhập dữ liệu đăng nhập thật.</p></details></section>
+<section id="nguon-chinh-thuc"><h2>Nguồn chính thức</h2><ul><li><a href="https://docs.spring.io/spring-security/reference/6.5/servlet/architecture.html">Spring Security 6.5 · FilterChainProxy và SecurityFilterChain</a></li><li><a href="https://docs.spring.io/spring-security/reference/6.5/servlet/authentication/architecture.html">Spring Security 6.5 · Authentication architecture</a></li><li><a href="https://docs.spring.io/spring-security/reference/6.5/features/authentication/password-storage.html">Spring Security 6.5 · Password storage</a></li><li><a href="https://docs.spring.io/spring-security/reference/6.5/servlet/authentication/passwords/basic.html">Spring Security 6.5 · HTTP Basic</a></li></ul></section>

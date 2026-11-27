@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Hiểu tại sao annotation có thể không tác dụng."><title>Proxy, AOP và ranh giới transaction · Backend Service</title>
+<link rel="stylesheet" href="../../../assets/styles.css">
+<link rel="stylesheet" href="../../../assets/vendor/prism/prism.css">
+<script src="../../../assets/vendor/prism/prism.js" defer></script>
+<script src="../../../assets/vendor/codemirror/editor.js" defer></script>
+<script src="../../../assets/site.js" defer></script></head><body id="top">
+<a class="skip" href="#noi-dung">Đến nội dung</a>
+<header class="masthead"><div class="mast-inner"><a class="brand" href="../../../index.html"><span class="mark" aria-hidden="true">B</span> Backend Service</a><a class="source" href="../../../lessons/springboot/index.html">Lộ trình Spring ↗</a></div></header><div class="hero"><div class="hero-inner"><div><nav class="crumbs" aria-label="Vị trí hiện tại"><a href="../../../index.html">Trang chủ</a> / <a href="../index.html#core">Spring Core</a></nav><p class="kicker">Bài 06 / 42 · Spring Core</p><h1>Proxy, AOP và ranh giới transaction</h1><p class="lead">Hiểu tại sao annotation có thể không tác dụng.</p><div class="hero-actions"><a class="button" href="#noi-dung">Đọc bài ↓</a><a class="button secondary" href="#bai-tap-code">Tự viết code</a></div></div><div class="flow"><div class="flow-head">Lộ trình trong bài</div><div class="flow-body"><ol><li><b>Hiểu cơ chế</b><span>Spring Core</span></li><li><b>Thử và giải thích</b><span>Đọc code, dự đoán và kiểm tra giả thuyết</span></li><li><b>Tự triển khai</b><span>Viết code và kiểm chứng ở project</span></li></ol></div></div></div></div><div class="layout"><aside class="sidebar"><nav aria-label="Mục lục bài học"><h2>Nội dung bài học</h2><ol><li><a href="#proxy">Bean được inject có thể là proxy</a></li><li><a href="#aop">AOP dùng cho điều gì và có giới hạn nào?</a></li><li><a href="#atomicity">Atomicity không giải quyết mọi vấn đề đồng thời</a></li><li><a href="#verify">Tự viết B1 và kiểm chứng rollback</a></li><li><a href="#bai-tap-code">Bài tập lập trình</a></li><li><a href="#kiem-tra-nang-luc">Kiểm tra cách hiểu</a></li><li><a href="#nguon-chinh-thuc">Nguồn chính thức</a></li></ol></nav></aside><main id="noi-dung" tabindex="-1"><div class="callout intro"><strong>Mục tiêu và điều kiện học</strong><p>Tách thao tác cần transaction sang bean khác để lời gọi đi qua proxy.</p><p><strong>Cần biết trước:</strong> Bean, Java exception và SQL transaction. Các bài ứng dụng có thể cần đọc trước phần dữ liệu tương ứng; dùng <a href="../index.html">lộ trình</a> để chọn kiến thức còn thiếu.</p><p class="version-note">Baseline: Java 17 · Spring Boot 3.5.10 · Framework 6.2 · Security 6.5. Mỗi demo có hướng dẫn riêng; ví dụ H2 không chứng minh hành vi trên DB khác.</p></div><section class="chapter" id="proxy"><h2>Bean được inject có thể là proxy</h2>
+<p>Dev gắn <code>@TimedInvitation</code> lên method gửi lời mời. Một lần gọi từ bean khác có log thời gian, lần gọi qua <code>this.send()</code> im lặng dù đều gửi được. Hai lời gọi đi qua đối tượng nào? Từ <a href="../bean-lifecycle/index.html">vòng đời bean</a>, xem bước sau khi khởi tạo, khi Spring có thể trả proxy để gọi target.</p>
+<figure class="snippet"><figcaption>Ví dụ · advice đo thời gian cho annotation của ứng dụng</figcaption><pre tabindex="0"><code class="language-java">@Around("@annotation(vn.backend.lab.TimedInvitation)")
+public Object measure(ProceedingJoinPoint call) throws Throwable {
+    long started = System.nanoTime();
+    try {
+        return call.proceed();
+    } finally {
+        log.info("invitation elapsedNanos={}", System.nanoTime() - started);
+    }
+}</code></pre></figure>
+<p>Đoạn trên thuộc class <code>@Aspect</code> đã đăng ký làm bean. Annotation gắn trên method target và có retention runtime. <code>proceed()</code> thực thi phần còn lại của chuỗi, kể cả target. Khối <code>finally</code> chạy sau khi target trả về hoặc ném lỗi.</p>
+<div class="table-wrap"><table><thead><tr><th>Đường gọi</th><th>Target gửi</th><th>Advice đo</th></tr></thead><tbody>
+<tr><td>Bean điều phối → proxy → <code>send()</code> có annotation</td><td>Một lần</td><td>Một lần</td></tr>
+<tr><td>Bean điều phối → <code>sendBatch()</code> thiếu annotation → <code>this.send()</code></td><td>Một lần trong batch một lời mời</td><td>Không chạy cho <code>send()</code></td></tr>
+<tr><td>Bean điều phối → proxy → <code>send()</code>, adapter ném lỗi</td><td>Thử một lần</td><td>Một lần, exception truyền về caller</td></tr>
+</tbody></table></div>
+<details class="question"><summary>Nếu gắn annotation cho cả sendBatch() và send(), advice chạy mấy lần?</summary><p>Caller đi vào proxy ở sendBatch, rồi target gọi send trực tiếp. Chỉ phép đo ngoài chạy. Muốn đo từng send qua AOP, cho bean điều phối gọi một bean gửi riêng.</p></details>
+<p>Proxy không sửa quy tắc Java của mọi lời gọi method. Trong chế độ proxy-based mặc định, <code>this.save()</code> gọi trực tiếp target nên bỏ qua advice của chính method save. Một method public có annotation vẫn cần bean được quản lý và lời gọi đi qua proxy phù hợp.</p>
+<p>Áp dụng cùng cơ chế cho use case ghi nhóm. Interceptor transaction mở hoặc tham gia giao dịch trước target. Sau khi target kết thúc hoặc ném exception, interceptor yêu cầu commit hoặc rollback theo cấu hình.</p>
+<figure class="snippet"><figcaption>Ví dụ thu gọn · ghi vào schema groups giả định rồi ném lỗi</figcaption><pre tabindex="0"><code class="language-java">@Service
+class GroupService {
+    private final JdbcTemplate db;
+    GroupService(JdbcTemplate db) { this.db = db; }
+
+    @Transactional
+    public void createThenFail(String name) {
+        db.update("insert into groups(name) values (?)", name);
+        throw new IllegalStateException("Lab rollback");
+    }
+}</code></pre></figure>
+<p>Cần transaction manager phù hợp datasource và lời gọi từ bean/test qua proxy. Với cấu hình transaction tiêu chuẩn, exception runtime thoát khỏi method làm rollback. Nếu method bắt exception rồi trả bình thường, interceptor không thể suy ra mọi lỗi nghiệp vụ đã xảy ra bên trong. Checked exception có quy tắc rollback mặc định khác; khi cần, cấu hình <code>rollbackFor</code> tường minh và test.</p></section><aside class="callout"><strong>Chạy các ví dụ trên máy</strong><p><a download="" href="../../../practice/spring-demo-bundle/downloads/spring-demo-bundle.zip">Tải bộ demo Maven (.zip)</a>. Giải nén và dùng thư mục <code>spring-demo-bundle</code> chứa <code>lessons</code> và <code>practice</code> làm thư mục gốc cho các lệnh trong bài. Khi bài yêu cầu vào thư mục demo, mở thư mục chứa <code>pom.xml</code> của demo đó.</p></aside>
+<section class="chapter" id="aop"><h2>AOP dùng cho điều gì và có giới hạn nào?</h2>
+<p>Advice là logic chèn quanh hoặc tại điểm thực thi được chọn; pointcut chọn nơi áp dụng; target là object nghiệp vụ; proxy là object trung gian. Transaction, method security và một số cơ chế cache có thể dựa trên kiểu can thiệp này. Các cơ chế dùng cùng ý tưởng proxy nhưng cấu hình và semantics riêng, không suy ra mọi annotation hành xử giống nhau.</p>
+<p>Spring AOP dùng proxy JDK hoặc proxy dựa trên class. Với class proxy, không thể override method final/private để chặn như một method thông thường; class final cũng hạn chế proxy kế thừa. Bài thực hành dùng public method trên service thường để tập trung vào ranh giới nghiệp vụ, tránh phụ thuộc các trường hợp visibility phức tạp.</p>
+<p>Để sửa self-invocation, ưu tiên đưa transaction lên method use case mà bên ngoài thực sự gọi, hoặc tách trách nhiệm sang bean khác. Không tự thêm <code>new Writer()</code> rồi mong dependency và advice xuất hiện.</p></section>
+<section class="chapter" id="atomicity"><h2>Atomicity không giải quyết mọi vấn đề đồng thời</h2>
+<p>Transaction giữ một nhóm thay đổi thành công hoặc thất bại cùng nhau theo cấu hình. Nó không mặc định ngăn hai request cùng đọc giá trị cũ rồi ghi đè nhau. Ví dụ hai request cùng sửa membership cần xét khóa, isolation hoặc optimistic locking theo invariant. Unique constraint bảo vệ cặp không trùng; transaction bảo vệ chuỗi thay đổi; hai công cụ bổ sung nhau.</p>
+<p><code>readOnly=true</code> diễn đạt ý định và có thể được tầng dữ liệu tối ưu; không dùng nó làm hàng rào bảo mật chống ghi. <code>REQUIRED</code> thường tham gia transaction đang có; <code>REQUIRES_NEW</code> tạo transaction độc lập và có thể commit dù transaction ngoài rollback. Không thêm propagation theo cảm giác để “chữa rollback”.</p></section>
+<section class="chapter" id="verify"><h2>Tự viết B1 và kiểm chứng rollback</h2>
+<p><strong>B1.</strong> Trong project Boot có <code>spring-boot-starter-aop</code> và starter test, tạo annotation, aspect và hai bean điều phối/gửi. Dùng fake ghi số lượt gửi và recorder đếm số lượt advice. Nghiệm thu ba ca của bảng, kiểm giá trị trả về hoặc exception gốc. Trong ca self-invocation, giữ cùng thao tác gửi để xác định khác biệt đến từ đường gọi.</p>
+<p><a download="" href="../../../practice/spring-advanced-lab/downloads/spring-advanced-lab.zip">Tải lab Maven nâng cao (.zip)</a>. Sau khi giải nén, chạy <code>mvn -Dtest=InvitationConfigurationTest test</code> từ thư mục có <code>pom.xml</code> để đối chiếu lời gọi qua proxy, qua <code>this</code> và qua object tự tạo.</p>
+<p><strong>Rollback.</strong> Thực hành tiếp trên Spring Foundations sau khi đọc <a href="../spring-transaction/index.html">transaction theo use case</a>. Lab thực tế dùng bảng <code>study_groups</code>.</p>
+<ol><li>Từ thư mục giải nén, chạy <code>mvn -f practice/spring-foundations/starter/pom.xml -Dtest=TransactionTest test</code>. Đọc <code>TransactionTest</code> để thấy chỗ ghi nhận danh sách group trước thao tác và ca lỗi phải tái hiện.</li><li>Hoàn thành <code>GroupService.createThenFail</code> theo TODO rồi gọi qua bean được inject.</li><li>Xác nhận exception thoát ra ngoài. Đọc số group sau từ một lời gọi không dùng transaction test bao quanh.</li><li>Count và danh sách phải như trước. Sau đó thử bỏ annotation trong bản sao để thấy test phát hiện insert còn lại.</li><li>Thử catch exception trong implementation và không ném lại; giải thích vì sao hành vi commit có thể thay đổi.</li></ol>
+<details class="question"><summary>Vì sao không đặt @Transactional trên test rollback ở lab này?</summary><p>Transaction của test có thể bao trùm cả thao tác và rollback lúc test kết thúc, che đi việc service không có ranh giới đúng. Lab cần quan sát trạng thái sau use case từ bên ngoài.</p></details></section>
+
+<section class="chapter coding-lab" id="bai-tap-code"><p class="eyebrow">Tự viết trước khi xem lời giải</p>
+<h2>Bài tập lập trình</h2><p>Tách thao tác cần transaction sang bean khác để lời gọi đi qua proxy.</p>
+<p class="exercise-instructions"><strong>Cách sửa starter:</strong> Thay this.save() bằng lời gọi dependency Writer; chuyển phương thức save khỏi Checkout sang bean Writer. Giữ nghiệp vụ trong save khi chuyển, không để lại bản tự gọi cũ.</p>
+<p><strong>Tiêu chí kiểm chứng:</strong> Gọi Writer từ bean khác đi qua proxy trong cấu hình transaction mặc định; test exception rồi đọc DB từ transaction mới.</p>
+<p>Đoạn dưới là bài tập ngắn; các kiểu và phương thức liên quan cần nằm trong project của bài. Editor cho sửa, lưu nháp và tải file; <strong>không biên dịch hoặc chạy Java/Spring</strong>. Chạy test thật ở local theo hướng dẫn project.</p>
+<div class="editor" data-editor data-lesson="aop-transaction" data-version="1" data-language="java" data-filename="Exercise.java">
+<label for="editor-aop-transaction">Mã của bạn · Exercise.java</label>
+<textarea id="editor-aop-transaction" spellcheck="false" autocapitalize="off" autocomplete="off" rows="10">class Checkout {
+    void run() { this.save(); }
+    @Transactional public void save() { /* ... */ }
+}
+</textarea>
+<div class="editor-actions"><button type="button" data-action="save">Lưu nháp</button><button type="button" data-action="download">Tải mã</button><button type="button" data-action="reset">Khôi phục starter</button></div>
+<p class="editor-status" role="status" aria-live="polite">Nháp tự lưu khi trình duyệt cho phép. Không nhập mật khẩu hoặc token thật.</p>
+<template data-starter>class Checkout {
+    void run() { this.save(); }
+    @Transactional public void save() { /* ... */ }
+}
+</template>
+</div>
+<details class="hint"><summary>Gợi ý cách làm và tự kiểm tra</summary><p>Viết ra dữ liệu ban đầu, request/lời gọi và trạng thái cuối. Làm trường hợp đúng trước rồi thêm trường hợp lỗi. Tại mỗi bước, đối chiếu cơ chế trong bài; không chỉ sửa cho hết báo lỗi.</p><p>Gọi Writer từ bean khác đi qua proxy trong cấu hình transaction mặc định; test exception rồi đọc DB từ transaction mới.</p></details>
+<details class="solution"><summary>Lời giải tham khảo · mở sau khi tự làm</summary><p>Đây là hướng giải cho đoạn ngắn, không thay thế implementation và kiểm thử đầy đủ trong project.</p><figure class="snippet"><figcaption>Exercise.java · tham khảo</figcaption><pre tabindex="0"><code class="language-java">class Checkout {
+    private final Writer writer;
+    Checkout(Writer writer) { this.writer = writer; }
+    void run() { writer.save(); }
+}
+@Service
+class Writer {
+    @Transactional public void save() { /* ... */ }
+}
+</code></pre></figure></details>
+<p class="practice-link"><a href="../../../practice/spring-foundations/index.html">Starter Maven, đề theo mốc và bộ kiểm thử chạy local →</a></p></section><section class="chapter" id="kiem-tra-nang-luc"><h2>Kiểm tra cách hiểu</h2>
+<p>Trước khi mở đáp án, hãy ghi dự đoán, lý do và dấu hiệu bạn sẽ dùng để kiểm chứng.</p>
+<div class="understanding-cases"><section class="understanding-case"><h3>Lời gọi bỏ qua proxy</h3><p>Ngoài service gọi run(), bên trong run gọi this.save(), chỉ save có @Transactional. Theo chế độ proxy mặc định, lời gọi nào được chặn? Sửa ở đâu?</p><details class="question"><summary>Mở đáp án và tiêu chí</summary><p>Lời gọi run tới bean có thể qua proxy, nhưng this.save gọi target trực tiếp nên advice transaction của save không áp dụng. Đặt biên trên use case được gọi qua proxy hoặc tách save sang bean khác.</p><p><strong>Tự đánh giá.</strong> Vẽ đúng caller → proxy → target và phân biệt object tự new với bean.</p></details></section><section class="understanding-case"><h3>Có SQL nhưng vẫn rollback</h3><p>Service qua proxy mở transaction, flush một INSERT rồi ném RuntimeException ra ngoài. Log đã thấy INSERT. Bằng chứng nào quyết định dữ liệu thực sự còn hay mất?</p><details class="question"><summary>Mở đáp án và tiêu chí</summary><p>Flush gửi SQL nhưng chưa commit. Theo rollback mặc định, đọc lại từ transaction khác sau khi service kết thúc để xác nhận không còn hàng.</p><p><strong>Tự đánh giá.</strong> Nêu điều kiện exception thoát khỏi biên transaction và kiểm DB sau khi giao dịch kết thúc.</p></details></section></div>
+<details class="quick-quiz"><summary>Ôn nhanh bằng trắc nghiệm</summary>
+<form class="quiz" data-quiz data-correct="1"><fieldset><legend>this.save() có đi qua Spring proxy mặc định không?</legend><label><input type="radio" name="quiz-aop-transaction" value="0"> <span>Có</span></label><label><input type="radio" name="quiz-aop-transaction" value="1"> <span>Không</span></label><label><input type="radio" name="quiz-aop-transaction" value="2"> <span>Nếu method public thì luôn có</span></label></fieldset><button type="submit">Kiểm tra đáp án</button><p role="status" aria-live="polite" data-feedback></p><template data-explanation>Self-invocation gọi trực tiếp target. Proxy-based advice chỉ chặn lời gọi đi qua proxy.</template></form></details>
+<details><summary>Xem giải thích khi không dùng JavaScript</summary><p><strong>Không.</strong> Self-invocation gọi trực tiếp target. Proxy-based advice chỉ chặn lời gọi đi qua proxy.</p></details></section><section class="chapter" id="nguon-chinh-thuc"><h2>Nguồn chính thức</h2><ul><li><a href="https://docs.spring.io/spring-framework/reference/6.2/core/aop/proxying.html">Spring Framework 6.2 · Proxying và self-invocation</a></li><li><a href="https://docs.spring.io/spring-framework/reference/6.2/data-access/transaction/declarative/annotations.html">Spring Framework 6.2 · Transactional</a></li><li><a href="https://docs.spring.io/spring-framework/reference/6.2/data-access/transaction/declarative/rolling-back.html">Spring Framework 6.2 · Rollback rules</a></li><li><a href="https://docs.spring.io/spring-framework/reference/6.2/data-access/transaction/declarative/tx-propagation.html">Spring Framework 6.2 · Propagation</a></li></ul></section><div class="completion"><label><input type="checkbox" data-complete="aop-transaction"> Tôi đã tự làm bài tập và giải thích được kết quả</label><p>Đánh dấu để tự theo dõi trên trình duyệt này; đây không phải chứng nhận hay kết quả chấm code.</p><p role="status" data-progress-status aria-live="polite"></p></div><nav class="lesson-navigation" aria-label="Chuyển bài"><a href="../bean-lifecycle/index.html">← Vòng đời bean và quản lý trạng thái</a><a href="../boot-configuration/index.html">Spring Boot: auto-configuration, properties và profiles →</a></nav><p><a href="#top">Về đầu trang ↑</a></p></main></div></body></html>

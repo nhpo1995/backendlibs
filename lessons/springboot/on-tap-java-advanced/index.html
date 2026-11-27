@@ -1,78 +1,10 @@
 <!doctype html>
 <html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Ôn tập Java advanced · Thiết kế và kiểm chứng API danh sách account</title><meta name="description" content="Từ yêu cầu danh sách có tìm kiếm, lọc, sắp xếp và phân trang đến request có thể kiểm chứng bằng dữ liệu.">
-<link rel="stylesheet" href="../../../assets/styles.css"><script src="../../../assets/site.js" defer></script></head>
-<body id="top"><a class="skip" href="#noi-dung">Đến nội dung</a>
-<header class="masthead"><div class="mast-inner"><a class="brand" href="../../../index.html"><span class="mark" aria-hidden="true">B</span> Backend Service</a><a class="source" href="https://drive.google.com/file/d/1MBn-qvrQshPcaFiFAunT7kAQHyxIsvGU/view" target="_blank" rel="noopener">Video gốc ↗</a></div></header>
-<div class="hero"><div class="hero-inner"><div><nav class="crumbs" aria-label="Vị trí hiện tại"><a href="../../../index.html">Khóa học</a> / <a href="../index.html">Spring Boot</a> / Ôn tập Java advanced</nav>
-<p class="kicker">Railway 89 <span></span> Ôn tập Java advanced</p><h1>Thiết kế và kiểm chứng API danh sách account</h1><p class="lead">Từ yêu cầu danh sách có tìm kiếm, lọc, sắp xếp và phân trang đến request có thể kiểm chứng bằng dữ liệu.</p>
-<div class="hero-actions"><a class="button" href="#hop-dong">Bắt đầu bài học ↓</a><a class="button secondary" href="#thuc-hanh">Thực hành</a></div></div>
-<div class="flow"><div class="flow-head"><span aria-hidden="true">● ● ●</span><span>Từ giao diện đến SQL</span></div><div class="flow-body"><ol><li><b>Request</b><span>Path xác định tài nguyên, query xác định tập cần đọc</span></li><li><b>Query</b><span>Lọc trước, sắp xếp ổn định rồi mới cắt trang</span></li><li><b>Response</b><span>Trả DTO và tổng số dòng sau lọc</span></li></ol></div></div></div></div>
-<div class="layout"><aside class="sidebar"><nav aria-labelledby="toc-heading"><h2 id="toc-heading">Nội dung buổi học</h2><ol><li><a href="#hop-dong">Chốt hợp đồng từ giao diện</a></li><li><a href="#truy-van">Tính kết quả truy vấn trước khi viết code</a></li><li><a href="#thuc-hanh">Thực hành với Page JSON và tài khoản</a></li><li><a href="#tu-kiem-tra">Tự kiểm tra</a></li><li><a href="#moc-video">Mốc xem lại và tài liệu đối chiếu</a></li></ol></nav></aside>
-<main id="noi-dung" tabindex="-1"><div class="callout intro"><strong>Mục tiêu</strong><p>Viết hợp đồng API từ giao diện, tính tay một trang kết quả, chọn derived query, JPQL hay Specification và chẩn đoán lỗi 401 ngay từ request.</p><p>Cần biết trước: Biết GET/POST/PUT/DELETE, repository và DTO. Có thể ôn lại <a href="../buoi-12/index.html">phân trang</a> và <a href="../buoi-13/index.html">Specification</a>.</p></div>
-<section id="hop-dong"><h2>Chốt hợp đồng từ giao diện</h2>
-<p>Giả sử màn hình cần tìm account theo tên, lọc role và phòng ban, sắp xếp theo ngày tạo mới nhất, mặc định 10 dòng. Hãy thống nhất trước tập cột trả về, chữ hoa/thường, giới hạn kích thước trang và quy ước số trang. Màn hình có thể ghi “Trang 1” dù API nhận <code>page=0</code>. Ví dụ thiết kế dưới đây chọn API từ 0, demo thực hành ở cuối chọn từ 1.</p>
-<pre><code class="language-http">GET /api/accounts?q=an&amp;role=USER&amp;departmentId=3&amp;page=0&amp;size=2
-GET /api/accounts/42
-POST /api/accounts
-PUT /api/accounts/42
-DELETE /api/accounts/42</code></pre>
-<p><code>42</code> là định danh tài nguyên, lấy bằng <code>@PathVariable</code>. <code>q</code>, <code>role</code>, <code>page</code> là biến thể truy vấn, lấy bằng <code>@RequestParam</code> hoặc gom vào một đối tượng filter. JSON tạo/sửa đi qua <code>@RequestBody</code>. Với POST, server sinh ID, trả <code>201</code> và <code>Location</code> trỏ tới resource mới. PUT cập nhật tài nguyên đã có theo hợp đồng tại đây. DELETE thành công có thể trả <code>204</code> với body rỗng.</p>
-<p>Khi giao diện có vài thao tác lặp lại, Bootstrap có thể giúp dựng form, bảng và nút. Dữ liệu vẫn đi theo luồng JS gửi request → server trả status/JSON → JS cập nhật màn hình. Dùng tab Network để đọc URL, method, header và body của đúng request. Form tạo account chỉ cập nhật danh sách sau khi server xác nhận; với lỗi validation dùng dữ liệu trả về để hiển thị lỗi đúng trường.</p>
-</section>
-<section id="truy-van"><h2>Tính kết quả truy vấn trước khi viết code</h2>
-<p>Dữ liệu giả định, cột ngày tạo rút gọn xuống ngày để nhìn thấy nhiều bản ghi đồng hạng.</p>
-<pre><code class="language-text">id | username | role  | department_id | created_at
-10 | An       | USER  | 3             | 2025-02-20
-11 | Anh      | USER  | 3             | 2025-02-20
-12 | Lan      | USER  | 3             | 2025-02-19
-13 | AnAdmin  | ADMIN | 3             | 2025-02-21
-14 | AnOps    | USER  | 4             | 2025-02-21</code></pre>
-<p><code>q=an</code> là tìm chuỗi con không phân biệt hoa/thường nên cả năm tên đều khớp. Thêm role USER và department 3 còn 10, 11, 12. Sắp xếp theo ngày giảm dần, dùng ID giảm dần khi trùng ngày, rồi lấy hai dòng mỗi trang. Trang 0 là <code>[11,10]</code>, trang 1 là <code>[12]</code>, tổng 3 dòng và 2 trang. <code>totalElements</code> đếm tập sau lọc; <code>items.length</code> chỉ đếm trang hiện tại. Dùng cùng predicate ở truy vấn đếm. Nếu join collection nhân bản account, xét <code>count(distinct a.id)</code> hoặc lọc bằng <code>exists</code>.</p>
-<pre><code class="language-java">interface AccountRepository extends JpaRepository&lt;Account, Long&gt; {
-    Page&lt;Account&gt; findByUsernameContainingIgnoreCaseAndRoleAndDepartment_Id(
-        String text, Role role, Long departmentId, Pageable pageable);
-}
-
-// Bên service. Quy ước đầu vào page từ 0.
-Pageable paging = PageRequest.of(page, size,
-    Sort.by(Sort.Order.desc(&quot;createdAt&quot;), Sort.Order.desc(&quot;id&quot;)));
-Page&lt;AccountView&gt; result = repository
-    .findByUsernameContainingIgnoreCaseAndRoleAndDepartment_Id(q, role, departmentId, paging)
-    .map(a -&gt; new AccountView(a.getId(), a.getUsername()));</code></pre>
-<p>Đoạn thiết kế trên giả định entity <code>Account</code> có <code>username</code>, <code>role</code>, <code>department</code>, <code>createdAt</code> và <code>id</code>. <code>Department_Id</code> chỉ rõ đường dẫn <code>department.id</code>. Dùng JPQL khi cần chỉ định phép join hay constructor DTO. Dùng <code>Specification</code> để chỉ thêm điều kiện khi input hiện diện, vì truyền <code>null</code> vào derived query có thể tạo điều kiện <code>IS NULL</code> với phép bằng. Filter role và phòng ban phải nối AND với nhóm điều kiện tìm theo tên; nếu tìm theo username hoặc email, viết <code>(username khớp OR email khớp) AND role khớp</code>.</p>
-<p>Whitelist trường sort và giới hạn size ở API. Truyền giá trị bằng bind parameter. Với JPQL <code>LIKE</code> tự viết, escape <code>%</code> và <code>_</code> nếu yêu cầu tìm theo ký tự thật. Thứ tự có ID giúp phân trang xác định trên cùng dữ liệu; nếu có thêm/xóa giữa hai request, offset vẫn có thể trượt. Với danh sách ghi thường xuyên có thể nghiên cứu cursor dựa trên cặp ngày tạo và ID.</p>
-</section>
-<section id="thuc-hanh"><h2>Thực hành với Page JSON và tài khoản</h2>
-<p>Mở terminal trong <a href="../buoi-17/demo/README.md">thư mục demo Buổi 17</a>. Cần JDK 17+, Maven và PowerShell 7. Khởi động bằng hai lệnh sau.</p>
-<pre><code class="language-powershell">mvn -B -ntp package
-java -jar target/springboot-lessons-demo-0.1.0.jar</code></pre>
-<p>Ở terminal khác, chạy ba request sau. Demo chia ví dụ thành tìm account theo <code>q</code> và phân trang trên product. Product có sáu dòng ID 1–6. API page của demo bắt đầu từ 1. Kỳ vọng account <code>linh</code>, trang 2 có ID <code>[3,4]</code>, <code>totalElements=6</code>, <code>totalPages=3</code>, ca cuối trả <code>401</code> và <code>WWW-Authenticate: Basic</code>.</p>
-<pre><code class="language-powershell">$base = 'http://127.0.0.1:8117'
-curl.exe -sS -u reader:demo-pass &quot;$base/api/accounts?q=lin&quot;
-curl.exe -sS -u reader:demo-pass &quot;$base/api/products/page?page=2&amp;size=2&quot;
-curl.exe -si &quot;$base/api/accounts?q=lin&quot;</code></pre>
-<p>Gỡ lỗi: gửi lại request 401 với <code>-u reader:demo-pass</code> và kiểm tra status 200, giữ nguyên URL. Nếu chỉ trình duyệt gặp lỗi, so request thành công với request trong Network, kiểm tra header Basic và origin <code>scheme + host + port</code>. Với UI cùng origin của demo, mở <a href="http://127.0.0.1:8117/ui.html">ui.html trên localhost</a>. Đổi page sang <code>0</code> để thấy <code>400</code> của demo. Nếu UI bắt đầu từ 0, chuyển đổi đúng một lần ở biên API. Kiểm tra trang cuối và trang vượt phạm vi để phát hiện sai lệch một đơn vị.</p>
-</section>
-<section id="tu-kiem-tra"><h2>Tự kiểm tra</h2>
-<details><summary>Vì sao dùng hai trường sort?</summary><p>Hai dòng có thể trùng ngày tạo. ID tạo thứ tự phân định để cùng tập dữ liệu luôn cho cùng ranh giới trang.</p></details>
-<details><summary>GET chi tiết và GET tìm kiếm khác ở đâu?</summary><p>ID trên path xác định một tài nguyên. Query điều chỉnh tập và cách trình bày kết quả. Tìm không khớp trả danh sách rỗng; ID không tồn tại trả 404 theo hợp đồng này.</p></details>
-<details><summary>Chọn derived query, JPQL hay Specification?</summary><p>Tên method phù hợp predicate ngắn, cố định. JPQL khi muốn điều khiển phép join hoặc dạng kết quả. Specification phù hợp tập điều kiện tùy chọn cần ghép động.</p></details>
-<details><summary>Tại sao lọc xong còn cần tổng số dòng?</summary><p>UI tính số trang từ tổng sau lọc. Dùng độ dài một trang làm tổng sẽ cho sai điều hướng và số kết quả.</p></details>
-<details><summary>Ẩn nút xóa cho reader đã bảo vệ dữ liệu chưa?</summary><p>UI chỉ điều chỉnh khả năng thao tác. Server vẫn phải kiểm tra quyền trên DELETE vì client có thể gửi request trực tiếp.</p></details>
-<details><summary>Vì sao có HTTP 401 dù SQL đúng?</summary><p>Security filter có thể chặn request trước MVC và repository. Kiểm tra credential và header phản hồi trước khi sửa SQL.</p></details>
-</section>
-<section id="moc-video"><h2>Mốc xem lại và tài liệu đối chiếu</h2>
-<p>Bản ghi ôn đề account, demo giao diện bán hàng và user/group, rồi hỏi đáp về API và truy vấn. Mô hình account có role/phòng ban và bộ dữ liệu tính tay ở trên được dựng để học. Các request thực hành dùng dữ liệu H2 của khóa.</p><ul><li><a href="https://drive.google.com/file/d/1MBn-qvrQshPcaFiFAunT7kAQHyxIsvGU/view?t=1058" target="_blank" rel="noopener">17:38</a> · Đề danh sách account, phân trang, tìm và lọc</li>
-<li><a href="https://drive.google.com/file/d/1MBn-qvrQshPcaFiFAunT7kAQHyxIsvGU/view?t=1981" target="_blank" rel="noopener">33:01</a> · Mở Network để quan sát danh sách</li>
-<li><a href="https://drive.google.com/file/d/1MBn-qvrQshPcaFiFAunT7kAQHyxIsvGU/view?t=2072" target="_blank" rel="noopener">34:32</a> · Đọc content và metadata Page</li>
-<li><a href="https://drive.google.com/file/d/1MBn-qvrQshPcaFiFAunT7kAQHyxIsvGU/view?t=2340" target="_blank" rel="noopener">39:00</a> · Chuyển từ danh sách sang giỏ hàng</li>
-<li><a href="https://drive.google.com/file/d/1MBn-qvrQshPcaFiFAunT7kAQHyxIsvGU/view?t=3386" target="_blank" rel="noopener">56:26</a> · Nhận phản hồi 401 khi gọi API</li>
-<li><a href="https://drive.google.com/file/d/1MBn-qvrQshPcaFiFAunT7kAQHyxIsvGU/view?t=3533" target="_blank" rel="noopener">58:53</a> · Demo tìm theo tên</li>
-<li><a href="https://drive.google.com/file/d/1MBn-qvrQshPcaFiFAunT7kAQHyxIsvGU/view?t=4268" target="_blank" rel="noopener">1:11:08</a> · Bootstrap trong giao diện demo</li>
-<li><a href="https://drive.google.com/file/d/1MBn-qvrQshPcaFiFAunT7kAQHyxIsvGU/view?t=5205" target="_blank" rel="noopener">1:26:45</a> · Path variable và request parameter</li>
-<li><a href="https://drive.google.com/file/d/1MBn-qvrQshPcaFiFAunT7kAQHyxIsvGU/view?t=5650" target="_blank" rel="noopener">1:34:10</a> · Keyword trong tên repository</li>
-<li><a href="https://drive.google.com/file/d/1MBn-qvrQshPcaFiFAunT7kAQHyxIsvGU/view?t=5955" target="_blank" rel="noopener">1:39:15</a> · Điều kiện role trong query</li>
-<li><a href="https://drive.google.com/file/d/1MBn-qvrQshPcaFiFAunT7kAQHyxIsvGU/view?t=6202" target="_blank" rel="noopener">1:43:22</a> · Kiểm tra tham số trước khi ghép điều kiện</li></ul><h3>Tài liệu chính thức</h3><ul><li><a href="https://docs.spring.io/spring-data/jpa/reference/3.5/jpa/query-methods.html" target="_blank" rel="noopener">Spring Data JPA 3.5 · Query Methods</a></li><li><a href="https://docs.spring.io/spring-data/jpa/reference/3.5/jpa/specifications.html" target="_blank" rel="noopener">Spring Data JPA 3.5 · Specifications</a></li><li><a href="https://www.rfc-editor.org/rfc/rfc9110.html" target="_blank" rel="noopener">RFC 9110 · HTTP Semantics</a></li><li><a href="https://getbootstrap.com/docs/5.3/forms/overview/" target="_blank" rel="noopener">Bootstrap 5.3 · Forms</a></li></ul>
-</section>
-<nav class="hero-actions" aria-label="Điều hướng bài học"><a href="../buoi-17/index.html">← Buổi 17</a><a href="../on-tap-02/index.html">Ôn tập 02 →</a><a href="#top">Lên đầu trang ↑</a></nav></main></div></body></html>
+<meta name="description" content="Nội dung được chuyển sang giáo trình theo chủ đề."><title>Bài học đã được tổ chức lại · Backend Service</title>
+<link rel="stylesheet" href="../../../assets/styles.css">
+<link rel="stylesheet" href="../../../assets/vendor/prism/prism.css">
+<script src="../../../assets/vendor/prism/prism.js" defer></script>
+<script src="../../../assets/vendor/codemirror/editor.js" defer></script>
+<script src="../../../assets/site.js" defer></script></head><body id="top">
+<a class="skip" href="#noi-dung">Đến nội dung</a>
+<header class="masthead"><div class="mast-inner"><a class="brand" href="../../../index.html"><span class="mark" aria-hidden="true">B</span> Backend Service</a><a class="source" href="../../../lessons/springboot/index.html">Lộ trình Spring ↗</a></div></header><main class="catalog" id="noi-dung" tabindex="-1"><h1>Bài học đã được tổ chức lại</h1><p>Giáo trình được tách, gộp và sắp xếp theo kiến thức, không theo buổi video. Các project demo vẫn giữ đường dẫn để bạn tiếp tục thực hành.</p><p><a class="button" href="../api-list-contract/index.html">Thiết kế API danh sách account →</a></p><p><a href="../index.html">Xem toàn bộ lộ trình</a></p><ul><li id="hop-dong"><a href="../api-list-contract/index.html#hop-dong">Mở nội dung tương ứng: hop-dong</a></li><li id="moc-video"><a href="../api-list-contract/index.html#moc-video">Mở nội dung tương ứng: moc-video</a></li><li id="thuc-hanh"><a href="../api-list-contract/index.html#thuc-hanh">Mở nội dung tương ứng: thuc-hanh</a></li><li id="toc-heading"><a href="../api-list-contract/index.html">Mở nội dung tương ứng: toc-heading</a></li><li id="truy-van"><a href="../api-list-contract/index.html#truy-van">Mở nội dung tương ứng: truy-van</a></li><li id="tu-kiem-tra"><a href="../api-list-contract/index.html#tu-kiem-tra">Mở nội dung tương ứng: tu-kiem-tra</a></li></ul></main></body></html>

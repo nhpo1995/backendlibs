@@ -1,0 +1,534 @@
+{
+  "checked_at_utc": "2026-11-19T01:37:36.813443+00:00",
+  "scope": "Public reference availability and titles; not a claim that every example was executed",
+  "sources": [
+    {
+      "url": "https://blog.cleancoder.com/uncle-bob/2014/05/08/SingleReponsibilityPrinciple.html",
+      "status": 200,
+      "resolved": "https://blog.cleancoder.com/uncle-bob/2014/05/08/SingleReponsibilityPrinciple.html",
+      "title": "Clean Coder Blog"
+    },
+    {
+      "url": "https://docs.hibernate.org/orm/6.6/javadocs/org/hibernate/annotations/CreationTimestamp.html",
+      "status": 200,
+      "resolved": "https://docs.hibernate.org/orm/6.6/javadocs/org/hibernate/annotations/CreationTimestamp.html",
+      "title": "CreationTimestamp (Hibernate Javadocs)"
+    },
+    {
+      "url": "https://docs.hibernate.org/orm/6.6/javadocs/org/hibernate/annotations/Formula.html",
+      "status": 200,
+      "resolved": "https://docs.hibernate.org/orm/6.6/javadocs/org/hibernate/annotations/Formula.html",
+      "title": "Formula (Hibernate Javadocs)"
+    },
+    {
+      "url": "https://docs.hibernate.org/orm/6.6/userguide/html_single/",
+      "status": 200,
+      "resolved": "https://docs.hibernate.org/orm/6.6/userguide/html_single/",
+      "title": "Hibernate ORM User Guide"
+    },
+    {
+      "url": "https://docs.jboss.org/hibernate/orm/6.6/userguide/html_single/Hibernate_User_Guide.html",
+      "status": 200,
+      "resolved": "https://docs.hibernate.org/orm/6.6/userguide/html_single/",
+      "title": "Hibernate ORM User Guide"
+    },
+    {
+      "url": "https://docs.oracle.com/cd/E17952_01/mysql-8.4-en/example-auto-increment.html",
+      "status": 200,
+      "resolved": "https://docs.oracle.com/cd/E17952_01/mysql-8.4-en/example-auto-increment.html",
+      "title": "5.6.9 Using AUTO_INCREMENT"
+    },
+    {
+      "url": "https://docs.oracle.com/cd/E17952_01/mysql-8.4-en/identifiers.html",
+      "status": 200,
+      "resolved": "https://docs.oracle.com/cd/E17952_01/mysql-8.4-en/identifiers.html",
+      "title": "11.2 Schema Object Names"
+    },
+    {
+      "url": "https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/util/Optional.html",
+      "status": 200,
+      "resolved": "https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/util/Optional.html",
+      "title": "Optional (Java SE 17 & JDK 17)"
+    },
+    {
+      "url": "https://docs.oracle.com/javase/tutorial/jdbc/basics/processingsqlstatements.html",
+      "status": 200,
+      "resolved": "https://docs.oracle.com/javase/tutorial/jdbc/basics/processingsqlstatements.html",
+      "title": "Processing SQL Statements with JDBC (The Java™ Tutorials >        \n            JDBC Database Access > JDBC Basics)"
+    },
+    {
+      "url": "https://docs.spring.io/spring-boot/3.5/how-to/data-access.html",
+      "status": 200,
+      "resolved": "https://docs.spring.io/spring-boot/3.5/how-to/data-access.html",
+      "title": "Data Access :: Spring Boot"
+    },
+    {
+      "url": "https://docs.spring.io/spring-boot/3.5/how-to/data-initialization.html",
+      "status": 200,
+      "resolved": "https://docs.spring.io/spring-boot/3.5/how-to/data-initialization.html",
+      "title": "Database Initialization :: Spring Boot"
+    },
+    {
+      "url": "https://docs.spring.io/spring-boot/3.5/reference/actuator/endpoints.html",
+      "status": 200,
+      "resolved": "https://docs.spring.io/spring-boot/3.5/reference/actuator/endpoints.html",
+      "title": "Endpoints :: Spring Boot"
+    },
+    {
+      "url": "https://docs.spring.io/spring-boot/3.5/reference/data/sql.html",
+      "status": 200,
+      "resolved": "https://docs.spring.io/spring-boot/3.5/reference/data/sql.html",
+      "title": "SQL Databases :: Spring Boot"
+    },
+    {
+      "url": "https://docs.spring.io/spring-boot/3.5/reference/features/external-config.html",
+      "status": 200,
+      "resolved": "https://docs.spring.io/spring-boot/3.5/reference/features/external-config.html",
+      "title": "Externalized Configuration :: Spring Boot"
+    },
+    {
+      "url": "https://docs.spring.io/spring-boot/3.5/reference/features/logging.html",
+      "status": 200,
+      "resolved": "https://docs.spring.io/spring-boot/3.5/reference/features/logging.html",
+      "title": "Logging :: Spring Boot"
+    },
+    {
+      "url": "https://docs.spring.io/spring-boot/3.5/reference/features/profiles.html",
+      "status": 200,
+      "resolved": "https://docs.spring.io/spring-boot/3.5/reference/features/profiles.html",
+      "title": "Profiles :: Spring Boot"
+    },
+    {
+      "url": "https://docs.spring.io/spring-boot/3.5/reference/io/validation.html",
+      "status": 200,
+      "resolved": "https://docs.spring.io/spring-boot/3.5/reference/io/validation.html",
+      "title": "Validation :: Spring Boot"
+    },
+    {
+      "url": "https://docs.spring.io/spring-boot/3.5/reference/testing/spring-boot-applications.html",
+      "status": 200,
+      "resolved": "https://docs.spring.io/spring-boot/3.5/reference/testing/spring-boot-applications.html",
+      "title": "Testing Spring Boot Applications :: Spring Boot"
+    },
+    {
+      "url": "https://docs.spring.io/spring-boot/3.5/reference/using/auto-configuration.html",
+      "status": 200,
+      "resolved": "https://docs.spring.io/spring-boot/3.5/reference/using/auto-configuration.html",
+      "title": "Auto-configuration :: Spring Boot"
+    },
+    {
+      "url": "https://docs.spring.io/spring-boot/3.5/reference/using/build-systems.html",
+      "status": 200,
+      "resolved": "https://docs.spring.io/spring-boot/3.5/reference/using/build-systems.html",
+      "title": "Build Systems :: Spring Boot"
+    },
+    {
+      "url": "https://docs.spring.io/spring-boot/3.5/reference/using/devtools.html",
+      "status": 200,
+      "resolved": "https://docs.spring.io/spring-boot/3.5/reference/using/devtools.html",
+      "title": "Developer Tools :: Spring Boot"
+    },
+    {
+      "url": "https://docs.spring.io/spring-boot/3.5/reference/using/structuring-your-code.html",
+      "status": 200,
+      "resolved": "https://docs.spring.io/spring-boot/3.5/reference/using/structuring-your-code.html",
+      "title": "Structuring Your Code :: Spring Boot"
+    },
+    {
+      "url": "https://docs.spring.io/spring-boot/3.5/reference/web/spring-security.html",
+      "status": 200,
+      "resolved": "https://docs.spring.io/spring-boot/3.5/reference/web/spring-security.html",
+      "title": "Spring Security :: Spring Boot"
+    },
+    {
+      "url": "https://docs.spring.io/spring-data/jpa/reference/3.5/jpa/entity-persistence.html",
+      "status": 200,
+      "resolved": "https://docs.spring.io/spring-data/jpa/reference/3.5/jpa/entity-persistence.html",
+      "title": "Persisting Entities :: Spring Data JPA"
+    },
+    {
+      "url": "https://docs.spring.io/spring-data/jpa/reference/3.5/jpa/query-methods.html",
+      "status": 200,
+      "resolved": "https://docs.spring.io/spring-data/jpa/reference/3.5/jpa/query-methods.html",
+      "title": "JPA Query Methods :: Spring Data JPA"
+    },
+    {
+      "url": "https://docs.spring.io/spring-data/jpa/reference/3.5/jpa/specifications.html",
+      "status": 200,
+      "resolved": "https://docs.spring.io/spring-data/jpa/reference/3.5/jpa/specifications.html",
+      "title": "Specifications :: Spring Data JPA"
+    },
+    {
+      "url": "https://docs.spring.io/spring-data/jpa/reference/3.5/jpa/transactions.html",
+      "status": 200,
+      "resolved": "https://docs.spring.io/spring-data/jpa/reference/3.5/jpa/transactions.html",
+      "title": "Transactionality :: Spring Data JPA"
+    },
+    {
+      "url": "https://docs.spring.io/spring-data/jpa/reference/3.5/repositories/core-concepts.html",
+      "status": 200,
+      "resolved": "https://docs.spring.io/spring-data/jpa/reference/3.5/repositories/core-concepts.html",
+      "title": "Core concepts :: Spring Data JPA"
+    },
+    {
+      "url": "https://docs.spring.io/spring-data/jpa/reference/3.5/repositories/projections.html",
+      "status": 200,
+      "resolved": "https://docs.spring.io/spring-data/jpa/reference/3.5/repositories/projections.html",
+      "title": "Projections :: Spring Data JPA"
+    },
+    {
+      "url": "https://docs.spring.io/spring-data/jpa/reference/3.5/repositories/query-methods-details.html",
+      "status": 200,
+      "resolved": "https://docs.spring.io/spring-data/jpa/reference/3.5/repositories/query-methods-details.html",
+      "title": "Defining Query Methods :: Spring Data JPA"
+    },
+    {
+      "url": "https://docs.spring.io/spring-data/rest/reference/4.5/repository-resources.html",
+      "status": 200,
+      "resolved": "https://docs.spring.io/spring-data/rest/reference/4.5/repository-resources.html",
+      "title": "Repository resources :: Spring Data REST"
+    },
+    {
+      "url": "https://docs.spring.io/spring-framework/reference/6.2/core/aop/proxying.html",
+      "status": 200,
+      "resolved": "https://docs.spring.io/spring-framework/reference/6.2/core/aop/proxying.html",
+      "title": "Proxying Mechanisms :: Spring Framework"
+    },
+    {
+      "url": "https://docs.spring.io/spring-framework/reference/6.2/core/beans/annotation-config/autowired-primary.html",
+      "status": 200,
+      "resolved": "https://docs.spring.io/spring-framework/reference/6.2/core/beans/annotation-config/autowired-primary.html",
+      "title": "Fine-tuning Annotation-based Autowiring with @Primary or @Fallback :: Spring Framework"
+    },
+    {
+      "url": "https://docs.spring.io/spring-framework/reference/6.2/core/beans/annotation-config/autowired-qualifiers.html",
+      "status": 200,
+      "resolved": "https://docs.spring.io/spring-framework/reference/6.2/core/beans/annotation-config/autowired-qualifiers.html",
+      "title": "Fine-tuning Annotation-based Autowiring with Qualifiers :: Spring Framework"
+    },
+    {
+      "url": "https://docs.spring.io/spring-framework/reference/6.2/core/beans/annotation-config/postconstruct-and-predestroy-annotations.html",
+      "status": 200,
+      "resolved": "https://docs.spring.io/spring-framework/reference/6.2/core/beans/annotation-config/postconstruct-and-predestroy-annotations.html",
+      "title": "Using @PostConstruct and @PreDestroy :: Spring Framework"
+    },
+    {
+      "url": "https://docs.spring.io/spring-framework/reference/6.2/core/beans/classpath-scanning.html",
+      "status": 200,
+      "resolved": "https://docs.spring.io/spring-framework/reference/6.2/core/beans/classpath-scanning.html",
+      "title": "Classpath Scanning and Managed Components :: Spring Framework"
+    },
+    {
+      "url": "https://docs.spring.io/spring-framework/reference/6.2/core/beans/dependencies/factory-collaborators.html",
+      "status": 200,
+      "resolved": "https://docs.spring.io/spring-framework/reference/6.2/core/beans/dependencies/factory-collaborators.html",
+      "title": "Dependency Injection :: Spring Framework"
+    },
+    {
+      "url": "https://docs.spring.io/spring-framework/reference/6.2/core/beans/factory-nature.html",
+      "status": 200,
+      "resolved": "https://docs.spring.io/spring-framework/reference/6.2/core/beans/factory-nature.html",
+      "title": "Customizing the Nature of a Bean :: Spring Framework"
+    },
+    {
+      "url": "https://docs.spring.io/spring-framework/reference/6.2/core/beans/factory-scopes.html",
+      "status": 200,
+      "resolved": "https://docs.spring.io/spring-framework/reference/6.2/core/beans/factory-scopes.html",
+      "title": "Bean Scopes :: Spring Framework"
+    },
+    {
+      "url": "https://docs.spring.io/spring-framework/reference/6.2/core/beans/introduction.html",
+      "status": 200,
+      "resolved": "https://docs.spring.io/spring-framework/reference/6.2/core/beans/introduction.html",
+      "title": "Introduction to the Spring IoC Container and Beans :: Spring Framework"
+    },
+    {
+      "url": "https://docs.spring.io/spring-framework/reference/6.2/data-access/jdbc/core.html",
+      "status": 200,
+      "resolved": "https://docs.spring.io/spring-framework/reference/6.2/data-access/jdbc/core.html",
+      "title": "Using the JDBC Core Classes to Control Basic JDBC Processing and Error Handling :: Spring Framework"
+    },
+    {
+      "url": "https://docs.spring.io/spring-framework/reference/6.2/data-access/transaction/declarative/annotations.html",
+      "status": 200,
+      "resolved": "https://docs.spring.io/spring-framework/reference/6.2/data-access/transaction/declarative/annotations.html",
+      "title": "Using @Transactional :: Spring Framework"
+    },
+    {
+      "url": "https://docs.spring.io/spring-framework/reference/6.2/data-access/transaction/declarative/rolling-back.html",
+      "status": 200,
+      "resolved": "https://docs.spring.io/spring-framework/reference/6.2/data-access/transaction/declarative/rolling-back.html",
+      "title": "Rolling Back a Declarative Transaction :: Spring Framework"
+    },
+    {
+      "url": "https://docs.spring.io/spring-framework/reference/6.2/data-access/transaction/declarative/tx-propagation.html",
+      "status": 200,
+      "resolved": "https://docs.spring.io/spring-framework/reference/6.2/data-access/transaction/declarative/tx-propagation.html",
+      "title": "Transaction Propagation :: Spring Framework"
+    },
+    {
+      "url": "https://docs.spring.io/spring-framework/reference/6.2/web/webmvc/mvc-ann-rest-exceptions.html",
+      "status": 200,
+      "resolved": "https://docs.spring.io/spring-framework/reference/6.2/web/webmvc/mvc-ann-rest-exceptions.html",
+      "title": "Error Responses :: Spring Framework"
+    },
+    {
+      "url": "https://docs.spring.io/spring-framework/reference/6.2/web/webmvc/mvc-controller/ann-exceptionhandler.html",
+      "status": 200,
+      "resolved": "https://docs.spring.io/spring-framework/reference/6.2/web/webmvc/mvc-controller/ann-exceptionhandler.html",
+      "title": "Exceptions :: Spring Framework"
+    },
+    {
+      "url": "https://docs.spring.io/spring-framework/reference/6.2/web/webmvc/mvc-controller/ann-methods.html",
+      "status": 200,
+      "resolved": "https://docs.spring.io/spring-framework/reference/6.2/web/webmvc/mvc-controller/ann-methods.html",
+      "title": "Handler Methods :: Spring Framework"
+    },
+    {
+      "url": "https://docs.spring.io/spring-framework/reference/6.2/web/webmvc/mvc-controller/ann-methods/arguments.html",
+      "status": 200,
+      "resolved": "https://docs.spring.io/spring-framework/reference/6.2/web/webmvc/mvc-controller/ann-methods/arguments.html",
+      "title": "Method Arguments :: Spring Framework"
+    },
+    {
+      "url": "https://docs.spring.io/spring-framework/reference/6.2/web/webmvc/mvc-controller/ann-methods/modelattrib-method-args.html",
+      "status": 200,
+      "resolved": "https://docs.spring.io/spring-framework/reference/6.2/web/webmvc/mvc-controller/ann-methods/modelattrib-method-args.html",
+      "title": "@ModelAttribute :: Spring Framework"
+    },
+    {
+      "url": "https://docs.spring.io/spring-framework/reference/6.2/web/webmvc/mvc-controller/ann-methods/requestbody.html",
+      "status": 200,
+      "resolved": "https://docs.spring.io/spring-framework/reference/6.2/web/webmvc/mvc-controller/ann-methods/requestbody.html",
+      "title": "@RequestBody :: Spring Framework"
+    },
+    {
+      "url": "https://docs.spring.io/spring-framework/reference/6.2/web/webmvc/mvc-controller/ann-methods/requestparam.html",
+      "status": 200,
+      "resolved": "https://docs.spring.io/spring-framework/reference/6.2/web/webmvc/mvc-controller/ann-methods/requestparam.html",
+      "title": "@RequestParam :: Spring Framework"
+    },
+    {
+      "url": "https://docs.spring.io/spring-framework/reference/6.2/web/webmvc/mvc-controller/ann-methods/responseentity.html",
+      "status": 200,
+      "resolved": "https://docs.spring.io/spring-framework/reference/6.2/web/webmvc/mvc-controller/ann-methods/responseentity.html",
+      "title": "ResponseEntity :: Spring Framework"
+    },
+    {
+      "url": "https://docs.spring.io/spring-framework/reference/6.2/web/webmvc/mvc-controller/ann-requestmapping.html",
+      "status": 200,
+      "resolved": "https://docs.spring.io/spring-framework/reference/6.2/web/webmvc/mvc-controller/ann-requestmapping.html",
+      "title": "Mapping Requests :: Spring Framework"
+    },
+    {
+      "url": "https://docs.spring.io/spring-framework/reference/6.2/web/webmvc/mvc-controller/ann-validation.html",
+      "status": 200,
+      "resolved": "https://docs.spring.io/spring-framework/reference/6.2/web/webmvc/mvc-controller/ann-validation.html",
+      "title": "Validation :: Spring Framework"
+    },
+    {
+      "url": "https://docs.spring.io/spring-framework/reference/6.2/web/webmvc/mvc-servlet.html",
+      "status": 200,
+      "resolved": "https://docs.spring.io/spring-framework/reference/6.2/web/webmvc/mvc-servlet.html",
+      "title": "DispatcherServlet :: Spring Framework"
+    },
+    {
+      "url": "https://docs.spring.io/spring-security/reference/6.5/features/authentication/password-storage.html",
+      "status": 200,
+      "resolved": "https://docs.spring.io/spring-security/reference/6.5/features/authentication/password-storage.html",
+      "title": "Password Storage :: Spring Security"
+    },
+    {
+      "url": "https://docs.spring.io/spring-security/reference/6.5/servlet/architecture.html",
+      "status": 200,
+      "resolved": "https://docs.spring.io/spring-security/reference/6.5/servlet/architecture.html",
+      "title": "Architecture :: Spring Security"
+    },
+    {
+      "url": "https://docs.spring.io/spring-security/reference/6.5/servlet/authentication/architecture.html",
+      "status": 200,
+      "resolved": "https://docs.spring.io/spring-security/reference/6.5/servlet/authentication/architecture.html",
+      "title": "Servlet Authentication Architecture :: Spring Security"
+    },
+    {
+      "url": "https://docs.spring.io/spring-security/reference/6.5/servlet/authentication/passwords/basic.html",
+      "status": 200,
+      "resolved": "https://docs.spring.io/spring-security/reference/6.5/servlet/authentication/passwords/basic.html",
+      "title": "Basic Authentication :: Spring Security"
+    },
+    {
+      "url": "https://docs.spring.io/spring-security/reference/6.5/servlet/authentication/passwords/dao-authentication-provider.html",
+      "status": 200,
+      "resolved": "https://docs.spring.io/spring-security/reference/6.5/servlet/authentication/passwords/dao-authentication-provider.html",
+      "title": "DaoAuthenticationProvider :: Spring Security"
+    },
+    {
+      "url": "https://docs.spring.io/spring-security/reference/6.5/servlet/authentication/session-management.html",
+      "status": 200,
+      "resolved": "https://docs.spring.io/spring-security/reference/6.5/servlet/authentication/session-management.html",
+      "title": "Authentication Persistence and Session Management :: Spring Security"
+    },
+    {
+      "url": "https://docs.spring.io/spring-security/reference/6.5/servlet/authorization/authorize-http-requests.html",
+      "status": 200,
+      "resolved": "https://docs.spring.io/spring-security/reference/6.5/servlet/authorization/authorize-http-requests.html",
+      "title": "Authorize HttpServletRequests :: Spring Security"
+    },
+    {
+      "url": "https://docs.spring.io/spring-security/reference/6.5/servlet/authorization/method-security.html",
+      "status": 200,
+      "resolved": "https://docs.spring.io/spring-security/reference/6.5/servlet/authorization/method-security.html",
+      "title": "Method Security :: Spring Security"
+    },
+    {
+      "url": "https://docs.spring.io/spring-security/reference/6.5/servlet/configuration/java.html",
+      "status": 200,
+      "resolved": "https://docs.spring.io/spring-security/reference/6.5/servlet/configuration/java.html",
+      "title": "Java Configuration :: Spring Security"
+    },
+    {
+      "url": "https://docs.spring.io/spring-security/reference/6.5/servlet/exploits/csrf.html",
+      "status": 200,
+      "resolved": "https://docs.spring.io/spring-security/reference/6.5/servlet/exploits/csrf.html",
+      "title": "Cross Site Request Forgery (CSRF) :: Spring Security"
+    },
+    {
+      "url": "https://docs.spring.io/spring-security/reference/6.5/servlet/integrations/cors.html",
+      "status": 200,
+      "resolved": "https://docs.spring.io/spring-security/reference/6.5/servlet/integrations/cors.html",
+      "title": "CORS :: Spring Security"
+    },
+    {
+      "url": "https://docs.spring.io/spring-security/reference/6.5/servlet/oauth2/resource-server/jwt.html",
+      "status": 200,
+      "resolved": "https://docs.spring.io/spring-security/reference/6.5/servlet/oauth2/resource-server/jwt.html",
+      "title": "OAuth 2.0 Resource Server JWT :: Spring Security"
+    },
+    {
+      "url": "https://docs.spring.io/spring-security/reference/6.5/servlet/test/mockmvc/authentication.html",
+      "status": 200,
+      "resolved": "https://docs.spring.io/spring-security/reference/6.5/servlet/test/mockmvc/authentication.html",
+      "title": "Running a Test as a User in Spring MVC Test :: Spring Security"
+    },
+    {
+      "url": "https://docs.spring.io/spring-security/reference/6.5/servlet/test/mockmvc/csrf.html",
+      "status": 200,
+      "resolved": "https://docs.spring.io/spring-security/reference/6.5/servlet/test/mockmvc/csrf.html",
+      "title": "Testing with CSRF Protection :: Spring Security"
+    },
+    {
+      "url": "https://getbootstrap.com/docs/5.3/forms/overview/",
+      "status": 200,
+      "resolved": "https://getbootstrap.com/docs/5.3/forms/overview/",
+      "title": "Forms · Bootstrap v5.3"
+    },
+    {
+      "url": "https://jakarta.ee/specifications/bean-validation/3.0/jakarta-bean-validation-spec-3.0.html",
+      "status": 200,
+      "resolved": "https://jakarta.ee/specifications/bean-validation/3.0/jakarta-bean-validation-spec-3.0.html",
+      "title": "Jakarta Bean Validation specification"
+    },
+    {
+      "url": "https://jakarta.ee/specifications/persistence/3.1/",
+      "status": 200,
+      "resolved": "https://jakarta.ee/specifications/persistence/3.1/",
+      "title": "Jakarta Persistence 3.1 | Jakarta EE | The Eclipse Foundation"
+    },
+    {
+      "url": "https://jakarta.ee/specifications/persistence/3.1/jakarta-persistence-spec-3.1",
+      "status": 200,
+      "resolved": "https://jakarta.ee/specifications/persistence/3.1/jakarta-persistence-spec-3.1",
+      "title": "Jakarta Persistence"
+    },
+    {
+      "url": "https://jakarta.ee/specifications/persistence/3.1/jakarta-persistence-spec-3.1#entities",
+      "status": 200,
+      "resolved": "https://jakarta.ee/specifications/persistence/3.1/jakarta-persistence-spec-3.1#entities",
+      "title": "Jakarta Persistence"
+    },
+    {
+      "url": "https://maven.apache.org/guides/getting-started/",
+      "status": 200,
+      "resolved": "https://maven.apache.org/guides/getting-started/",
+      "title": "Maven Getting Started Guide – Maven"
+    },
+    {
+      "url": "https://modelmapper.org/user-manual/property-mapping/",
+      "status": 200,
+      "resolved": "https://modelmapper.org/user-manual/property-mapping/",
+      "title": "ModelMapper - Property Mapping"
+    },
+    {
+      "url": "https://openid.net/specs/openid-connect-core-1_0.html",
+      "status": 200,
+      "resolved": "https://openid.net/specs/openid-connect-core-1_0.html",
+      "title": "Final: OpenID Connect Core 1.0 incorporating errata set 2"
+    },
+    {
+      "url": "https://projectlombok.org/features/GetterSetter",
+      "status": 200,
+      "resolved": "https://projectlombok.org/features/GetterSetter",
+      "title": "@Getter and @Setter"
+    },
+    {
+      "url": "https://projectlombok.org/features/constructor",
+      "status": 200,
+      "resolved": "https://projectlombok.org/features/constructor",
+      "title": "@NoArgsConstructor, @RequiredArgsConstructor, @AllArgsConstructor"
+    },
+    {
+      "url": "https://projectlombok.org/setup/maven",
+      "status": 200,
+      "resolved": "https://projectlombok.org/setup/maven",
+      "title": "Maven"
+    },
+    {
+      "url": "https://spec.openapis.org/oas/v3.1.1.html",
+      "status": 200,
+      "resolved": "https://spec.openapis.org/oas/v3.1.1.html",
+      "title": "OpenAPI Specification v3.1.1"
+    },
+    {
+      "url": "https://www.cs.cmu.edu/~wing/publications/LiskovWing94.pdf",
+      "status": 200,
+      "resolved": "https://www.cs.cmu.edu/~wing/publications/LiskovWing94.pdf",
+      "title": null
+    },
+    {
+      "url": "https://www.rfc-editor.org/rfc/rfc7519.html",
+      "status": 200,
+      "resolved": "https://www.rfc-editor.org/rfc/rfc7519.html",
+      "title": null
+    },
+    {
+      "url": "https://www.rfc-editor.org/rfc/rfc7617.html",
+      "status": 200,
+      "resolved": "https://www.rfc-editor.org/rfc/rfc7617.html",
+      "title": null
+    },
+    {
+      "url": "https://www.rfc-editor.org/rfc/rfc9110.html",
+      "status": 200,
+      "resolved": "https://www.rfc-editor.org/rfc/rfc9110.html",
+      "title": "RFC 9110: HTTP Semantics"
+    },
+    {
+      "url": "https://www.rfc-editor.org/rfc/rfc9457.html",
+      "status": 200,
+      "resolved": "https://www.rfc-editor.org/rfc/rfc9457.html",
+      "title": "RFC 9457: Problem Details for HTTP APIs"
+    },
+    {
+      "url": "https://www.rfc-editor.org/rfc/rfc9700.html",
+      "status": 200,
+      "resolved": "https://www.rfc-editor.org/rfc/rfc9700.html",
+      "title": "RFC 9700: Best Current Practice for OAuth 2.0 Security"
+    },
+    {
+      "url": "https://www.slf4j.org/manual.html",
+      "status": 200,
+      "resolved": "https://www.slf4j.org/manual.html",
+      "title": "SLF4J Manual"
+    }
+  ]
+}

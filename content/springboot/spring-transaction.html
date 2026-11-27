@@ -1,0 +1,26 @@
+<section id="tinh-huong"><h2>Tình huống</h2><p>Thay thành viên nhóm từ [1,2] thành [2,3]. Nếu thêm thành viên 3 thất bại sau khi bản ghi 1 đã bị xóa và SQL đã flush, nhóm vẫn phải giữ [1,2].</p><p>Kiến thức dùng lại từ <a href="../rest-write/index.html">REST: tạo, cập nhật và định danh tài nguyên</a>.</p></section>
+<section id="co-che-1"><h2>Biên giao dịch thuộc use case</h2><p>Caller đi qua proxy, interceptor mở hoặc tham gia giao dịch rồi gọi service. JpaTransactionManager liên kết tài nguyên với luồng hiện tại trong mô hình đồng bộ. Flush đưa SQL xuống DB, commit mới xác nhận giao dịch. Lỗi constraint có thể xuất hiện khi flush hoặc khi commit tùy constraint và thời điểm flush.</p></section>
+<section id="co-che-2"><h2>Propagation thay đổi điều gì?</h2><p>REQUIRED có thể tạo nhiều phạm vi logic trên cùng giao dịch vật lý. Nếu bean trong đánh dấu rollback-only, việc bean ngoài bắt exception không gỡ cờ; lúc outer thử commit có thể nhận UnexpectedRollbackException. REQUIRES_NEW dùng giao dịch vật lý riêng, có thể đòi thêm connection; dùng khi nghiệp vụ thật sự cần commit độc lập.</p></section>
+<section id="co-che-3"><h2>Isolation và invariant</h2><p>Hai giao dịch cùng đọc phiên bản cũ có thể xung đột. Tùy invariant, chọn @Version để phát hiện cập nhật cũ, khóa phù hợp để tuần tự hóa, hoặc ràng buộc DB cho tính duy nhất. Test bằng hai giao dịch và thứ tự đọc/ghi có kiểm soát trên DB đích.</p></section>
+<section id="vi-du"><h2>Ví dụ</h2>
+<ol class="core-flow" aria-label="Các mốc của một transaction"><li><strong>Qua proxy</strong><span>Interceptor mở hoặc tham gia transaction.</span></li><li><strong>Flush</strong><span>Câu DELETE có thể đã tới DB.</span></li><li><strong>Kết thúc</strong><span>Commit: đọc thấy [2,3]. Rollback: đọc lại [1,2].</span></li></ol>
+<figure class="snippet"><figcaption>Đặt transaction ở service · snippet giả định các kiểu miền đã có</figcaption><pre><code class="language-java">@Transactional
+public void replaceMembers(long groupId, Set&lt;Long&gt; requestedIds) {
+    Group group = groups.getRequired(groupId);
+    var requestedMembers = members.requireAll(requestedIds);
+    group.replaceMembers(requestedMembers);
+    // Hibernate có thể phát SQL khi flush, trước khi giao dịch commit.
+}</code></pre></figure></section>
+<section id="lab-web"><h2>Dự đoán và đối chiếu ngay trên web</h2><p>Đọc dữ liệu đầu vào, viết dự đoán rồi mở kết quả. Đây là ca thiết kế để lần theo cơ chế.</p>
+<section class="understanding-case"><h3>Lỗi sau flush</h3><p>Seed [1,2]; xóa 1 đã flush, sau đó RuntimeException thoát qua proxy.</p><details class="question"><summary>Mở kết quả dự kiến</summary><p>Lần đọc độc lập sau khi giao dịch kết thúc phải thấy [1,2].</p></details></section>
+<section class="understanding-case"><h3>Giao dịch lồng</h3><p>Outer REQUIRED gọi inner REQUIRED trên bean khác; inner ném RuntimeException, outer bắt và trả bình thường.</p><details class="question"><summary>Mở kết quả dự kiến</summary><p>Giao dịch dùng chung có thể đã rollback-only. Kiểm exception lúc outer hoàn tất và dữ liệu trong DB.</p></details></section>
+</section><section id="thuc-hanh"><h2>Thực hành áp dụng</h2><p><a download href="../../../practice/spring-advanced-lab/downloads/spring-advanced-lab.zip">Tải lab Maven nâng cao (.zip)</a>. Giải nén, mở terminal tại thư mục có pom.xml và chạy <code>mvn test</code> với JDK 17 trở lên. Đọc README để xác định ca thuộc bài này và yêu cầu của phần mở rộng.</p><p>Các đề dưới đây mô tả phần cần tự triển khai và bằng chứng phải nộp. Đoạn editor bên dưới luyện cấu hình hoặc một thay đổi nhỏ.</p>
+<div class="callout"><h3>D1 · Thay tập nguyên tử</h3><p>Triển khai thay [1,2] → [2,3]. Kiểm ca thiếu ID và ca ném lỗi sau flush. Chấp nhận khi ca thành công ra [2,3] còn mọi ca lỗi đọc lại [1,2].</p></div>
+<div class="callout"><h3>D2 · Chọn propagation theo hợp đồng</h3><p>So audit ghi cùng giao dịch với audit độc lập qua bean khác. Chứng minh bảng audit và bảng membership sau rollback; giải thích vì sao cần hoặc không cần REQUIRES_NEW.</p></div>
+<div class="callout"><h3>D3 · Hai quản trị viên sửa đồng thời</h3><p>Dùng latch cho hai giao dịch cùng đọc một phiên bản. Giữ đúng invariant bằng version hoặc khóa, rồi assert trạng thái cuối lẫn kết quả trả cho từng caller.</p></div>
+<p>Áp dụng tiếp ở <a href="../jpa-one-to-one/index.html">Ánh xạ quan hệ một–một</a>.</p></section>
+<section id="nguon-chinh-thuc"><h2>Nguồn chính thức</h2><ul>
+<li><a href="https://docs.spring.io/spring-framework/reference/6.2/data-access/transaction/declarative/tx-propagation.html">Framework 6.2 · Propagation</a></li>
+<li><a href="https://docs.spring.io/spring-framework/reference/6.2/data-access/transaction/declarative/annotations.html">Framework 6.2 · Transaction annotations</a></li>
+<li><a href="https://www.postgresql.org/docs/16/transaction-iso.html">PostgreSQL 16 · Isolation</a></li>
+</ul></section>

@@ -1,0 +1,722 @@
+{
+  "nen-tang-http": {
+    "title": "Ba request, ba điểm dừng",
+    "setup": "Demo có group ID 1, không có ID 99. Route đọc group nhận ID kiểu long.",
+    "steps": [
+      {
+        "label": "GET /api/groups/1",
+        "result": "MVC đổi ID thành số, repository tìm thấy bản ghi, trả 200 trong demo."
+      },
+      {
+        "label": "GET /api/groups/99",
+        "result": "Đổi kiểu thành công, lookup chạy nhưng không có hàng. API trả 404 theo hợp đồng."
+      },
+      {
+        "label": "GET /api/groups/abc",
+        "result": "MVC không đổi được abc thành long. Trả 400 trước khi lookup."
+      }
+    ]
+  },
+  "ioc-container": {
+    "title": "Spring tìm dependency Channel",
+    "setup": "InvitationService nhận một Channel trong constructor. Mỗi bước là một lần dựng context riêng.",
+    "steps": [
+      {
+        "label": "0 bean",
+        "result": "Tập ứng viên rỗng, Spring không thể tạo service."
+      },
+      {
+        "label": "1 bean",
+        "result": "Chỉ có email. Container truyền email vào constructor, invite(\"an\") trả email:an trong lab."
+      },
+      {
+        "label": "2 bean",
+        "result": "Có email và audit cùng kiểu. Không có tiêu chí chọn, context báo mơ hồ. Dùng qualifier ở bài tiếp theo."
+      }
+    ]
+  },
+  "design-solid": {
+    "title": "Đổi chính sách tính lương",
+    "setup": "Checkout nhận PayPolicy và PayrollStore; fake store ghi lại các lần lưu.",
+    "steps": [
+      {
+        "label": "Chính sách cũ",
+        "result": "PayPolicy cũ tính kết quả cho 8 giờ. Checkout dùng kết quả đó và ghi một lần."
+      },
+      {
+        "label": "Chọn chính sách thưởng",
+        "result": "Đổi instance PayPolicy tại chỗ lắp ghép. Checkout vẫn kiểm tra đầu vào rồi ghi một lần, giá trị lưu thay đổi theo chính sách."
+      },
+      {
+        "label": "Kiểm đầu vào lỗi",
+        "result": "Gửi số giờ âm. Giữ nguyên điều kiện kiểm tra và assert fake store chưa nhận lượt ghi mới."
+      }
+    ]
+  },
+  "bean-registration": {
+    "title": "Chọn email trong context có hai kênh",
+    "setup": "Email mang @EmailChannel, audit có @Primary. Service yêu cầu @EmailChannel Channel.",
+    "steps": [
+      {
+        "label": "Đăng ký",
+        "result": "Có hai BeanDefinition cùng kiểu Channel; cả hai tồn tại trong context."
+      },
+      {
+        "label": "Chọn cho lời mời",
+        "result": "Qualifier thu hẹp tập còn email. Primary trên audit không tham gia phân giải khi audit không khớp qualifier."
+      },
+      {
+        "label": "Đọc danh sách",
+        "result": "Điểm inject List<Channel> không gắn qualifier nhận cả hai kênh. Chọn ở một điểm inject không xóa bean."
+      }
+    ]
+  },
+  "bean-lifecycle": {
+    "title": "Hai lời gọi, một field dùng chung",
+    "setup": "Một singleton lưu người nhận trong field. An bị giữ tại checkpoint ngay sau khi gán.",
+    "steps": [
+      {
+        "label": "An bắt đầu",
+        "result": "Field nhận \"an\". Lời gọi chưa đọc lại field để gửi."
+      },
+      {
+        "label": "Bình xen vào",
+        "result": "Bình gán \"binh\" và gửi. Field của instance chung bây giờ là \"binh\"."
+      },
+      {
+        "label": "An tiếp tục",
+        "result": "An đọc nhầm \"binh\". Truyền người nhận qua tham số giữ riêng dữ liệu mỗi lời gọi; kiểm dependency dùng chung riêng."
+      }
+    ]
+  },
+  "aop-transaction": {
+    "title": "Một method, hai đường gọi",
+    "setup": "Bean Writer có advice quan sát save(). Mỗi bước gọi save theo một đường khác nhau.",
+    "steps": [
+      {
+        "label": "Gọi bean",
+        "result": "Caller nhận proxy từ context. Interceptor chạy trước/sau target theo advice."
+      },
+      {
+        "label": "Gọi qua this",
+        "result": "Target thực hiện this.save(). Lời gọi nội bộ không đi qua proxy của bean trong mô hình mặc định."
+      },
+      {
+        "label": "Tách biên",
+        "result": "Tách Writer thành bean cộng tác rồi inject vào caller. Test số lượt advice và kiểm giá trị/exception gốc."
+      }
+    ]
+  },
+  "boot-configuration": {
+    "title": "Port hiệu lực từ nhiều nguồn",
+    "setup": "Cùng một JAR: file đặt 8080, SERVER_PORT=8182 và tham số --server.port=8183.",
+    "steps": [
+      {
+        "label": "Có đủ ba nguồn",
+        "result": "Tham số dòng lệnh đang có ưu tiên trong ba nguồn này. Server nghe cổng 8183."
+      },
+      {
+        "label": "Bỏ tham số",
+        "result": "Biến môi trường vẫn còn. Server nghe cổng 8182 dù file vẫn ghi 8080."
+      },
+      {
+        "label": "Bỏ biến môi trường",
+        "result": "Với giả định không có nguồn cạnh tranh khác, server dùng file và lắng nghe 8080. Xác minh bằng log startup."
+      }
+    ]
+  },
+  "boot-auto-configuration": {
+    "title": "Khi nào bean mặc định rút lui?",
+    "setup": "Auto-configuration cần invites.enabled=true và @ConditionalOnMissingBean(InvitationChannel.class).",
+    "steps": [
+      {
+        "label": "Cờ tắt",
+        "result": "Điều kiện property không match. Bean mặc định không được đăng ký."
+      },
+      {
+        "label": "Bật cờ",
+        "result": "Không có bean ứng dụng. Cả hai điều kiện match và context tạo defaultChannel."
+      },
+      {
+        "label": "Thêm bean ứng dụng",
+        "result": "OnMissingBean không match với metadata kiểu phù hợp. Context dùng bean ứng dụng; condition report nêu lý do."
+      }
+    ]
+  },
+  "boot-datasource": {
+    "title": "Từ cổng HTTP đến bảng trong DB",
+    "setup": "Ứng dụng nghe HTTP 811, JDBC phải tới MySQL 3306 ở schema product.",
+    "steps": [
+      {
+        "label": "Nhận HTTP",
+        "result": "Cổng 811 chỉ là điểm vào web, chưa chứng minh datasource mở được kết nối."
+      },
+      {
+        "label": "Mở kết nối",
+        "result": "Sai port JDBC làm kết nối thất bại. Đổi đúng port, giữ schema để cô lập lỗi."
+      },
+      {
+        "label": "Truy vấn",
+        "result": "Kết nối thành công nhưng trỏ schema thiếu bảng vẫn lỗi SQL. So URL/schema từ ứng dụng với IDE."
+      }
+    ]
+  },
+  "mvc-request-flow": {
+    "title": "Theo request từ MVC đến repository",
+    "setup": "Route đọc sản phẩm nhận long id. DB chỉ có hàng ID 5 và price của hàng là NULL.",
+    "steps": [
+      {
+        "label": "Chọn handler",
+        "result": "MVC khớp route rồi chuyển path variable sang long. ID abc dừng ở bước đổi kiểu."
+      },
+      {
+        "label": "Đọc dữ liệu",
+        "result": "ID 5 tìm được hàng, repository trả entity tồn tại. ID 6 trả rỗng theo điều kiện seed."
+      },
+      {
+        "label": "Gửi response",
+        "result": "ID 5 trả 200 với price null theo demo. ID 6 trả 404; một field null không có nghĩa thiếu tài nguyên."
+      }
+    ]
+  },
+  "mvc-binding": {
+    "title": "Path, query và body đi ba đường",
+    "setup": "PUT /products/5?notify=true gửi JSON {\"name\":\"Desk\"} vào handler có ba tham số tương ứng.",
+    "steps": [
+      {
+        "label": "Path",
+        "result": "@PathVariable lấy 5 và chuyển sang kiểu ID. Nếu dùng abc, handler chưa chạy."
+      },
+      {
+        "label": "Query",
+        "result": "@RequestParam chuyển notify thành boolean theo kiểu tham số."
+      },
+      {
+        "label": "Body",
+        "result": "@RequestBody dùng message converter đọc JSON thành DTO. Khi tất cả tham số phù hợp, MVC mới gọi handler."
+      }
+    ]
+  },
+  "dto-contracts": {
+    "title": "Request không quyết định người tạo",
+    "setup": "Client gửi {\"name\":\"Backend\",\"creator\":\"someone-else\"}. Contract chỉ cho nhập name, người tạo lấy từ danh tính đã xác thực.",
+    "steps": [
+      {
+        "label": "Đọc request",
+        "result": "DTO khai báo name. Chính sách đối với field dư là từ chối hoặc bỏ qua theo contract đã chốt."
+      },
+      {
+        "label": "Tạo entity",
+        "result": "Service gán creator từ security context, không copy toàn bộ payload vào đối tượng lưu trữ."
+      },
+      {
+        "label": "Đọc lại",
+        "result": "Test HTTP và DB. Ca được chấp nhận phải có creator đúng; ca từ chối phải giữ dữ liệu cũ."
+      }
+    ]
+  },
+  "api-errors": {
+    "title": "Cùng 400, hai loại lỗi",
+    "setup": "API yêu cầu username kiểu String, có @NotBlank. Demo dùng hai mã ProblemDetail.",
+    "steps": [
+      {
+        "label": "JSON sai kiểu",
+        "result": "Converter không dựng được DTO. Handler ánh xạ lỗi đọc body thành INVALID_JSON."
+      },
+      {
+        "label": "Chuỗi toàn dấu cách",
+        "result": "Jackson dựng được DTO, validation từ chối username. Handler trả VALIDATION_FAILED cùng field lỗi."
+      },
+      {
+        "label": "Client xử lý",
+        "result": "Cả hai có status 400. Client dùng code để chọn hành vi, dùng message để hiển thị."
+      }
+    ]
+  },
+  "jpa-fundamentals": {
+    "title": "Entity đổi trạng thái khi nào?",
+    "setup": "Transaction lấy Product 1 với name=\"An\". Sửa tên thành \"Bình\" rồi kết thúc giao dịch.",
+    "steps": [
+      {
+        "label": "Load",
+        "result": "Entity vừa lấy được quản lý trong persistence context hiện tại."
+      },
+      {
+        "label": "Đổi field",
+        "result": "Provider theo dõi thay đổi của entity managed. Chưa thể kết luận DB đã commit chỉ từ giá trị trên Java."
+      },
+      {
+        "label": "Kết thúc",
+        "result": "Flush gửi cập nhật khi thích hợp, commit xác nhận. Đọc lại bằng context mới để kiểm tên; bản detached sửa riêng không tự đồng bộ."
+      }
+    ]
+  },
+  "rest-write": {
+    "title": "PUT thiếu ID phải giữ dữ liệu",
+    "setup": "Contract chỉ cập nhật tài nguyên có sẵn. Seed chứa ID 1, không có 999.",
+    "steps": [
+      {
+        "label": "Nhận yêu cầu",
+        "result": "Body bind được, ID 999 hợp lệ về kiểu. Controller gọi use case cập nhật."
+      },
+      {
+        "label": "Tìm trước khi ghi",
+        "result": "Lookup rỗng. Service dừng và phát lỗi không tìm thấy; không tạo entity mới."
+      },
+      {
+        "label": "Đối chiếu",
+        "result": "API trả 404. Đọc lại danh sách và tổng số hàng để xác nhận chưa insert."
+      }
+    ]
+  },
+  "spring-transaction": {
+    "title": "Có DELETE trong log nhưng dữ liệu còn nguyên",
+    "setup": "Nhóm hiện có thành viên [1,2]. Use case muốn đổi thành [2,3]; giả định lỗi RuntimeException thoát ra sau flush.",
+    "steps": [
+      {
+        "label": "Vào proxy",
+        "result": "Interceptor mở transaction cho use case. Các thao tác ghi tham gia cùng transaction."
+      },
+      {
+        "label": "Flush DELETE",
+        "result": "SQL xóa liên kết 1 đã tới DB. Giao dịch vẫn chưa xác nhận thay đổi."
+      },
+      {
+        "label": "Rollback",
+        "result": "Lỗi thoát khỏi biên proxy, transaction rollback. Phép đọc độc lập sau đó thấy [1,2]."
+      }
+    ]
+  },
+  "jpa-one-to-one": {
+    "title": "FK, UNIQUE và NULL",
+    "setup": "offering.detail_id là FK có UNIQUE và cho phép NULL. Detail 7 đã được offering 1 tham chiếu.",
+    "steps": [
+      {
+        "label": "Thêm offering trống",
+        "result": "NULL được chấp nhận vì cột nullable."
+      },
+      {
+        "label": "Gắn lại detail 7",
+        "result": "Detail có tồn tại, nhưng UNIQUE từ chối dùng cùng giá trị ở offering khác."
+      },
+      {
+        "label": "Gắn ID 999",
+        "result": "Nếu detail 999 không tồn tại, FK từ chối. Ba constraint cùng làm ba việc khác nhau."
+      }
+    ]
+  },
+  "jpa-relationships": {
+    "title": "Mỗi hàng nối là một quan hệ có dữ liệu",
+    "setup": "An vào nhóm Backend với role MEMBER và thời điểm tham gia. Hai lần ghi cùng cặp user 1, group 42.",
+    "steps": [
+      {
+        "label": "Mô hình",
+        "result": "Membership là entity có FK tới user và group, chứa role cùng addedAt."
+      },
+      {
+        "label": "Ghi lần đầu",
+        "result": "DB chấp nhận nếu hai FK hợp lệ và cặp chưa có."
+      },
+      {
+        "label": "Ghi trùng",
+        "result": "Ràng buộc unique trên cặp giữ invariant. Thiết kế xử lý conflict theo hợp đồng của use case."
+      }
+    ]
+  },
+  "jpa-query-bulk": {
+    "title": "Java đang thấy màu cũ sau bulk update",
+    "setup": "Đã load Product 1 màu RED. Trong cùng transaction dùng JPQL UPDATE đổi BLUE.",
+    "steps": [
+      {
+        "label": "Entity đã được nạp",
+        "result": "Persistence context giữ reference với giá trị RED."
+      },
+      {
+        "label": "Bulk UPDATE",
+        "result": "SQL thay hàng trong giao dịch. Bulk update không cập nhật reference đang managed theo từng entity."
+      },
+      {
+        "label": "Đọc lại",
+        "result": "Clear/refresh phù hợp rồi đọc lại để xác nhận BLUE. Flush thay đổi cần giữ trước khi clear."
+      }
+    ]
+  },
+  "jpa-projections": {
+    "title": "Cùng JSON, hai hình dạng SQL",
+    "setup": "Danh sách chỉ cần id và name. Entity Product còn có price, color và status.",
+    "steps": [
+      {
+        "label": "Tải entity",
+        "result": "ORM chạy truy vấn thực thể và nạp các thuộc tính theo mapping."
+      },
+      {
+        "label": "Map DTO",
+        "result": "Response chỉ còn id/name. Mapping xảy ra sau khi query đã chạy."
+      },
+      {
+        "label": "Dùng projection",
+        "result": "Chọn id/name ngay từ truy vấn phù hợp. Đo cột và số query trên cùng seed, rồi đối chiếu JSON."
+      }
+    ]
+  },
+  "dynamic-query": {
+    "title": "Tham số vắng mặt khác giá trị 0",
+    "setup": "Danh sách nhận minPrice tùy chọn, DTO dùng Long nullable.",
+    "steps": [
+      {
+        "label": "Thiếu minPrice",
+        "result": "Không thêm predicate cho price. Kết quả chỉ chịu các bộ lọc đang có."
+      },
+      {
+        "label": "minPrice=0",
+        "result": "Thêm price >= 0. 0 là giá trị có chủ ý của client."
+      },
+      {
+        "label": "minPrice=abc",
+        "result": "Binding thất bại ở biên HTTP. Repository không cần xử lý một giá trị chưa đổi được thành Long."
+      }
+    ]
+  },
+  "data-pagination": {
+    "title": "Tính trang từ tập đã lọc",
+    "setup": "Seed có sáu ID [1,2,3,4,5,6], API đánh số trang từ 1, yêu cầu page=2 size=4.",
+    "steps": [
+      {
+        "label": "Đổi chỉ số",
+        "result": "Chuyển chỉ số nội bộ thành 1. Offset bằng (2-1)×4 = 4."
+      },
+      {
+        "label": "Chọn nội dung",
+        "result": "Sort theo ID ổn định, bỏ bốn hàng đầu, trả [5,6]."
+      },
+      {
+        "label": "Tính tổng",
+        "result": "Tập khớp có 6 hàng nên totalPages=2. Hai hàng trong response không phải tổng số."
+      }
+    ]
+  },
+  "jpa-fetch-plan": {
+    "title": "Đếm SELECT khi mapper đọc detail",
+    "setup": "Có 10 offering với 10 detail chưa nạp, context sạch, giả định không có batch fetch hay cache.",
+    "steps": [
+      {
+        "label": "Load danh sách",
+        "result": "Một SELECT lấy 10 offering."
+      },
+      {
+        "label": "Map dữ liệu",
+        "result": "Mapper chạm 10 detail, có thể phát sinh 10 SELECT nữa trong mô hình này, tổng 11."
+      },
+      {
+        "label": "Đổi fetch plan",
+        "result": "Với quan hệ to-one này, fetch join phù hợp có thể đưa số SELECT về 1. Đo cùng seed và kiểm JSON vẫn đúng."
+      }
+    ]
+  },
+  "api-contract-design": {
+    "title": "Ai được đặt từng trường của group?",
+    "setup": "POST nhận name=\"Backend\"; màn hình cần id, creator, createdAt và memberCount.",
+    "steps": [
+      {
+        "label": "Biên request",
+        "result": "DTO chỉ cho client đặt name. Identity thực lấy từ lớp xác thực."
+      },
+      {
+        "label": "Ghi nhóm",
+        "result": "Ứng dụng và DB gán creator, createdAt, ID theo hợp đồng. Kiểm lỗi tên trùng riêng."
+      },
+      {
+        "label": "Biên response",
+        "result": "Trả trường công khai, memberCount lấy từ dữ liệu liên kết. So JSON với DB sau lần ghi."
+      }
+    ]
+  },
+  "data-collection-update": {
+    "title": "Thay tập mà không xóa nhầm tài nguyên",
+    "setup": "Nhóm có thành viên [1,2] và nhận [2,3]. ID 3 chưa được xác minh.",
+    "steps": [
+      {
+        "label": "Xác thực tập mới",
+        "result": "Nếu ID 3 thiếu, dừng trước khi sửa. Trạng thái vẫn [1,2]."
+      },
+      {
+        "label": "Tính chênh lệch",
+        "result": "Nếu ID 3 tồn tại, giữ liên kết 2, gỡ liên kết 1 và thêm liên kết 3."
+      },
+      {
+        "label": "Xác nhận",
+        "result": "Thực hiện phép thay đổi trong cùng transaction. Đọc lại [2,3] sau commit; user 1 vẫn tồn tại."
+      }
+    ]
+  },
+  "spring-events": {
+    "title": "Outbox qua mốc dừng tiến trình",
+    "setup": "Ghi lời mời và outbox trong cùng transaction. Worker dùng eventId để gửi.",
+    "steps": [
+      {
+        "label": "Commit",
+        "result": "Lời mời cùng bản ghi outbox có mặt. Nếu rollback, cả hai không được lưu."
+      },
+      {
+        "label": "Gửi và dừng",
+        "result": "Worker gửi thành công nhưng dừng trước khi đánh dấu sent. Bản ghi vẫn có thể được đọc lại."
+      },
+      {
+        "label": "Giao lại",
+        "result": "Worker dùng lại eventId. Phía nhận cần idempotency theo contract để một sự kiện chỉ tạo một hiệu ứng."
+      }
+    ]
+  },
+  "security-authentication": {
+    "title": "Từ credential đến principal",
+    "setup": "HTTP Basic trong demo, endpoint yêu cầu đăng nhập. Diễn tiến dùng credential giả định của lab.",
+    "steps": [
+      {
+        "label": "Đọc credential",
+        "result": "Filter tạo yêu cầu xác thực từ header Basic."
+      },
+      {
+        "label": "Xác minh",
+        "result": "Provider kiểm credential qua PasswordEncoder.matches với hash lưu sẵn. Sai credential thì dừng xác thực."
+      },
+      {
+        "label": "Cấp danh tính",
+        "result": "Kết quả thành công mang principal và authorities. Bước phân quyền sử dụng chúng để quyết định request."
+      }
+    ]
+  },
+  "security-session-csrf": {
+    "title": "So hai ca cùng trả 403",
+    "setup": "POST ghi yêu cầu ADMIN và CSRF. Giữ body hợp lệ và đúng endpoint.",
+    "steps": [
+      {
+        "label": "Admin thiếu token",
+        "result": "Ca mô phỏng dừng ở CSRF trước bước quyết định quyền."
+      },
+      {
+        "label": "Reader đủ token",
+        "result": "Qua CSRF nhưng bị từ chối do thiếu quyền ghi."
+      },
+      {
+        "label": "Admin đủ token",
+        "result": "Qua cả hai lớp. Đối chiếu số bản ghi trước sau để chỉ ca được phép có hiệu ứng."
+      }
+    ]
+  },
+  "security-lab": {
+    "title": "Bằng chứng khác nhau ở hai loại test",
+    "setup": "Cần chứng minh policy chặn reader và cấu hình xác thực kiểm tra đúng credential.",
+    "steps": [
+      {
+        "label": "Test policy",
+        "result": "Mock identity reader và giữ CSRF hợp lệ. Kỳ vọng 403 và dữ liệu giữ nguyên."
+      },
+      {
+        "label": "Test xác thực",
+        "result": "Dùng request Basic với thông tin thử nghiệm đúng/sai, giữ nguyên các biến khác. So kết quả với cấu hình demo."
+      },
+      {
+        "label": "Ca đối chứng",
+        "result": "Admin và CSRF đúng thực hiện ghi. Đọc lại DB để xác nhận hợp đồng."
+      }
+    ]
+  },
+  "security-oauth2": {
+    "title": "Token qua decoder rồi qua policy",
+    "setup": "Resource Server yêu cầu issuer và audience cố định, endpoint ghi yêu cầu scope phù hợp. Ca mô phỏng dùng token giả định.",
+    "steps": [
+      {
+        "label": "Sai audience",
+        "result": "Decoder/validator từ chối token mặc dù chữ ký hợp lệ, theo cấu hình mẫu trả 401."
+      },
+      {
+        "label": "Audience hợp lệ, thiếu scope",
+        "result": "Xác thực thành công nhưng bị từ chối ở authorization. Theo mô hình, trả 403."
+      },
+      {
+        "label": "Đủ điều kiện",
+        "result": "Qua cả hai quyết định. Test decoder và test policy riêng để biết mỗi ca đang đo điều gì."
+      }
+    ]
+  },
+  "testing-deployment": {
+    "title": "Test 400 vẫn lọt lỗi ghi dữ liệu",
+    "setup": "Use case sai ghi một hàng rồi trả 400. Test hiện chỉ kiểm status.",
+    "steps": [
+      {
+        "label": "Gọi API",
+        "result": "Response vẫn là 400, nên assertion cũ đạt."
+      },
+      {
+        "label": "Đọc DB",
+        "result": "Lần đọc độc lập sau request phát hiện số hàng tăng. Đây là bằng chứng vi phạm invariant."
+      },
+      {
+        "label": "Siết test",
+        "result": "Assert status và trạng thái trước/sau. Dùng DB mục tiêu cho hành vi SQL hay migration phụ thuộc dialect."
+      }
+    ]
+  },
+  "logging-observability": {
+    "title": "Created xuất hiện nhưng request lỗi",
+    "setup": "Response 500 có mã đối chiếu I-42. Log trước commit có dòng Created.",
+    "steps": [
+      {
+        "label": "Nối sự kiện",
+        "result": "Tìm cùng mã trong log hoặc trace; xác định vị trí dòng Created trong use case."
+      },
+      {
+        "label": "Xác minh giao dịch",
+        "result": "Kiểm dấu hiệu lỗi ở flush/commit; nếu cần, đọc DB từ biên khác sau request."
+      },
+      {
+        "label": "Rút kết luận",
+        "result": "Chỉ dòng Created không chứng minh commit. Dùng metric tổng hợp để đo xu hướng và log/trace để đọc từng sự kiện."
+      }
+    ]
+  },
+  "debugging-request-flow": {
+    "title": "Điều tra 403 bằng đối chứng",
+    "setup": "GET của admin đạt, POST cùng phiên không đạt. Endpoint, payload và phiên được giữ cố định.",
+    "steps": [
+      {
+        "label": "Kiểm yêu cầu ghi",
+        "result": "Đọc dấu vết CSRF và chắc token hợp lệ thuộc cùng session."
+      },
+      {
+        "label": "Ca đối chứng",
+        "result": "Thử ca admin đủ CSRF. Nếu tiến tới MVC, xác định điều kiện thay đổi đã tác động đúng lớp."
+      },
+      {
+        "label": "Cô lập quyền",
+        "result": "Giữ token hợp lệ và đổi identity theo fixture. Kiểm dấu vết và dữ liệu để xác nhận nguyên nhân riêng."
+      }
+    ]
+  },
+  "http-client-resilience": {
+    "title": "Đối tác đã ghi nhưng client hết thời gian chờ",
+    "setup": "POST lời mời với key K42; đối tác ghi sau 50 ms, client read timeout sau 300 ms trước khi response đến.",
+    "steps": [
+      {
+        "label": "Lần đầu",
+        "result": "Sau timeout, trạng thái đối với client là chưa biết. Đối tác có thể đã thực hiện hiệu ứng."
+      },
+      {
+        "label": "Chọn bước phục hồi",
+        "result": "Đối soát hoặc retry cùng K42 theo hợp đồng idempotency nếu còn ngân sách thời gian."
+      },
+      {
+        "label": "Đo kết quả",
+        "result": "Hai lần gửi có thể chỉ tạo một hiệu ứng. Assert số call và số lời mời riêng biệt."
+      }
+    ]
+  },
+  "async-scheduling": {
+    "title": "Worker và hàng đợi đều đầy",
+    "setup": "Executor có 2 thread cố định và queue 4. Dùng latch giữ cả hai worker, chính sách từ chối mặc định.",
+    "steps": [
+      {
+        "label": "Hai task đầu",
+        "result": "Cả hai thread bắt đầu xử lý và bị giữ ở checkpoint."
+      },
+      {
+        "label": "Bốn task tiếp",
+        "result": "Các task nằm trong queue, chưa có worker rảnh."
+      },
+      {
+        "label": "Task thứ bảy",
+        "result": "Bị từ chối khi không có slot. Công việc cần còn dấu vết bền để thử lại sau, tùy hợp đồng."
+      }
+    ]
+  },
+  "cache-consistency": {
+    "title": "Commit và rollback đổi cache thế nào?",
+    "setup": "Cache nhớ danh sách [1,2]. Use case đổi nhóm sang [2,3] và thiết kế invalidation sau commit.",
+    "steps": [
+      {
+        "label": "Trong giao dịch",
+        "result": "Đổi DB nhưng chưa xác nhận. Eviction theo chính sách được hoãn tới sau commit."
+      },
+      {
+        "label": "Ca rollback",
+        "result": "Dữ liệu giữ [1,2]; callback sau commit không áp dụng. Cache cũ vẫn mô tả trạng thái đang có."
+      },
+      {
+        "label": "Ca commit",
+        "result": "Sau eviction, lần đọc tiếp có thể nạp [2,3]. Thử thêm đọc đồng thời hoặc instance khác để đo cửa sổ stale."
+      }
+    ]
+  },
+  "api-list-contract": {
+    "title": "Hợp đồng danh sách khi nhiều hàng cùng ngày",
+    "setup": "Tập đã lọc có ID 8,10,11 cùng ngày tạo. Quy ước bắt đầu từ 0 và size 2.",
+    "steps": [
+      {
+        "label": "Khóa sắp xếp",
+        "result": "Sau khi sort theo ngày giảm dần, dùng ID giảm dần để phá đồng hạng. Thứ tự là [11,10,8]."
+      },
+      {
+        "label": "Phân trang",
+        "result": "Trang 0 trả [11,10], trang 1 trả [8]. Tổng 3 nếu đó là toàn bộ tập đã lọc."
+      },
+      {
+        "label": "Ổn định hợp đồng",
+        "result": "Kiểm cùng filter cho count và whitelist sort. Response DTO chỉ mang trường cho phép."
+      }
+    ]
+  },
+  "project-directory": {
+    "title": "Hai lời gọi cùng thêm một thành viên",
+    "setup": "Hai request cùng muốn thêm user 1 vào group 42. Ban đầu chưa có cặp này.",
+    "steps": [
+      {
+        "label": "Đọc đồng thời",
+        "result": "Cả hai có thể đọc thấy chưa tồn tại. Một phép exists riêng không giữ invariant."
+      },
+      {
+        "label": "Ghi",
+        "result": "Dùng unique constraint giữ đúng một cặp. Chọn xử lý conflict tùy hợp đồng, hoặc tuần tự hóa đúng ranh giới."
+      },
+      {
+        "label": "Nghiệm thu",
+        "result": "Điều phối hai request cùng seed. Kiểm status từng request và DB chỉ có một liên kết."
+      }
+    ]
+  },
+  "deployment-lifecycle": {
+    "title": "Rollout khi hai bản cùng dùng DB",
+    "setup": "V1 đọc cột cũ và V2 cần cột mới. Trong rollout hai bản cùng chạy một thời gian.",
+    "steps": [
+      {
+        "label": "Mở rộng",
+        "result": "Thêm cấu trúc tương thích để V1 còn hoạt động; thực hiện backfill theo kế hoạch có thể kiểm tra."
+      },
+      {
+        "label": "Chuyển đổi",
+        "result": "Xác nhận cả V1 và V2 đọc/ghi đúng trên schema mở rộng và có thể quay về V1 trong cửa sổ đã chốt."
+      },
+      {
+        "label": "Thu gọn",
+        "result": "Chỉ xóa cấu trúc cũ sau khi mọi caller đã chuyển. Kiểm ma trận version/schema trước rollout."
+      }
+    ]
+  },
+  "project-capstone": {
+    "title": "Đối chiếu một lời mời từ HTTP đến worker",
+    "setup": "Đồ án giả định caller được quyền mời tạo lời mời với idempotency key và xử lý gửi qua outbox.",
+    "steps": [
+      {
+        "label": "Kiểm quyền",
+        "result": "Xác minh caller ở biên request và nhóm đích ở use case. Request bị từ chối phải giữ cả invitation và outbox."
+      },
+      {
+        "label": "Ghi nguyên tử",
+        "result": "Lời mời và outbox xuất hiện sau commit. Giả lập lỗi giữa hai lần ghi để chứng minh cả hai rollback."
+      },
+      {
+        "label": "Phục hồi",
+        "result": "Để worker gửi rồi dừng trước ack; chạy lại với cùng key. Nộp trạng thái DB và số hiệu ứng quan sát được."
+      }
+    ]
+  }
+}

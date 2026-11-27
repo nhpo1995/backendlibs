@@ -1,92 +1,10 @@
 <!doctype html>
 <html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Buổi 16 · Chuẩn hóa lỗi API bằng RestControllerAdvice</title><meta name="description" content="Giữ trạng thái HTTP và mã lỗi nhất quán; trả đủ thông tin để người dùng sửa mà không lộ stack trace.">
-<link rel="stylesheet" href="../../../assets/styles.css"><script src="../../../assets/site.js" defer></script></head>
-<body id="top"><a class="skip" href="#noi-dung">Đến nội dung</a>
-<header class="masthead"><div class="mast-inner"><a class="brand" href="../../../index.html"><span class="mark" aria-hidden="true">B</span> Backend Service</a><a class="source" href="https://drive.google.com/file/d/1Ma8b-o2cNIQepzEgsatOfcvJVmKTbKTV/view" target="_blank" rel="noopener">Video gốc ↗</a></div></header>
-<div class="hero"><div class="hero-inner"><div><nav class="crumbs" aria-label="Vị trí hiện tại"><a href="../../../index.html">Khóa học</a> / <a href="../index.html">Spring Boot</a> / Buổi 16</nav>
-<p class="kicker">Railway 89 <span></span> Video 3:03:08</p><h1>Chuẩn hóa lỗi API bằng RestControllerAdvice</h1><p class="lead">Giữ trạng thái HTTP và mã lỗi nhất quán; trả đủ thông tin để người dùng sửa mà không lộ stack trace.</p>
-<div class="hero-actions"><a class="button" href="#classify">Bắt đầu bài học ↓</a><a class="button secondary" href="#thuc-hanh">Thực hành</a></div></div><div class="flow"><div class="flow-head"><span aria-hidden="true">● ● ●</span><span>Luồng xử lý</span></div><div class="flow-body"><ol><li><b>Throw</b><span>Binding, validation, service hoặc DB phát hiện lỗi</span></li><li><b>Resolve</b><span>MVC tìm @ExceptionHandler phù hợp</span></li><li><b>Render</b><span>ProblemDetail giữ HTTP status, code và field errors</span></li></ol></div></div></div></div>
-<div class="layout"><aside class="sidebar"><nav aria-labelledby="toc-heading"><h2 id="toc-heading">Nội dung buổi học</h2><ol><li><a href="#classify">Từ lỗi Java đến hợp đồng HTTP</a></li><li><a href="#json">Định dạng lỗi cho người và cho máy</a></li><li><a href="#data-rest">Spring Data REST và controller có hợp đồng riêng</a></li><li><a href="#thuc-hanh">Thực hành và gỡ lỗi</a></li><li><a href="#tu-kiem-tra">Tự kiểm tra</a></li><li><a href="#moc-video">Mốc xem lại và nguồn đối chiếu</a></li></ol></nav></aside>
-<main id="noi-dung" tabindex="-1"><div class="callout intro"><strong>Mục tiêu của Buổi 16</strong><p>Xác định lỗi xuất hiện trước hay trong controller, ánh xạ lỗi cụ thể vào HTTP và thực hành ca ambiguous handler.</p><p>Cần biết trước: Binding JSON, Bean Validation và HTTP status. <a href="../buoi-15/index.html">Ôn Buổi 15</a>.</p></div>
-<section class="chapter" id="classify"><h2>Từ lỗi Java đến hợp đồng HTTP</h2>
-<div class="table-wrap"><table><thead><tr><th scope="col">Tình huống</th><th scope="col">Nơi lỗi phát sinh</th><th scope="col">Phản hồi demo</th></tr></thead><tbody><tr><td>Body <code>{</code> hoặc tên field lạ</td><td>Jackson / message converter</td><td>400 · INVALID_JSON</td></tr><tr><td>Tên group toàn khoảng trắng</td><td>Bean Validation cho @Valid DTO</td><td>400 · VALIDATION_FAILED và errors</td></tr><tr><td>PUT group 999</td><td>Service không tìm thấy tài nguyên</td><td>404 · NOT_FOUND</td></tr><tr><td>Tạo group trùng tên</td><td>UNIQUE từ DB</td><td>409 · CONFLICT</td></tr><tr><td>Content-Type không được hỗ trợ</td><td>Spring MVC đối chiếu consumes/converter</td><td>415 · UNSUPPORTED_MEDIA_TYPE</td></tr><tr><td>Lỗi chương trình bất ngờ</td><td>Trong xử lý ứng dụng</td><td>500 · INTERNAL_ERROR có requestId</td></tr></tbody></table></div><p><code>DispatcherServlet</code> giao việc chuyển lỗi khi xử lý request MVC cho các exception resolver. <code>@ExceptionHandler</code> trong controller có thể xử lý lỗi cục bộ; <code>@RestControllerAdvice</code> áp dụng chung và serialize giá trị trả về. Với các handler có kiểu exception khác nhau, MVC xét kiểu khớp (root/cause và độ cụ thể, cùng thứ tự advice nếu nhiều advice). Không nên bắt Throwable hoặc ép tất cả thành lỗi 200; giữ trạng thái đúng để client và giám sát hiểu kết quả.</p><p>Lỗi do filter bảo mật có thể xảy ra trước MVC, nên advice này không xử lý 401/403 do Spring Security. Sử dụng entry point hoặc access denied handler nếu cần chuẩn hóa phần đó. Với ràng buộc đặt trực tiếp lên tham số MVC, tùy cơ chế có thể gặp <code>HandlerMethodValidationException</code>; <code>MethodArgumentNotValidException</code> ở đây là lỗi trên DTO được đánh <code>@Valid</code>.</p></section>
-
-<section class="chapter" id="json"><h2>Định dạng lỗi cho người và cho máy</h2>
-<figure class="snippet"><figcaption>Ví dụ rút gọn: body application/problem+json cho tên trống</figcaption><pre tabindex="0"><code>{
-  "type": "about:blank",
-  "title": "Bad Request",
-  "status": 400,
-  "detail": "Hãy sửa các trường chưa hợp lệ.",
-  "instance": "/api/groups",
-  "code": "VALIDATION_FAILED",
-  "errors": [{"field": "name", "message": "Tên là bắt buộc."}]
-}</code></pre></figure><p><code>ProblemDetail</code> hỗ trợ các member chuẩn theo RFC 9457. <code>code</code> và <code>errors</code> là phần mở rộng do ứng dụng định nghĩa. Client nên dựa vào HTTP status và code để điều khiển, dùng field để tô đúng ô và dùng detail/message để hiển thị. Ví dụ thật còn có lỗi Size nếu tên đã được trim thành chuỗi rỗng. Với 500, trả lời chung cùng requestId để tra log; loại exception và cấu trúc kỹ thuật nằm ở server. Không lộ stack trace, secret hoặc echo toàn bộ body.</p><figure class="snippet"><figcaption>Thừa kế handler khung và override đúng điểm mở rộng</figcaption><pre tabindex="0"><code>@RestControllerAdvice
-class ApiErrors extends ResponseEntityExceptionHandler {
-    @Override
-    protected ResponseEntity&lt;Object&gt; handleHttpMessageNotReadable(
-            HttpMessageNotReadableException ex, HttpHeaders headers,
-            HttpStatusCode status, WebRequest request) {
-        return response(status, "INVALID_JSON",
-            "Provide a JSON body with the expected fields and types.",
-            null, headers, request);
-    }
-    // Override handleMethodArgumentNotValid để trả danh sách FieldIssue.
-    // @ExceptionHandler(LabError.class) dành cho lỗi nghiệp vụ của demo.
-}</code></pre></figure><p>Lớp cha đã đăng ký handler bao phủ lỗi MVC. Nếu thêm <code>@ExceptionHandler(MethodArgumentNotValidException.class)</code> cho cùng loại và media type trong chính subclass, Spring có thể báo ambiguous khi khởi tạo resolver. Cách đúng trong demo là override method protected mà lớp cha đã gọi; không thêm annotation lên một method mới cho cùng kiểu. Khi log chỉ ra lỗi xác định handler, sửa mapping trước khi nghi controller logic.</p></section>
-
-<section class="chapter" id="data-rest"><h2>Spring Data REST và controller có hợp đồng riêng</h2>
-<p>Spring Data JPA tạo implementation của repository; nó không tự tạo HTTP API. Spring Data REST có thể xuất repository đủ điều kiện thành tài nguyên HTTP, với path, HTTP method và representation do cơ chế exporter quyết định. Có thể đặt <code>spring.data.rest.base-path=/generated</code> để tách namespace, cấu hình repository nào được export và vô hiệu các method ghi không cần thiết. Hình dạng HAL, quyền ghi và exposure phải được kiểm tra trước khi dùng.</p><p>Ví dụ mở rộng trong project riêng do bạn quản lý: thêm starter <code>spring-boot-starter-data-rest</code>, tạo entity <code>Book</code> có ID và title, khai báo <code>interface BookRepository extends JpaRepository&lt;Book, Long&gt; {}</code>, cấu hình base path rồi GET <code>/generated/books</code>. Đọc <code>_links</code> để tìm item; so sánh với DTO tùy chỉnh. Demo chính dùng controller vì cần tính memberCount, kiểm tra membership, quy định lỗi và phân quyền rõ ràng. Không bật exporter cho repository của demo.</p><p>Để có ví dụ đủ nhỏ để dự đoán, trong project Boot 3.5 riêng dùng Web, JPA, Data REST và H2; đặt hai file sau cùng package gốc. Bật <code>spring.jpa.hibernate.ddl-auto=create-drop</code> với H2 dành cho bài lab và thêm property <code>spring.data.rest.base-path=/generated</code>. Tạo một dòng bằng runner <code>repo.save(new Book("Spring lab"))</code> hoặc SQL seed. GET <code>/generated/books</code> với <code>Accept: application/hal+json</code> sẽ có <code>_embedded.books</code> chứa title và <code>_links.self.href</code>; đây là representation khác với mảng từ controller <code>/api/groups</code>.</p><figure class="snippet"><figcaption>Ví dụ Data REST riêng; đặt hai khai báo vào hai file</figcaption><pre tabindex="0"><code>// Book.java
-package example.books;
-import jakarta.persistence.*;
-
-@Entity
-public class Book {
-    @Id @GeneratedValue private Long id;
-    private String title;
-    protected Book() {}
-    public Book(String title) { this.title = title; }
-    public String getTitle() { return title; }
-    public void setTitle(String title) { this.title = title; }
-}
-
-// BookRepository.java
-package example.books;
-import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.rest.core.annotation.RepositoryRestResource;
-
-@RepositoryRestResource(path = "books", collectionResourceRel = "books")
-public interface BookRepository extends JpaRepository&lt;Book, Long&gt; {}</code></pre></figure>
-</section>
-
-<section class="chapter" id="thuc-hanh"><h2>Thực hành và gỡ lỗi</h2>
-<p>Trong <a href="../buoi-17/demo/README.md">thư mục demo chung</a>, chạy bằng JDK 17 trở lên và Maven. Các lệnh HTTP dùng PowerShell 7. H2 được nạp dữ liệu mẫu mỗi khi khởi động lại. Nếu thực hành theo thứ tự, hãy khởi động lại trước khi cần dùng dữ liệu gốc.</p><figure class="snippet"><figcaption>Cửa sổ 1 · từ thư mục chứa pom.xml</figcaption><pre tabindex="0"><code>mvn -B -ntp package
-java -jar target/springboot-lessons-demo-0.1.0.jar</code></pre></figure><figure class="snippet"><figcaption>Cửa sổ 2 · PowerShell</figcaption><pre tabindex="0"><code>function Show-LabResponse {
-    process {
-        $_.StatusCode
-        if ($_.Content -is [byte[]]) { [Text.Encoding]::UTF8.GetString($_.Content) }
-        else { $_.Content }
-    }
-}
-$base = "http://127.0.0.1:8117"
-$auth = "Basic " + [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes("admin:demo-pass"))
-$h = @{ Authorization = $auth }
-$csrf = Invoke-RestMethod "$base/api/csrf" -Headers $h -SessionVariable labSession
-$h[$csrf.headerName] = $csrf.token
-$h['Accept-Language'] = 'vi'
-Invoke-WebRequest "$base/api/groups" -Method Post -WebSession $labSession -Headers $h -ContentType 'application/json' -Body '{"name":" "}' -SkipHttpErrorCheck | Show-LabResponse
-Invoke-WebRequest "$base/api/groups" -Method Post -WebSession $labSession -Headers $h -ContentType 'application/json' -Body '{' -SkipHttpErrorCheck | Show-LabResponse
-Invoke-WebRequest "$base/api/groups/999" -Headers $h -SkipHttpErrorCheck | Show-LabResponse
-Invoke-WebRequest "$base/api/lab/failure" -Headers $h -SkipHttpErrorCheck | Show-LabResponse</code></pre></figure><p>Kỳ vọng lần lượt 400 VALIDATION_FAILED, 400 INVALID_JSON, 404 NOT_FOUND và 500 INTERNAL_ERROR. Dùng requestId ở 500 để tìm đúng log <code>Unexpected failure id=...</code>. Response không chứa chuỗi nội bộ <code>synthetic details</code>. Ngoài ra thử POST với <code>text/plain</code>, thấy 415; nếu bỏ token ở các lệnh ghi, filter trả 403 trước khi kiểm tra JSON.</p><p>Để chủ động gây lỗi trùng handler: trong bản sao của <code>ApiErrors</code>, thêm method <code>@ExceptionHandler(MethodArgumentNotValidException.class) ResponseEntity&lt;Object&gt; duplicate(MethodArgumentNotValidException ex) { return ResponseEntity.badRequest().build(); }</code>. Dự đoán Maven có thể đóng gói thành công nhưng app không khởi động vì hai mapping trùng. Xóa method mới, giữ override, build lại và gọi cùng request tên trống để nhận 400 có lỗi theo trường.</p><p>Mã để đối chiếu: <a href="../buoi-17/demo/src/main/java/vn/railway89/lab/ApiErrors.java">ApiErrors.java</a> · <a href="../buoi-17/demo/src/main/java/vn/railway89/lab/Registration.java">Registration.java</a> · <a href="../buoi-17/demo/src/main/java/vn/railway89/lab/Security.java">Security.java</a> · <a href="../buoi-17/demo/src/main/resources/data.sql">dữ liệu mẫu</a> · <a href="../buoi-17/demo/verify.py">kiểm tra HTTP</a>.</p></section>
-
-<section class="chapter" id="tu-kiem-tra"><h2>Tự kiểm tra</h2>
-<details class="question"><summary>Bắt tất cả Exception và trả 200 có tác hại gì?</summary><p>Client, retry và hệ thống giám sát không phân biệt được thành công với thất bại.</p></details>
-<details class="question"><summary>Lỗi JSON và lỗi DTO khác nhau ở đâu?</summary><p>JSON sai thì converter chưa tạo được DTO; bean validation xảy ra sau khi bind thành công.</p></details>
-<details class="question"><summary>Tại sao 500 không trả ex.getMessage()?</summary><p>Thông điệp có thể chứa schema, dữ liệu hoặc chi tiết nội bộ. Trả thông báo chung và lưu thông tin có kiểm soát vào log.</p></details>
-<details class="question"><summary>Tại sao override hợp lệ mà khai báo thêm handler có thể lỗi?</summary><p>Override thay một bước thực thi của lớp cha; đăng ký annotation mới tạo hai mapping cho cùng lỗi trong resolver.</p></details>
-<details class="question"><summary>Filter Security có phải lúc nào cũng gọi advice không?</summary><p>Không. Từ chối trước DispatcherServlet do hệ thống xử lý lỗi của Security.</p></details>
-<details class="question"><summary>Có JpaRepository thì tự có API HTTP không?</summary><p>Không. Cần controller hoặc sử dụng và cấu hình Spring Data REST riêng.</p></details></section>
-
-<section class="chapter" id="moc-video"><h2>Mốc xem lại và nguồn đối chiếu</h2>
-<p>Demo chuẩn hóa lỗi bằng ProblemDetail. Phần Spring Data REST là ví dụ mở rộng để so với controller, không dùng trong JAR chung.</p><ul><li><a href="https://drive.google.com/file/d/1Ma8b-o2cNIQepzEgsatOfcvJVmKTbKTV/view?t=646">10:46 · Spring Data REST xuất tài nguyên</a></li><li><a href="https://drive.google.com/file/d/1Ma8b-o2cNIQepzEgsatOfcvJVmKTbKTV/view?t=983">16:23 · Vì sao lỗi mặc định dài</a></li><li><a href="https://drive.google.com/file/d/1Ma8b-o2cNIQepzEgsatOfcvJVmKTbKTV/view?t=1239">20:39 · Controller advice</a></li><li><a href="https://drive.google.com/file/d/1Ma8b-o2cNIQepzEgsatOfcvJVmKTbKTV/view?t=1856">30:56 · Kiểu vào và ra của handler</a></li><li><a href="https://drive.google.com/file/d/1Ma8b-o2cNIQepzEgsatOfcvJVmKTbKTV/view?t=1988">33:08 · Phân loại lỗi</a></li><li><a href="https://drive.google.com/file/d/1Ma8b-o2cNIQepzEgsatOfcvJVmKTbKTV/view?t=5168">1:26:08 · Yêu cầu sửa thông báo validation</a></li><li><a href="https://drive.google.com/file/d/1Ma8b-o2cNIQepzEgsatOfcvJVmKTbKTV/view?t=7215">2:00:15 · Tìm advice bị trùng</a></li><li><a href="https://drive.google.com/file/d/1Ma8b-o2cNIQepzEgsatOfcvJVmKTbKTV/view?t=7737">2:08:57 · Xung đột với handler lớp cha</a></li></ul><h3>Tài liệu chính thức</h3><ul><li><a href="https://docs.spring.io/spring-framework/reference/6.2/web/webmvc/mvc-controller/ann-exceptionhandler.html">Spring MVC · @ExceptionHandler</a></li><li><a href="https://docs.spring.io/spring-framework/reference/6.2/web/webmvc/mvc-ann-rest-exceptions.html">Spring MVC · Error Responses</a></li><li><a href="https://www.rfc-editor.org/rfc/rfc9457.html">RFC 9457 · Problem Details</a></li><li><a href="https://docs.spring.io/spring-data/rest/reference/4.5/repository-resources.html">Spring Data REST · repository resources</a></li></ul></section>
-<nav class="hero-actions" aria-label="Điều hướng bài học"><a href="../buoi-15/index.html">← Buổi 15</a><a href="../buoi-17/index.html">Buổi 17 →</a><a href="#top">Lên đầu trang ↑</a></nav></main></div></body></html>
+<meta name="description" content="Nội dung được chuyển sang giáo trình theo chủ đề."><title>Bài học đã được tổ chức lại · Backend Service</title>
+<link rel="stylesheet" href="../../../assets/styles.css">
+<link rel="stylesheet" href="../../../assets/vendor/prism/prism.css">
+<script src="../../../assets/vendor/prism/prism.js" defer></script>
+<script src="../../../assets/vendor/codemirror/editor.js" defer></script>
+<script src="../../../assets/site.js" defer></script></head><body id="top">
+<a class="skip" href="#noi-dung">Đến nội dung</a>
+<header class="masthead"><div class="mast-inner"><a class="brand" href="../../../index.html"><span class="mark" aria-hidden="true">B</span> Backend Service</a><a class="source" href="../../../lessons/springboot/index.html">Lộ trình Spring ↗</a></div></header><main class="catalog" id="noi-dung" tabindex="-1"><h1>Bài học đã được tổ chức lại</h1><p>Giáo trình được tách, gộp và sắp xếp theo kiến thức, không theo buổi video. Các project demo vẫn giữ đường dẫn để bạn tiếp tục thực hành.</p><p><a class="button" href="../api-errors/index.html">Chuẩn hóa lỗi API với ProblemDetail →</a></p><p><a href="../index.html">Xem toàn bộ lộ trình</a></p><ul><li id="classify"><a href="../api-errors/index.html#classify">Mở nội dung tương ứng: classify</a></li><li id="data-rest"><a href="../api-errors/index.html#data-rest">Mở nội dung tương ứng: data-rest</a></li><li id="json"><a href="../api-errors/index.html#json">Mở nội dung tương ứng: json</a></li><li id="moc-video"><a href="../api-errors/index.html#moc-video">Mở nội dung tương ứng: moc-video</a></li><li id="thuc-hanh"><a href="../api-errors/index.html#thuc-hanh">Mở nội dung tương ứng: thuc-hanh</a></li><li id="toc-heading"><a href="../api-errors/index.html">Mở nội dung tương ứng: toc-heading</a></li><li id="tu-kiem-tra"><a href="../api-errors/index.html#tu-kiem-tra">Mở nội dung tương ứng: tu-kiem-tra</a></li></ul></main></body></html>

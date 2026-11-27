@@ -1,0 +1,3 @@
+<section id="http-error-dispatch"><h2>Bổ sung test khi ranh giới thật tạo hành vi khác</h2>
+<p>MockMvc không tự tái hiện mọi servlet error dispatch. Trong lab này, thiếu CSRF bị chặn 403, nhưng luồng xử lý lỗi nội bộ có thể bị security chặn lần nữa và làm status cuối thành 401. HttpBoundaryTest dùng server RANDOM_PORT và Java HTTP client có cookie jar để bắt sự khác biệt, kiểm cả token/session thực và dữ liệu sau lỗi.</p>
+<p>Policy cho phép dispatcher ERROR giữ response lỗi gốc; các request bình thường vẫn phải tuân thủ policy. Đây là ví dụ chọn test theo câu hỏi: status nội bộ đúng chưa đủ nếu người gọi cuối cùng nhận status khác.</p></section>

@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Quan sát vòng đời bean, sửa race condition và thực hành bộ đếm, quota, Future trong Java."><title>Vòng đời bean và quản lý trạng thái · Backend Service</title>
+<link rel="stylesheet" href="../../../assets/styles.css">
+<link rel="stylesheet" href="../../../assets/vendor/prism/prism.css">
+<script src="../../../assets/vendor/prism/prism.js" defer></script>
+<script src="../../../assets/vendor/codemirror/editor.js" defer></script>
+<script src="../../../assets/site.js" defer></script></head><body id="top">
+<a class="skip" href="#noi-dung">Đến nội dung</a>
+<header class="masthead"><div class="mast-inner"><a class="brand" href="../../../index.html"><span class="mark" aria-hidden="true">B</span> Backend Service</a><a class="source" href="../../../lessons/springboot/index.html">Lộ trình Spring ↗</a></div></header><div class="hero"><div class="hero-inner"><div><nav class="crumbs" aria-label="Vị trí hiện tại"><a href="../../../index.html">Trang chủ</a> / <a href="../index.html#core">Spring Core</a></nav><p class="kicker">Bài 05 / 42 · Spring Core</p><h1>Vòng đời bean và quản lý trạng thái</h1><p class="lead">Quan sát vòng đời bean, sửa race condition và thực hành bộ đếm, quota, Future trong Java.</p><div class="hero-actions"><a class="button" href="#noi-dung">Đọc bài ↓</a><a class="button secondary" href="#bai-tap-code">Tự viết code</a></div></div><div class="flow"><div class="flow-head">Lộ trình trong bài</div><div class="flow-body"><ol><li><b>Hiểu cơ chế</b><span>Spring Core</span></li><li><b>Thử và giải thích</b><span>Đọc code, dự đoán và kiểm tra giả thuyết</span></li><li><b>Tự triển khai</b><span>Viết code và kiểm chứng ở project</span></li></ol></div></div></div></div><div class="layout"><aside class="sidebar"><nav aria-label="Mục lục bài học"><h2>Nội dung bài học</h2><ol><li><a href="#scope">Một bean dùng chung có thể gửi nhầm người như thế nào?</a></li><li><a href="#lifecycle">Vòng đời của instance do container quản lý</a></li><li><a href="#stateless">Giữ người nhận trong từng lời gọi</a></li><li><a href="#practice">Thực hành C2 · tái hiện lỗi trộn dữ liệu</a></li><li><a href="#java-concurrency">Đa luồng Java · từ lỗi singleton đến tác vụ nền</a></li><li><a href="#concurrency-counter">C3 · Vì sao hai lượt gửi chỉ tăng bộ đếm một đơn vị?</a></li><li><a href="#concurrency-quota">C4 · Giữ một chỗ cuối cho đúng một người</a></li><li><a href="#concurrency-future">C5 · Nhận kết quả, xử lý lỗi và hủy gửi nền</a></li><li><a href="#lab-concurrency">Tự viết và kiểm chứng trong Maven</a></li><li><a href="#bai-tap-code">Bài tập lập trình</a></li><li><a href="#kiem-tra-nang-luc">Kiểm tra cách hiểu</a></li><li><a href="#nguon-chinh-thuc">Nguồn chính thức</a></li></ol></nav></aside><main id="noi-dung" tabindex="-1"><div class="callout intro"><strong>Mục tiêu và điều kiện học</strong><p>Chuyển người nhận từ field dùng chung sang tham số của từng lời gọi.</p><p><strong>Cần biết trước:</strong> Đăng ký và lựa chọn bean, class, interface và exception trong Java. Các bài ứng dụng có thể cần đọc trước phần dữ liệu tương ứng; dùng <a href="../index.html">lộ trình</a> để chọn kiến thức còn thiếu.</p><p class="version-note">Baseline: Java 17 · Spring Boot 3.5.10 · Framework 6.2 · Security 6.5. Mỗi demo có hướng dẫn riêng; ví dụ H2 không chứng minh hành vi trên DB khác.</p></div><section class="chapter" id="scope"><h2>Một bean dùng chung có thể gửi nhầm người như thế nào?</h2>
+<p><a href="../bean-registration/index.html">Bài chọn bean</a> đã gắn kênh email cho <code>InvitationService</code>. Bây giờ hai request cùng dùng service. Nếu service lưu người nhận vào field <code>recipient</code>, request An có thể bị tạm dừng ngay sau khi ghi field. Request Bình ghi đè field trước khi An tiếp tục.</p>
+<table><thead><tr><th scope="col">Bước</th><th scope="col">An</th><th scope="col">Bình</th><th scope="col">Field dùng chung</th></tr></thead><tbody>
+<tr><td>1</td><td>Ghi an rồi dừng</td><td>Chưa chạy</td><td>an</td></tr>
+<tr><td>2</td><td>Đang chờ</td><td>Ghi binh và đọc lại</td><td>binh</td></tr>
+<tr><td>3</td><td>Đọc nhầm binh</td><td>Đã xong</td><td>binh</td></tr></tbody></table>
+<p>Singleton của Spring có phạm vi một định nghĩa bean trong một container. Hai bean cùng class hoặc hai context có thể có instance khác nhau. Singleton hỗ trợ tái sử dụng, nên mọi trạng thái dùng chung phải có quy tắc truy cập phù hợp.</p></section>
+<section class="chapter" id="lifecycle"><h2>Vòng đời của instance do container quản lý</h2>
+<ol aria-label="Vòng đời của bean" class="core-flow"><li><strong>Tạo và nối</strong><span>Constructor nhận dependency bắt buộc.</span></li><li><strong>Khởi tạo</strong><span>Post-processor tham gia xử lý instance. Callback @PostConstruct có thể chuẩn bị tài nguyên cục bộ.</span></li><li><strong>Dùng và đóng</strong><span>Bean đủ điều kiện có callback @PreDestroy khi context đóng bình thường.</span></li></ol>
+<p><code>BeanFactoryPostProcessor</code> thao tác với metadata trước khi các bean thông thường được khởi tạo. <code>BeanPostProcessor</code> xử lý instance; nó có thể bọc đối tượng để bên gọi nhận proxy. Bài AOP sẽ dùng ranh giới này để giải thích tại sao hai lời gọi cùng method có thể khác nhau.</p>
+<p>Prototype tạo instance mới mỗi lần container được yêu cầu. Tiêm một prototype vào singleton qua constructor chỉ giải dependency tại lúc tạo singleton. Khi thật sự cần tạo theo mỗi lần dùng, lấy qua <code>ObjectProvider.getObject()</code>. Caller chịu trách nhiệm tài nguyên cần dọn của prototype; Spring không tự gọi callback hủy prototype.</p></section>
+<section class="chapter" id="stateless"><h2>Giữ người nhận trong từng lời gọi</h2>
+<figure class="snippet"><figcaption>Ví dụ · một service, hai tham số độc lập</figcaption><pre tabindex="0"><code class="language-java">class InvitationService {
+    private final Channel channel;
+    InvitationService(Channel channel) { this.channel = channel; }
+
+    String invite(String recipient) {
+        return channel.send(recipient);
+    }
+}</code></pre></figure>
+<p>Việc đổi field thành tham số loại bỏ chỗ ghi đè trong ví dụ. Vẫn phải xác nhận <code>Channel</code> và dependency bên dưới của nó an toàn khi dùng chung. Tài nguyên dùng chung và dữ liệu của mỗi request cần được xem xét riêng.</p></section>
+<section class="chapter" id="practice"><h2>Thực hành C2 · tái hiện lỗi trộn dữ liệu</h2>
+<p>Giữ lời gọi An ở bước ngay sau khi ghi field, cho Bình thực hiện xong rồi cho An tiếp tục. Hãy dự đoán An đọc được gì. Trong bài tập lập trình bên dưới, sửa service để mỗi lời gọi giữ người nhận của riêng mình.</p>
+<details class="question"><summary>Đối chiếu kết quả đã kiểm chứng</summary><p>Ở bản dùng field, An đọc nhầm <code>binh</code>. Khi truyền người nhận qua tham số, hai lời gọi giữ hai giá trị riêng. Kênh mẫu trả <code>email:an</code> và <code>email:binh</code> tương ứng.</p></details>
+<p>Muốn tái hiện lịch xen kẽ bằng latch và tự quan sát callback tạo/hủy bean? <a download="" href="../../../practice/spring-core-lab/downloads/spring-core-lab.zip">Tải lab Maven (.zip)</a> và mở đề C2 trong <code>README.md</code>. Giải nén rồi chạy <code>mvn test</code> tại thư mục chứa <code>pom.xml</code>.</p>
+<details class="question"><summary>Hai lần getBean singleton, hai lần getBean prototype. Có bao nhiêu init và destroy?</summary><p>Ba lần init, gồm một singleton và hai prototype. Lab ghi một destroy của singleton khi đóng context.</p></details>
+<details class="question"><summary>Tiêm prototype vào singleton rồi gọi service hai lần có tạo hai prototype không?</summary><p>Không. Cùng reference được giữ sau khi singleton được tạo. Đổi cách lấy dependency nếu nghiệp vụ thật sự cần instance mới mỗi lần.</p></details>
+<details class="question"><summary>Đổi service sang prototype có đủ để sửa lỗi gửi nhầm không?</summary><p>Chưa đủ nếu caller giữ một instance và tiếp tục dùng chung, hoặc dependency có state tương tự. Xác định dữ liệu thuộc từng lời gọi rồi đặt nó ở biên phù hợp.</p></details>
+<p>Tiếp tục với <a href="#java-concurrency">ba bài tự viết về đa luồng Java</a> hoặc ôn <a href="../aop-transaction/index.html">Proxy và AOP</a> để theo dõi lời gọi đi qua reference container trả về.</p></section>
+
+<section class="chapter" id="java-concurrency">
+<h2>Đa luồng Java · từ lỗi singleton đến tác vụ nền</h2>
+<p>Hai request có thể vào cùng một bean từ hai thread. Mỗi lần gọi có tham số và biến cục bộ riêng. Hai biến cục bộ vẫn có thể trỏ đến cùng một object, chẳng hạn cùng một <code>HashSet</code> nằm trong service. Trước khi chọn công cụ đồng bộ, gạch rõ dữ liệu của từng lần gọi, dữ liệu bất biến và dữ liệu có thể đổi mà nhiều thread cùng truy cập.</p>
+<p>Sau phần này, bạn sẽ tự viết ba thành phần Java cho chức năng lời mời: đếm lượt gửi, giới hạn số chỗ và gửi nền có kết quả. Cần biết class, interface, exception và chạy Maven. Các bài dùng dữ liệu trong JVM, nên có thể chạy mà không cần DB hay server.</p>
+<p><a href="#lab-concurrency">Mở hướng dẫn C3–C5 và tải starter</a>.</p>
+</section>
+<section class="chapter" id="concurrency-counter">
+<h2>C3 · Vì sao hai lượt gửi chỉ tăng bộ đếm một đơn vị?</h2>
+<p>Mỗi lần nhà cung cấp xác nhận gửi thành công, worker tăng <code>total</code>. Ban đầu <code>total = 0</code>. Phép tăng gồm đọc giá trị, tính giá trị mới và ghi kết quả. Nếu hai worker đều đọc trước khi một trong hai ghi, lịch dưới đây có thể xảy ra.</p>
+<table>
+<thead><tr><th scope="col">Mốc</th><th scope="col">Worker A</th><th scope="col">Worker B</th><th scope="col">Giá trị chung</th></tr></thead>
+<tbody>
+<tr><td>Đọc</td><td>Giữ 0 trong biến cục bộ</td><td>Giữ 0 trong biến cục bộ</td><td>0</td></tr>
+<tr><td>Ghi</td><td>Ghi 1</td><td>Ghi 1</td><td>1</td></tr>
+</tbody>
+</table>
+<p><strong>Visibility</strong> là quy tắc về giá trị mà thread khác có thể quan sát. Java mô tả thứ tự đó bằng <em>happens-before</em>. Một lần ghi <code>volatile</code> xảy ra trước lần đọc tiếp theo của cùng field theo thứ tự đồng bộ. Trong lịch trên, cả hai lần đọc đã hoàn tất trước khi ghi, nên <code>volatile</code> vẫn cho kết quả 1. <strong>Atomicity</strong> của phép tăng đòi hỏi cả ba bước ứng xử như một cập nhật duy nhất trước các lần truy cập cạnh tranh.</p>
+<p>Test dùng <code>CyclicBarrier</code> để giữ cả hai worker ngay sau bước đọc. Khi đủ hai worker, chúng mới được ghi. Nhờ vậy kết quả 1 xuất hiện theo thiết kế test. Một lượt chạy ngẫu nhiên ra 2 chỉ cho biết lịch lỗi có thể chưa xảy ra. Với một bộ đếm độc lập, dùng <code>AtomicInteger.incrementAndGet()</code> hoặc bảo vệ mọi truy cập bằng cùng khóa. Bài C3 kiểm tổng ban đầu là 0, sau một lượt là 1. Sau đó hai worker thực hiện lần lượt hai đợt, mỗi đợt 17 rồi 10.000 lượt trên mỗi worker. Tổng sau từng đợt phải là 35 rồi 20.035.</p>
+</section>
+<section class="chapter" id="concurrency-quota">
+<h2>C4 · Giữ một chỗ cuối cho đúng một người</h2>
+<p>Nhóm còn một chỗ. An và Bình gửi yêu cầu đồng thời. Mỗi người chỉ được giữ một chỗ, và số người đang giữ cộng số chỗ còn lại phải bằng hạn mức. Nếu cả hai cùng thấy còn chỗ rồi đều thêm người, số chỗ vượt hạn mức. Một collection an toàn theo thread chỉ bảo vệ từng thao tác của collection. Kiểm số lượng rồi thêm là hai thao tác cần được bảo vệ chung.</p>
+<p>Chạy riêng <code>mvn "-Dtest=InvitationConcurrencyTest#individuallySynchronizedOperationsCanStillOverbook" test</code>. Ca đối chứng dùng <code>synchronizedSet</code> và đặt barrier <em>sau</em> khi cả hai worker đã đọc số chỗ. Cả hai thấy 0 người giữ và đều trả <code>true</code>. Tập cuối có 2 người dù hạn mức là 1. Test xanh ở đây nghĩa là đã tái hiện được lỗi. Ca kiểm starter gọi <code>reserve</code> từ hai worker và đòi đúng một kết quả thành công. Ca đó chỉ kiểm hành vi ở lịch chạy quan sát được. Giữ cả kiểm chỗ và ghi người dưới cùng khóa là phần bạn cần giải thích.</p>
+<p>Trong starter, triển khai <code>reserve</code>, <code>release</code> và <code>snapshot</code>. Với một object dùng chung, có thể giữ danh sách dưới cùng một monitor bằng <code>synchronized</code>. Kiểm chỗ và ghi người trong cùng vùng khóa. Giữ một nguồn trạng thái, chẳng hạn tập người đang giữ, rồi tính số còn lại từ đó trong cùng vùng khóa. Đừng gọi nhà cung cấp email trong khi giữ khóa vì lần gọi mạng có thể làm các request khác chờ lâu.</p>
+<p>Với hạn mức 1, hai caller khác nhau cho đúng một kết quả <code>true</code> và snapshot <code>(reserved=1, available=0)</code>. Với hạn mức 2, thử giữ hai lần cho An, thả chỗ của Bình khi Bình chưa từng giữ, sau đó thả An hai lần. Đọc snapshot để thấy mỗi thao tác hợp lệ chỉ có một hiệu ứng. Khi chạy hai instance, mỗi instance có object và monitor riêng. Quy tắc membership dùng chung giữa các instance cần được bảo vệ tại DB. Xem tiếp <a href="../spring-transaction/index.html">transaction và ghi đồng thời</a>.</p>
+</section>
+<section class="chapter" id="concurrency-future">
+<h2>C5 · Nhận kết quả, xử lý lỗi và hủy gửi nền</h2>
+<p>Caller gửi một <code>Callable</code> vào <code>ExecutorService</code>. Worker chạy công việc, <code>Future</code> cho caller một cách quan sát kết quả. Hợp đồng của bài là trả receipt nếu thành công, giữ nguyên nguyên nhân nếu gửi lỗi, và gọi cleanup đúng một lần khi công việc đã bắt đầu rồi kết thúc. Callback cleanup trong lab chỉ ghi bằng chứng và được giả định kết thúc bình thường.</p>
+<table>
+<thead><tr><th scope="col">Tình huống</th><th scope="col">Quan sát từ caller</th><th scope="col">Kiểm chứng ở worker</th></tr></thead>
+<tbody>
+<tr><td>Gửi thành công</td><td><code>get()</code> trả <code>receipt-42</code></td><td>Chạy trên thread của executor, cleanup một lần</td></tr>
+<tr><td>Provider báo lỗi</td><td><code>ExecutionException.getCause()</code> trả lỗi gốc</td><td>Cleanup vẫn chạy</td></tr>
+<tr><td>Worker đang chờ tại latch</td><td><code>get(timeout)</code> ném <code>TimeoutException</code>. Task vẫn đang chạy.</td><td>Chỉ cho phép gửi sau khi latch mở. Gọi <code>cancel(true)</code> trước đó, rồi kiểm worker nhận interrupt. Đợi executor kết thúc để đếm đúng một lần cleanup và 0 hiệu ứng.</td></tr>
+</tbody>
+</table>
+<p><strong>Happens-before qua Future.</strong> Test <code>getMakesTheWorkersWriteVisibleToTheCaller</code> để worker gán receipt vào một phần tử mảng bình thường. Caller đợi <code>Future.get()</code> hoàn tất rồi mới đọc mảng và nhận <code>receipt-42</code>. Java bảo đảm thao tác trong tác vụ xảy ra trước các thao tác sau <code>get()</code> tương ứng ở caller. Nếu dời lần đọc lên trước <code>get()</code>, caller mất bảo đảm này. Chạy thử nhiều lần cũng không biến lịch tình cờ đúng thành một bảo đảm.</p>
+<p><code>cancel(true)</code> yêu cầu interrupt một task đang chạy nếu implementation có thể interrupt thread đó. Các thao tác như <code>CountDownLatch.await()</code> phản ứng với interrupt. Với tác vụ bỏ qua interrupt hoặc đã tạo hiệu ứng bên ngoài, trạng thái canceled của Future không xác nhận worker đã dừng hay hiệu ứng đã được hoàn tác. Đừng nuốt <code>InterruptedException</code> rồi tiếp tục gửi. Với <code>Callable</code> có thể để exception thoát ra sau cleanup. Kết quả hủy của bài này dùng <code>Future</code> do <code>ExecutorService.submit</code> trả về.</p>
+</section>
+<section class="chapter" id="lab-concurrency">
+<h2>Tự viết và kiểm chứng trong Maven</h2>
+<p><a download="" href="../../../practice/spring-core-lab/downloads/spring-core-lab.zip">Tải lab Spring Core (.zip)</a>. Giải nén và mở PowerShell ở thư mục <code>spring-core-lab</code> có <code>pom.xml</code>. Mở <code>src/test/java/vn/backend/core/ConcurrencyStarter.java</code>, làm C3, C4 rồi C5. Giữ nguyên test để cùng một tiêu chí kiểm được starter và lời giải.</p>
+<figure class="snippet"><figcaption>PowerShell · chọn starter và chạy lại sau mỗi mốc</figcaption><pre tabindex="0"><code class="language-powershell">mvn "-Dtest=InvitationConcurrencyTest" "-Dconcurrency.starter=true" test
+# Sau khi tự làm, chạy cùng suite với lời giải tham khảo để đối chiếu:
+mvn "-Dtest=InvitationConcurrencyTest" test</code></pre></figure>
+<p>Lần đầu chạy starter có 9 ca. Ba ca minh họa lịch mất cập nhật, lịch giữ quá chỗ và bảo đảm visibility qua <code>Future.get()</code> đạt ngay. Sáu ca nghiệm thu starter chưa đạt vì TODO. Nếu bộ đếm trả 0, xem lại nơi ghi. Nếu cả hai kết quả giữ chỗ giống nhau, xem test đang dùng chung đối tượng nào và khóa có bao trọn kiểm–ghi hay không. Nếu <code>get(timeout)</code> đã báo lỗi, đọc <code>isDone()</code> trước khi kết luận công việc dừng. Khi các ca đã đạt, mở <code>ConcurrencySolution.java</code> để so ranh giới khóa và cách cleanup.</p>
+<details class="question"><summary>Câu tự kiểm tra · tại sao volatile không sửa được lịch đọc 0 rồi ghi 1?</summary><p>Vì cả hai lần đọc xảy ra trước các lần ghi. Mỗi worker tính từ 0; việc làm cho các lần ghi nhìn thấy được không gộp cả phép đọc–tính–ghi thành một cập nhật.</p></details>
+<details class="question"><summary>Câu tự kiểm tra · một request timeout thì có nên gửi lại ngay không?</summary><p>Timeout cho biết caller đã chờ hết ngân sách. Task có thể còn chạy hoặc đã tạo hiệu ứng. Trước khi gửi lại cần biết hợp đồng hủy và cách đối soát hoặc chống hiệu ứng trùng.</p></details>
+<p><strong>Bài chuyển giao.</strong> Tạo test mới cho quota 2 với ba người khác nhau. Đọc snapshot sau đợt giữ chỗ, thả một người đã giữ rồi cho người bị từ chối thử lại. Sau đó đổi test hủy để hủy một task còn nằm trong queue. Kiểm task đó chưa bắt đầu và callback dành cho task đã bắt đầu chưa chạy. Chủ động giữ đầy worker bằng latch để tái hiện đúng trạng thái, và dọn executor ở cuối test.</p>
+<p>Tiếp theo, làm <a href="../async-scheduling/index.html#async-proxy-lab">lab gọi qua proxy Spring</a> để áp dụng lại phần Future và ranh giới thread.</p>
+</section>
+<section class="chapter coding-lab" id="bai-tap-code"><p class="eyebrow">Tự viết trước khi xem lời giải</p>
+<h2>Bài tập lập trình</h2><p>Chuyển người nhận từ field dùng chung sang tham số của từng lời gọi.</p>
+<p class="exercise-instructions"><strong>Cách sửa starter:</strong> Giữ Channel và constructor. Bỏ field recipient và thay chữ ký invite để nhận recipient ở mỗi lời gọi.</p>
+<p><strong>Tiêu chí kiểm chứng:</strong> Hai lời gọi với an và binh giữ đúng người nhận. C2 kiểm chứng bằng lịch xen kẽ có kiểm soát.</p>
+<p>Đoạn dưới là bài tập ngắn; các kiểu và phương thức liên quan cần nằm trong project của bài. Editor cho sửa, lưu nháp và tải file; <strong>không biên dịch hoặc chạy Java/Spring</strong>. Chạy test thật ở local theo hướng dẫn project.</p>
+<div class="editor" data-editor data-lesson="bean-lifecycle" data-version="1" data-language="java" data-filename="Exercise.java">
+<label for="editor-bean-lifecycle">Mã của bạn · Exercise.java</label>
+<textarea id="editor-bean-lifecycle" spellcheck="false" autocapitalize="off" autocomplete="off" rows="10">class InvitationService {
+    private final Channel channel;
+    InvitationService(Channel channel) { this.channel = channel; }
+    String recipient;
+    String invite() { return channel.send(recipient); }
+}
+</textarea>
+<div class="editor-actions"><button type="button" data-action="save">Lưu nháp</button><button type="button" data-action="download">Tải mã</button><button type="button" data-action="reset">Khôi phục starter</button></div>
+<p class="editor-status" role="status" aria-live="polite">Nháp tự lưu khi trình duyệt cho phép. Không nhập mật khẩu hoặc token thật.</p>
+<template data-starter>class InvitationService {
+    private final Channel channel;
+    InvitationService(Channel channel) { this.channel = channel; }
+    String recipient;
+    String invite() { return channel.send(recipient); }
+}
+</template>
+</div>
+<details class="hint"><summary>Gợi ý cách làm và tự kiểm tra</summary><p>Viết ra dữ liệu ban đầu, request/lời gọi và trạng thái cuối. Làm trường hợp đúng trước rồi thêm trường hợp lỗi. Tại mỗi bước, đối chiếu cơ chế trong bài; không chỉ sửa cho hết báo lỗi.</p><p>Hai lời gọi với an và binh giữ đúng người nhận. C2 kiểm chứng bằng lịch xen kẽ có kiểm soát.</p></details>
+<details class="solution"><summary>Lời giải tham khảo · mở sau khi tự làm</summary><p>Đây là hướng giải cho đoạn ngắn, không thay thế implementation và kiểm thử đầy đủ trong project.</p><figure class="snippet"><figcaption>Exercise.java · tham khảo</figcaption><pre tabindex="0"><code class="language-java">class InvitationService {
+    private final Channel channel;
+    InvitationService(Channel channel) { this.channel = channel; }
+    String invite(String recipient) { return channel.send(recipient); }
+}
+</code></pre></figure></details>
+<p class="practice-link"><a href="../../../practice/spring-foundations/index.html">Starter Maven, đề theo mốc và bộ kiểm thử chạy local →</a></p></section><section class="chapter" id="kiem-tra-nang-luc"><h2>Kiểm tra cách hiểu</h2>
+<p>Trước khi mở đáp án, hãy ghi dự đoán, lý do và dấu hiệu bạn sẽ dùng để kiểm chứng.</p>
+<div class="understanding-cases"><section class="understanding-case"><h3>Prototype bị giữ trong singleton</h3><p>Singleton constructor nhận một prototype. Hai lần xử lý dùng trực tiếp field dependency. So với gọi ObjectProvider.getObject() mỗi lần, identity thay đổi thế nào?</p><details class="question"><summary>Mở đáp án và tiêu chí</summary><p>Tiêm constructor chỉ lấy một instance lúc tạo singleton. Provider yêu cầu context cấp prototype mỗi lần, nhận instance khác nhau. Ghi identity/counter để kiểm chứng.</p><p><strong>Tự đánh giá.</strong> Nêu đúng thời điểm resolve và trách nhiệm dọn tài nguyên của prototype.</p></details></section><section class="understanding-case"><h3>Dữ liệu request bị ghi đè</h3><p>Request A ghi field recipient rồi dừng, B ghi field và gửi bình thường, sau đó A tiếp tục. Hãy dự đoán A gửi cho ai và thiết kế test ổn định.</p><details class="question"><summary>Mở đáp án và tiêu chí</summary><p>A có thể dùng giá trị của B; với lịch có latch xác định, A đọc B. Chuyển dữ liệu sang tham số; chạy lại hai lời gọi và kiểm recipient từng lần.</p><p><strong>Tự đánh giá.</strong> Dùng lịch kiểm soát được, không chỉ chạy thử nhiều lần rồi suy ra an toàn.</p></details></section></div>
+<details class="quick-quiz"><summary>Ôn nhanh bằng trắc nghiệm</summary>
+<form class="quiz" data-quiz data-correct="1"><fieldset><legend>Singleton Spring có nghĩa tự động thread-safe không?</legend><label><input type="radio" name="quiz-bean-lifecycle" value="0"> <span>Có</span></label><label><input type="radio" name="quiz-bean-lifecycle" value="1"> <span>Không</span></label><label><input type="radio" name="quiz-bean-lifecycle" value="2"> <span>Chỉ khi có @Service</span></label></fieldset><button type="submit">Kiểm tra đáp án</button><p role="status" aria-live="polite" data-feedback></p><template data-explanation>Scope điều khiển số instance và thời gian sống; đồng bộ hóa trạng thái là vấn đề riêng.</template></form></details>
+<details><summary>Xem giải thích khi không dùng JavaScript</summary><p><strong>Không.</strong> Scope điều khiển số instance và thời gian sống; đồng bộ hóa trạng thái là vấn đề riêng.</p></details></section><section class="chapter" id="nguon-chinh-thuc"><h2>Nguồn chính thức</h2><ul><li><a href="https://docs.spring.io/spring-framework/reference/6.2/core/beans/factory-scopes.html">Spring Framework 6.2 · Bean scopes</a></li><li><a href="https://docs.spring.io/spring-framework/reference/6.2/core/beans/factory-extension.html">Spring Framework 6.2 · Extension points</a></li><li><a href="https://docs.spring.io/spring-framework/reference/6.2/core/beans/factory-nature.html">Spring Framework 6.2 · Lifecycle callbacks</a></li><li><a href="https://docs.oracle.com/javase/specs/jls/se17/html/jls-17.html#jls-17.4.5">Java 17 JLS · Happens-before</a></li><li><a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/util/concurrent/Future.html">Java 17 · Future</a></li><li><a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/util/concurrent/atomic/AtomicInteger.html">Java 17 · AtomicInteger</a></li></ul></section><div class="completion"><label><input type="checkbox" data-complete="bean-lifecycle"> Tôi đã tự làm bài tập và giải thích được kết quả</label><p>Đánh dấu để tự theo dõi trên trình duyệt này; đây không phải chứng nhận hay kết quả chấm code.</p><p role="status" data-progress-status aria-live="polite"></p></div><nav class="lesson-navigation" aria-label="Chuyển bài"><a href="../bean-registration/index.html">← Đăng ký và lựa chọn bean</a><a href="../aop-transaction/index.html">Proxy, AOP và ranh giới transaction →</a></nav><p><a href="#top">Về đầu trang ↑</a></p></main></div></body></html>

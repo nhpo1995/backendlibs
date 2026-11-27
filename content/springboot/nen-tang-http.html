@@ -1,0 +1,37 @@
+<section id="request"><h2>Backend đang giải quyết việc gì?</h2>
+<p>Trang danh bạ không hiển thị nhóm Backend. Trước khi sửa Java, dev cần biết trình duyệt đã kết nối với ứng dụng chưa, ứng dụng có chấp nhận người gọi, đường dẫn có khai báo và nhóm còn tồn tại. Mỗi khả năng có bằng chứng riêng. Bạn cần biết mở terminal và đọc một đối tượng JSON.</p>
+<p>Một request có method, đường dẫn, header và có thể có body. Response có status, header và có thể có body. Method và URL cùng tham gia định tuyến: <code>GET /products/1</code> và <code>DELETE /products/1</code> là hai hành vi khác nhau. JSON chỉ là định dạng dữ liệu; trả được JSON chưa chứng minh contract đúng.</p>
+<figure class="snippet"><figcaption>Ví dụ · đọc nhóm Backend trên seed Spring Foundations</figcaption><pre><code class="language-http">GET /api/groups/1 HTTP/1.1
+Host: 127.0.0.1:8181
+Accept: application/json
+Authorization: Basic &lt;credential mẫu của reader&gt;
+
+HTTP/1.1 200 OK
+Content-Type: application/json
+
+{"id":1,"name":"Backend"}</code></pre></figure>
+<p>H2 tạo mới và seed Backend, Ops theo thứ tự khi khởi động solution. Sau khi sửa dữ liệu, gọi <code>GET /api/groups</code> lấy ID hiện tại. <code>Accept</code> chọn định dạng muốn nhận. Khi gửi JSON vào API ghi, <code>Content-Type</code> mô tả định dạng body gửi đi.</p></section>
+<section id="contract"><h2>Contract, trạng thái và tính lặp</h2>
+<p>Contract mô tả đầu vào được chấp nhận, đầu ra và lỗi. Với API đọc nhóm của lab: ID số tồn tại trả 200; ID số chưa có trả 404; ID không chuyển thành số được trả 400. Không có kết nối đến server là lỗi mạng, chưa có HTTP status. Một 404 cũng có thể do không có route, nên cần xác nhận handler và dữ liệu.</p>
+<p>GET dùng để đọc, không thiết kế để đổi dữ liệu nghiệp vụ. POST thường dùng tạo hoặc xử lý lệnh; PUT biểu diễn thay thế trạng thái tài nguyên theo contract. Idempotent nghĩa là hiệu ứng mong muốn trên server sau nhiều request giống nhau tương đương một lần, không bắt buộc mọi response phải giống hệt nhau. Khi xóa lại tài nguyên đã xóa, status lần hai có thể khác mà hiệu ứng vẫn là tài nguyên không còn.</p>
+<p>Không suy ra rằng retry POST luôn an toàn. Nếu request tạo đã commit nhưng response bị mất, gửi lại có thể tạo hai bản ghi. Khi yêu cầu nghiệp vụ cần retry, phải thiết kế khóa idempotency hoặc định danh/ràng buộc phù hợp.</p></section>
+<section id="environment"><h2>Chuẩn bị môi trường và đọc bằng chứng</h2>
+<p>Demo mới dùng Java 17 và Maven; demo cũ cũng có hướng dẫn môi trường riêng. Kiểm tra <code>java -version</code> và <code>mvn -version</code>; Maven có thể đang dùng JDK khác IDE. <code>pom.xml</code> mô tả dependency, plugin và target Java. Thư mục <code>src/main/java</code> chứa implementation, <code>src/main/resources</code> chứa cấu hình, <code>src/test/java</code> chứa test, <code>target</code> là đầu ra build.</p>
+<figure class="snippet"><figcaption>PowerShell · từ thư mục giải nén</figcaption><pre><code class="language-powershell">java -version
+mvn -version
+mvn -f practice/spring-foundations/solution/pom.xml test
+mvn -f practice/spring-foundations/solution/pom.xml spring-boot:run
+# Mở terminal thứ hai, đợi log báo server đã chạy:
+curl.exe -i http://127.0.0.1:8181/api/groups</code></pre></figure>
+<p>GET không credential trong lab bảo vệ trả 401. Đây là kết quả có chủ đích; thêm <code>-u reader:demo-pass</code> để thử quyền đọc. Không dùng <code>-u</code> với tài khoản thật qua HTTP. Để học viết code, chuyển sang starter thay vì sửa lời giải ngay.</p>
+<p>Mỗi lần gỡ lỗi: ghi request, dự đoán tầng liên quan, thay đúng một điều kiện, quan sát response/log rồi đọc lại dữ liệu. Không lấy dòng “Started” làm bằng chứng mọi endpoint đúng, và không lấy status lỗi làm bằng chứng DB chưa bị sửa.</p></section>
+<section id="diagnose"><h2>Thử gây lỗi và xác nhận cách sửa</h2>
+<ol><li>Gọi cổng 8182 khi app chạy 8181: có thể nhận lỗi kết nối; kiểm tra tiến trình/cổng trước khi sửa controller.</li><li>Gọi đúng cổng nhưng sai URL: đọc response và mapping, không mặc định thiếu dữ liệu.</li><li>Gọi endpoint yêu cầu đăng nhập bằng reader; sau đó đổi password sai: quan sát 200 và 401.</li><li>Dừng server, sửa code rồi chạy JAR cũ: giải thích tại sao thay đổi chưa xuất hiện; build lại artifact và thử lại.</li></ol>
+<h3>Tự đối chiếu ngay trên bài</h3>
+<p>Giữ method và credential của reader. Đổi duy nhất ID từ <code>1</code> sang <code>abc</code> rồi <code>999999</code>. Ghi dự đoán trước khi mở đáp án hoặc chạy lệnh. Thử lại ID 1 bằng sai password và ghi tầng cần kiểm tra.</p>
+<details class="question"><summary>Xem kết quả theo tầng</summary><p>ID 1 đọc được seed (200). ID abc dừng khi MVC chuyển sang số (400). ID 999999 chuyển được nhưng service không tìm thấy (404). Sai password bị chặn ở xác thực trước MVC (401). Giữ lại request để đối chiếu cấu hình và mapping của tiến trình đang chạy.</p></details>
+<h3>Tự viết kiểm tra HTTP</h3>
+<p>Tạo script hoặc test client ghi status và body cho ca danh sách, ID không hợp lệ và ID vắng. Khi TCP không kết nối, báo lỗi kết nối riêng. Bằng chứng đạt là ba response đúng, một lần tái hiện lỗi kết nối khi server dừng, và Backend vẫn đọc được sau các request. Bài <a href="../mvc-request-flow/index.html">luồng MVC</a> giải thích các tầng đứng sau các kết quả này.</p>
+<details class="question"><summary>Vì sao curl.exe được dùng thay curl trong hướng dẫn PowerShell?</summary><p>Nó chọn tường minh chương trình curl trên Windows, tránh khác biệt alias theo phiên bản PowerShell. <code>-i</code> hiển thị response header cùng body.</p></details>
+<details class="question"><summary>API trả 200 với body báo lỗi có tốt cho client không?</summary><p>Client và công cụ giám sát thường dùng status để phân loại. Contract cần status phù hợp và body có cấu trúc, tránh buộc client đoán lỗi từ một chuỗi tự do.</p></details></section>
+<section id="nguon-chinh-thuc"><h2>Nguồn chính thức</h2><ul><li><a href="https://www.rfc-editor.org/rfc/rfc9110.html">IETF · HTTP Semantics, methods và status</a></li><li><a href="https://maven.apache.org/guides/getting-started/">Apache Maven · Getting Started</a></li><li><a href="https://docs.spring.io/spring-boot/3.5/reference/using/structuring-your-code.html">Spring Boot 3.5 · Cấu trúc mã nguồn</a></li></ul></section>

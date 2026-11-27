@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Xử lý trường hợp đối tác đã ghi nhưng client mất phản hồi."><title>HTTP client, timeout, retry và circuit breaker · Backend Service</title>
+<link rel="stylesheet" href="../../../assets/styles.css">
+<link rel="stylesheet" href="../../../assets/vendor/prism/prism.css">
+<script src="../../../assets/vendor/prism/prism.js" defer></script>
+<script src="../../../assets/vendor/codemirror/editor.js" defer></script>
+<script src="../../../assets/site.js" defer></script></head><body id="top">
+<a class="skip" href="#noi-dung">Đến nội dung</a>
+<header class="masthead"><div class="mast-inner"><a class="brand" href="../../../index.html"><span class="mark" aria-hidden="true">B</span> Backend Service</a><a class="source" href="../../../lessons/springboot/index.html">Lộ trình Spring ↗</a></div></header><div class="hero"><div class="hero-inner"><div><nav class="crumbs" aria-label="Vị trí hiện tại"><a href="../../../index.html">Trang chủ</a> / <a href="../index.html#integration">Tích hợp API và chịu lỗi</a></nav><p class="kicker">Bài 36 / 42 · Tích hợp API và chịu lỗi</p><h1>HTTP client, timeout, retry và circuit breaker</h1><p class="lead">Xử lý trường hợp đối tác đã ghi nhưng client mất phản hồi.</p><div class="hero-actions"><a class="button" href="#noi-dung">Đọc bài ↓</a><a class="button secondary" href="#bai-tap-code">Tự viết code</a></div></div><div class="flow"><div class="flow-head">Lộ trình trong bài</div><div class="flow-body"><ol><li><b>Hiểu cơ chế</b><span>Tích hợp API và chịu lỗi</span></li><li><b>Thử và giải thích</b><span>Đọc code, dự đoán và kiểm tra giả thuyết</span></li><li><b>Tự triển khai</b><span>Viết code và kiểm chứng ở project</span></li></ol></div></div></div></div><div class="layout"><aside class="sidebar"><nav aria-label="Mục lục bài học"><h2>Nội dung bài học</h2><ol><li><a href="#tinh-huong">Tình huống</a></li><li><a href="#co-che-1">Chờ kết nối, chờ dữ liệu và ngân sách</a></li><li><a href="#co-che-2">Retry cần hợp đồng</a></li><li><a href="#co-che-3">Circuit breaker bảo vệ điểm gọi</a></li><li><a href="#vi-du">Ví dụ</a></li><li><a href="#lab-web">Dự đoán và đối chiếu ngay trên web</a></li><li><a href="#thuc-hanh">Thực hành áp dụng</a></li><li><a href="#bai-tap-code">Bài tập lập trình</a></li><li><a href="#kiem-tra-nang-luc">Kiểm tra cách hiểu</a></li><li><a href="#nguon-chinh-thuc">Nguồn chính thức</a></li></ol></nav></aside><main id="noi-dung" tabindex="-1"><div class="callout intro"><strong>Mục tiêu và điều kiện học</strong><p>Xử lý trường hợp đối tác đã ghi nhưng client mất phản hồi.</p><p><strong>Cần biết trước:</strong> HTTP contract, idempotency và outbox. Các bài ứng dụng có thể cần đọc trước phần dữ liệu tương ứng; dùng <a href="../index.html">lộ trình</a> để chọn kiến thức còn thiếu.</p><p class="version-note">Baseline: Java 17 · Spring Boot 3.5.10 · Framework 6.2 · Security 6.5. Mỗi demo có hướng dẫn riêng; ví dụ H2 không chứng minh hành vi trên DB khác.</p></div><section class="chapter" id="tinh-huong"><h2>Tình huống</h2><p>Worker POST lời mời tới đối tác. Stub ghi lời mời ở 50 ms nhưng trả response ở 900 ms, trong khi client chờ 300 ms. Dev cần xác định trạng thái và xử lý lần thử tiếp theo.</p><p>Kiến thức dùng lại từ <a href="../spring-events/index.html">Spring Event, sau commit và transactional outbox</a>.</p></section>
+<section class="chapter" id="co-che-1"><h2>Chờ kết nối, chờ dữ liệu và ngân sách</h2><p>Connect timeout giới hạn giai đoạn thiết lập kết nối theo client đã chọn. Read timeout xử lý tác vụ chờ dữ liệu; ngữ nghĩa cụ thể tùy client. Chốt cả giới hạn toàn luồng gồm thời gian chờ hàng đợi, các lần thử và backoff. Chọn timeout từ số liệu và SLA.</p></section>
+<section class="chapter" id="co-che-2"><h2>Retry cần hợp đồng</h2><p>Khi response bị mất, client thường chưa biết side effect đã xảy ra chưa. Dùng cùng idempotency key nếu đối tác hỗ trợ và định nghĩa vòng đời key. Nếu chỉ có truy vấn đối soát, xác minh trước khi thử lại. Lỗi dữ liệu vĩnh viễn cần phản hồi hoặc chuyển xử lý phù hợp.</p></section>
+<section class="chapter" id="co-che-3"><h2>Circuit breaker bảo vệ điểm gọi</h2><p>Cửa sổ quan sát gom kết quả. Khi vượt ngưỡng, trạng thái mở từ chối gọi phụ thuộc trong thời gian quy định. Sau đó trạng thái thử lại có giới hạn xác định phục hồi. Đo metric số lần gọi thật và giữ kết quả nghiệp vụ tách khỏi tín hiệu breaker.</p></section>
+<section class="chapter" id="vi-du"><h2>Ví dụ</h2><figure class="snippet"><figcaption>RestClient với giá trị timeout minh họa cho stub local</figcaption><pre tabindex="0"><code class="language-java">var factory = new SimpleClientHttpRequestFactory();
+factory.setConnectTimeout(Duration.ofMillis(100));
+factory.setReadTimeout(Duration.ofMillis(300));
+
+var client = RestClient.builder()
+        .requestFactory(factory)
+        .baseUrl("http://localhost:8089")
+        .build();</code></pre></figure></section>
+<section class="chapter" id="lab-web"><h2>Dự đoán và đối chiếu ngay trên web</h2><p>Đọc dữ liệu đầu vào, viết dự đoán rồi mở kết quả. Đây là ca thiết kế để lần theo cơ chế.</p>
+<section class="understanding-case"><h3>Kết quả chưa biết</h3><p>Stub ghi ở 50 ms, client timeout ở 300 ms.</p><details class="question"><summary>Mở kết quả dự kiến</summary><p>Dùng cùng key để đối soát hoặc retry theo hợp đồng; kiểm bên nhận có đúng một hiệu ứng.</p></details></section>
+<section class="understanding-case"><h3>Lỗi vĩnh viễn</h3><p>Stub trả 400 vì thiếu người nhận.</p><details class="question"><summary>Mở kết quả dự kiến</summary><p>Dừng retry theo policy, lưu trạng thái cần sửa và ghi lý do ở mức an toàn.</p></details></section>
+</section><section class="chapter" id="thuc-hanh"><h2>Thực hành áp dụng</h2><p><a download="" href="../../../practice/spring-advanced-lab/downloads/spring-advanced-lab.zip">Tải lab Maven nâng cao (.zip)</a>. Giải nén, mở terminal tại thư mục có pom.xml và chạy <code>mvn test</code> với JDK 17 trở lên. Đọc README để xác định ca thuộc bài này và yêu cầu của phần mở rộng.</p><p>Các đề dưới đây mô tả phần cần tự triển khai và bằng chứng phải nộp. Đoạn editor bên dưới luyện cấu hình hoặc một thay đổi nhỏ.</p>
+<div class="callout"><h3>I1 · Mất response sau ghi</h3><p>Dựng stub local ghi theo key rồi trả chậm. Test timeout, gửi lại cùng key và đối soát số lần gửi với số hiệu ứng thật.</p></div>
+<div class="callout"><h3>I2 · Phục hồi dependency</h3><p>Cho stub lần lượt trả 503 và 200. Cố định ngưỡng circuit, thời gian chờ và số lần thử; xác nhận lỗi vĩnh viễn kết thúc sớm và số request đến stub bị chặn đúng lúc.</p></div>
+<p>Áp dụng tiếp ở <a href="../async-scheduling/index.html">Async, executor giới hạn và scheduling nhiều instance</a>.</p></section>
+
+<section class="chapter coding-lab" id="bai-tap-code"><p class="eyebrow">Tự viết trước khi xem lời giải</p>
+<h2>Bài tập lập trình</h2><p>Xử lý trường hợp đối tác đã ghi nhưng client mất phản hồi.</p>
+<p class="exercise-instructions"><strong>Cách sửa starter:</strong> Giữ kết nối và URL của stub, thêm cấu hình read timeout.</p>
+<p><strong>Tiêu chí kiểm chứng:</strong> Dùng cùng key để đối soát hoặc retry theo hợp đồng; kiểm bên nhận có đúng một hiệu ứng.</p>
+<p>Đoạn dưới là bài tập ngắn; các kiểu và phương thức liên quan cần nằm trong project của bài. Editor cho sửa, lưu nháp và tải file; <strong>không biên dịch hoặc chạy Java/Spring</strong>. Chạy test thật ở local theo hướng dẫn project.</p>
+<div class="editor" data-editor data-lesson="http-client-resilience" data-version="1" data-language="java" data-filename="Exercise.java">
+<label for="editor-http-client-resilience">Mã của bạn · Exercise.java</label>
+<textarea id="editor-http-client-resilience" spellcheck="false" autocapitalize="off" autocomplete="off" rows="10">var factory = new SimpleClientHttpRequestFactory();
+factory.setConnectTimeout(Duration.ofMillis(100));
+// TODO: chỉ chờ đọc tối đa 300 ms
+
+var client = RestClient.builder()
+        .requestFactory(factory)
+        .baseUrl(&quot;http://localhost:8089&quot;)
+        .build();
+</textarea>
+<div class="editor-actions"><button type="button" data-action="save">Lưu nháp</button><button type="button" data-action="download">Tải mã</button><button type="button" data-action="reset">Khôi phục starter</button></div>
+<p class="editor-status" role="status" aria-live="polite">Nháp tự lưu khi trình duyệt cho phép. Không nhập mật khẩu hoặc token thật.</p>
+<template data-starter>var factory = new SimpleClientHttpRequestFactory();
+factory.setConnectTimeout(Duration.ofMillis(100));
+// TODO: chỉ chờ đọc tối đa 300 ms
+
+var client = RestClient.builder()
+        .requestFactory(factory)
+        .baseUrl(&quot;http://localhost:8089&quot;)
+        .build();
+</template>
+</div>
+<details class="hint"><summary>Gợi ý cách làm và tự kiểm tra</summary><p>Viết ra dữ liệu ban đầu, request/lời gọi và trạng thái cuối. Làm trường hợp đúng trước rồi thêm trường hợp lỗi. Tại mỗi bước, đối chiếu cơ chế trong bài; không chỉ sửa cho hết báo lỗi.</p><p>Dùng cùng key để đối soát hoặc retry theo hợp đồng; kiểm bên nhận có đúng một hiệu ứng.</p></details>
+<details class="solution"><summary>Lời giải tham khảo · mở sau khi tự làm</summary><p>Đây là hướng giải cho đoạn ngắn, không thay thế implementation và kiểm thử đầy đủ trong project.</p><figure class="snippet"><figcaption>Exercise.java · tham khảo</figcaption><pre tabindex="0"><code class="language-java">var factory = new SimpleClientHttpRequestFactory();
+factory.setConnectTimeout(Duration.ofMillis(100));
+factory.setReadTimeout(Duration.ofMillis(300));
+
+var client = RestClient.builder()
+        .requestFactory(factory)
+        .baseUrl(&quot;http://localhost:8089&quot;)
+        .build();
+</code></pre></figure></details>
+<p class="practice-link"><a href="../../../practice/spring-foundations/index.html">Starter Maven, đề theo mốc và bộ kiểm thử chạy local →</a></p></section><section class="chapter" id="kiem-tra-nang-luc"><h2>Kiểm tra cách hiểu</h2>
+<p>Trước khi mở đáp án, hãy ghi dự đoán, lý do và dấu hiệu bạn sẽ dùng để kiểm chứng.</p>
+<div class="understanding-cases"><section class="understanding-case"><h3>Retry vượt deadline</h3><p>Worker còn 600 ms. Đã dùng 300 ms cho lần đầu; backoff 200 ms và lần tiếp cần đến 300 ms. Có nên chạy lần thử đầy đủ tiếp không?</p><details class="question"><summary>Mở đáp án và tiêu chí</summary><p>Tổng dự kiến 800 ms vượt deadline. Ràng buộc retry theo thời gian còn lại; nếu chưa có kết quả nghiệp vụ thì ghi trạng thái chờ đối soát hoặc đưa lại vào luồng phục hồi theo hợp đồng.</p><p><strong>Tự đánh giá.</strong> Tính cả các lần thử và backoff; nêu cách ghi kết quả chưa biết.</p></details></section><section class="understanding-case"><h3>Cùng lỗi nhưng khác chính sách</h3><p>A trả 503, B trả 422. Stub của A có thể đã ghi. Khi nào retry, khi nào chuyển việc cho người xử lý?</p><details class="question"><summary>Mở đáp án và tiêu chí</summary><p>503 có thể retry theo hợp đồng idempotency và deadline; nếu kết quả không rõ, đối soát. 422 là đầu vào không hợp lệ theo giả định, chuyển sửa dữ liệu. Đếm số call và hiệu ứng để kiểm.</p><p><strong>Tự đánh giá.</strong> Không quyết định chỉ từ kỹ thuật kết nối; nêu điều kiện nghiệp vụ và bằng chứng.</p></details></section></div>
+<details class="quick-quiz"><summary>Ôn nhanh bằng trắc nghiệm</summary>
+<form class="quiz" data-quiz data-correct="0"><fieldset><legend>Timeout sau POST chứng minh điều gì?</legend><label><input type="radio" name="quiz-http-client-resilience" value="0"> <span>Client chưa nhận được kết quả đúng hạn</span></label><label><input type="radio" name="quiz-http-client-resilience" value="1"> <span>Đối tác chắc chắn chưa ghi</span></label><label><input type="radio" name="quiz-http-client-resilience" value="2"> <span>Cần gửi lại với key mới</span></label></fieldset><button type="submit">Kiểm tra đáp án</button><p role="status" aria-live="polite" data-feedback></p><template data-explanation>Timeout một mình không xác định trạng thái nghiệp vụ phía đối tác.</template></form></details>
+<details><summary>Xem giải thích khi không dùng JavaScript</summary><p><strong>Client chưa nhận được kết quả đúng hạn.</strong> Timeout một mình không xác định trạng thái nghiệp vụ phía đối tác.</p></details></section><section class="chapter" id="nguon-chinh-thuc"><h2>Nguồn chính thức</h2><ul>
+<li><a href="https://docs.spring.io/spring-framework/reference/6.2/integration/rest-clients.html">Framework 6.2 · REST clients</a></li>
+<li><a href="https://www.rfc-editor.org/rfc/rfc9110.html#section-9.2.2">RFC 9110 · Idempotent methods</a></li>
+<li><a href="https://docs.spring.io/spring-cloud-circuitbreaker/reference/index.html">Spring Cloud Circuit Breaker</a></li>
+</ul></section><div class="completion"><label><input type="checkbox" data-complete="http-client-resilience"> Tôi đã tự làm bài tập và giải thích được kết quả</label><p>Đánh dấu để tự theo dõi trên trình duyệt này; đây không phải chứng nhận hay kết quả chấm code.</p><p role="status" data-progress-status aria-live="polite"></p></div><nav class="lesson-navigation" aria-label="Chuyển bài"><a href="../debugging-request-flow/index.html">← Gỡ lỗi theo dấu request qua các tầng</a><a href="../async-scheduling/index.html">Async, executor giới hạn và scheduling nhiều instance →</a></nav><p><a href="#top">Về đầu trang ↑</a></p></main></div></body></html>

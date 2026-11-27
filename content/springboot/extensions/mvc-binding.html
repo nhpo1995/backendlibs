@@ -1,0 +1,11 @@
+<section id="conversion"><h2>Chuyển kiểu, validation và nghiệp vụ</h2>
+<p>Với <code>Long minPrice</code>, vắng tham số có thể biểu diễn bằng null; primitive long không biểu diễn được trạng thái thiếu theo cùng cách. Content-Type mô tả định dạng payload, còn Accept mô tả định dạng client muốn nhận. JSON hỏng, enum không tồn tại, giá trị sai kiểu và tên trắng là các lỗi khác nhau, dù nhiều trường hợp cùng được ánh xạ thành 400.</p>
+<p>Gỡ lỗi theo thứ tự: mapping có khớp method/path không → converter có đọc được body không → tham số có chuyển kiểu được không → validation có đạt không → service có chấp nhận quy tắc dữ liệu không. Bắt mọi exception rồi đổi thành “không tìm thấy” sẽ che lỗi input hoặc lỗi server.</p></section>
+<section id="practice"><h2>Thực hành: thay một phần request mỗi lần</h2>
+<p>Chạy solution Spring Foundations ở cổng 8181. ID 999999 giả định không tồn tại; credential chỉ của lab.</p>
+<figure class="snippet"><figcaption>PowerShell · cô lập binding và thiếu dữ liệu</figcaption><pre><code class="language-powershell">curl.exe -i -u reader:demo-pass http://127.0.0.1:8181/api/groups/abc
+curl.exe -i -u reader:demo-pass http://127.0.0.1:8181/api/groups/999999
+curl.exe -i -u reader:demo-pass http://127.0.0.1:8181/api/groups</code></pre></figure>
+<p>Dự kiến 400, 404 và 200. Đoạn editor luyện path bằng ID, còn ca query/body cần test theo chữ ký handler thực tế. Trong bản sao starter, tự triển khai <code>GET /api/groups?q=...</code> bằng tham số tùy chọn. Seed Backend/Ops, kiểm q vắng trả cả hai, q=back trả Backend theo chính sách tìm không phân biệt hoa thường, q=xyz trả mảng rỗng. Với PUT, viết hai request dùng cùng ID có thật: gửi name chỉ ở query, rồi gửi name trong JSON với Content-Type đúng. Dùng <code>admin</code> và CSRF hợp lệ như <code>GroupApiTest</code>. Test đạt khi ca đầu trả 400 và tên cũ giữ nguyên, ca sau trả 200 và GET phản ánh tên mới.</p>
+<p>Bộ lọc ProductFilter đầy đủ nằm tại <a href="../buoi-17/demo/src/main/java/vn/railway89/lab/Products.java">Products.java của demo chung</a>.</p>
+<details class="question"><summary>POST có thể nhận query parameter và JSON body cùng lúc không?</summary><p>Có. Method HTTP không tự giới hạn mọi nguồn tham số. Thiết kế API phải chỉ rõ mỗi giá trị ở đâu và cách xử lý xung đột.</p></details></section>

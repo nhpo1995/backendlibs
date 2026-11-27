@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Walkthrough tùy chọn của demo hoàn chỉnh; không thay đồ án coding."><title>Đối chiếu demo danh bạ · Backend Service</title>
+<link rel="stylesheet" href="../../assets/styles.css">
+<link rel="stylesheet" href="../../assets/vendor/prism/prism.css">
+<script src="../../assets/vendor/prism/prism.js" defer></script>
+<script src="../../assets/vendor/codemirror/editor.js" defer></script>
+<script src="../../assets/site.js" defer></script></head><body id="top">
+<a class="skip" href="#noi-dung">Đến nội dung</a>
+<header class="masthead"><div class="mast-inner"><a class="brand" href="../../index.html"><span class="mark" aria-hidden="true">B</span> Backend Service</a><a class="source" href="../../lessons/springboot/index.html">Lộ trình Spring ↗</a></div></header><main class="catalog practice-page" id="noi-dung" tabindex="-1"><h1>Đối chiếu demo danh bạ</h1><div class="callout intro"><p>Các bước dưới kiểm chứng demo hoàn chỉnh. Đây là tài liệu đối chiếu tùy chọn, không phải bài chấm khả năng tự triển khai. <a href="../../lessons/springboot/project-capstone/index.html">Đồ án coding và tiêu chí chấm →</a></p></div>
+<section id="de">
+<h2>Đề tự thi và tiêu chí đạt</h2>
+<p>Bạn quản lý danh bạ của một đội. <strong>Group</strong> là nhóm làm việc, <strong>account</strong> là tài khoản trong danh bạ. Một account có thể thuộc nhiều nhóm. Trong bài này, bạn sẽ tạo nhóm <code>Exam Team</code> và account <code>exam_user</code>, chuyển account ra khỏi nhóm <code>Backend</code>, rồi xác nhận ứng dụng từ chối thao tác sai và dọn dữ liệu.</p>
+<p><strong>Tự chấm 10 điểm.</strong> 2 điểm tìm đúng account và đọc danh sách nhóm, 3 điểm tạo/sửa/xóa đúng và kiểm số thành viên, 3 điểm tái hiện lỗi rồi đọc lại dữ liệu, 2 điểm giải thích vì sao số đếm thay đổi và vì sao reader bị từ chối. Có thể tự làm theo yêu cầu trước, rồi đối chiếu từng bước dưới đây.</p>
+</section>
+<section id="thuc-hanh">
+<h2>Thực hành trên giao diện</h2>
+<h3>0. Khởi động demo và kiểm tra dữ liệu ban đầu</h3>
+<p>Cần JDK 17 trở lên và Maven. Mở PowerShell trong thư mục gốc <code>backendlibs</code>. Kiểm tra bằng <code>Test-Path .\lessons\springboot\buoi-17\demo\pom.xml</code>. Nếu trả <code>False</code>, chuyển đến thư mục có <code>index.html</code> và thư mục con <code>lessons</code> của website rồi kiểm tra lại.</p>
+<figure class="snippet"><figcaption>Terminal để chạy ứng dụng</figcaption><pre><code class="language-powershell">Set-Location .\lessons\springboot\buoi-17\demo
+mvn -B -ntp package
+java -jar .\target\springboot-lessons-demo-0.1.0.jar</code></pre></figure>
+<p>Chờ Maven báo <code>BUILD SUCCESS</code> và lệnh Java báo <code>Tomcat started on port 8117</code>. Giữ terminal này mở. Mở <a href="http://127.0.0.1:8117/ui.html">giao diện quản lý group và account</a> trong trình duyệt. Nếu trang không tải, kiểm tra terminal Java trước. Nếu cổng 8117 đã bị chiếm, chạy lại JAR với <code>--server.port=8118</code> và thay <code>8117</code> bằng <code>8118</code> trong các URL của bài.</p>
+<p>Trong ô <strong>Tài khoản demo</strong>, chọn <strong>admin</strong>. Ô này quyết định quyền gọi API. <code>reader</code> xem được dữ liệu, còn <code>exam_user</code> sắp tạo chỉ là một bản ghi trong danh bạ. Chọn <strong>Loại → Group</strong>, để <strong>Từ khóa</strong> trống. Trên một lần chạy mới, bảng có ba dòng.</p>
+<ul>
+<li><code>1 · Backend · 2 thành viên</code></li>
+<li><code>2 · Ops · 1 thành viên</code></li>
+<li><code>3 · Empty · 0 thành viên</code></li>
+</ul>
+<p>Mỗi thao tác bên dưới có một kết quả mong đợi. Sau khi bấm <strong>Lưu</strong> hoặc <strong>Xóa</strong>, chờ ô <strong>Kết quả gần nhất</strong> cập nhật rồi đọc dòng đầu trước khi bấm nút khác. Ví dụ, <code>201</code> là tạo thành công, <code>200</code> là thao tác thành công có dữ liệu trả về. Nếu khác kết quả mong đợi, kiểm tra bước đó trước khi tiếp tục. Muốn làm lại từ đầu, dừng Java bằng <kbd>Ctrl+C</kbd>, chạy lại lệnh <code>java -jar</code> và tải lại trang. H2 trong bộ nhớ sẽ khôi phục dữ liệu mẫu.</p>
+<h3>1. Tạo nhóm Exam Team</h3>
+<ol>
+<li>Giữ <strong>admin</strong> và <strong>Loại → Group</strong>. Bấm <strong>Xóa dữ liệu form</strong> để bỏ ID có sẵn. Nhập <code>Exam Team</code> vào <strong>Tên group</strong> rồi bấm <strong>Lưu</strong>.</li>
+<li>Kiểm tra mã <code>201</code>, tên <code>Exam Team</code>, số thành viên <code>0</code>. Ghi ID của dòng này, ví dụ <code>10</code>. Dùng ID trên màn hình của bạn trong các bước sau.</li>
+</ol>
+<h3>2. Tạo account thuộc hai nhóm</h3>
+<ol>
+<li>Đổi <strong>Loại → Account</strong>. Nhập <code>linh</code> vào <strong>Từ khóa</strong>, bấm <strong>Tìm / tải lại</strong>. Bảng còn một dòng <code>linh</code> với Group ID <code>1, 2</code>. Xóa từ khóa và tải lại trước khi tạo.</li>
+<li>Để trống ô <strong>ID để cập nhật</strong>. Nhập <strong>Username</strong> <code>exam_user</code>, <strong>Email</strong> <code>exam@example.test</code>, <strong>Group ID</strong> <code>1,10</code> nếu Exam Team có ID 10. Bấm <strong>Lưu</strong>.</li>
+<li>Kiểm tra <code>201</code> và dòng <code>exam_user</code> có cả hai ID nhóm. Ghi ID account từ dòng này để sau đó đối chiếu URL. ID account và ID group nằm ở hai bảng, có thể tình cờ giống nhau.</li>
+<li>Đổi sang <strong>Group</strong>. Kiểm tra <strong>Backend = 3</strong> và <strong>Exam Team = 1</strong>.</li>
+</ol>
+<h3>3. Gỡ account khỏi Backend</h3>
+<ol>
+<li>Đổi sang <strong>Account</strong>, bấm <strong>Sửa</strong> ở dòng <code>exam_user</code>. Form tự điền ID, username, email và hai ID nhóm.</li>
+<li>Xóa <code>1,</code> khỏi ô <strong>Group ID</strong>, chỉ giữ ID của Exam Team. Giữ nguyên username và email rồi bấm <strong>Lưu</strong>. Kết quả <code>200</code>, dòng <code>exam_user</code> chỉ còn ID của Exam Team.</li>
+<li>Đổi sang <strong>Group</strong> để kiểm tra <strong>Backend = 2</strong>, <strong>Exam Team = 1</strong>. Nếu Backend vẫn là 3, quay lại Account và kiểm tra ô Group ID đã bỏ số 1 hay chưa.</li>
+</ol>
+<h3>4. Thử ba lỗi và đọc lại dữ liệu</h3>
+<ol>
+<li><strong>Username trùng.</strong> Với <strong>admin</strong> và <strong>Account</strong>, xóa dữ liệu form rồi nhập <code>exam_user</code>, email <code>other@example.test</code>, để trống Group ID và bấm <strong>Lưu</strong>. Mong đợi <code>409</code> và <code>code: CONFLICT</code>. Nếu gặp 409 ngay ở lần tạo đầu tiên, kiểm tra xem dữ liệu thử từ lần trước còn tồn tại hay không. Tìm lại <code>exam_user</code> để xác nhận chỉ có một dòng với email <code>exam@example.test</code>.</li>
+<li><strong>Nhóm không tồn tại.</strong> Bấm <strong>Sửa</strong> ở dòng <code>exam_user</code>, đổi email thành <code>changed@example.test</code> và Group ID thành <code>99999</code>, rồi bấm <strong>Lưu</strong>. Mong đợi <code>404</code> và <code>code: NOT_FOUND</code>. Bấm <strong>Tìm / tải lại</strong>, đọc dòng trong bảng. Email vẫn là <code>exam@example.test</code>, Group ID vẫn là ID của Exam Team. Form có thể giữ giá trị vừa nhập để sửa; bảng thể hiện dữ liệu đã lưu.</li>
+<li><strong>Thiếu quyền ghi.</strong> Đổi <strong>Tài khoản demo</strong> sang <strong>reader</strong>; bảng vẫn tải được. Bấm <strong>Sửa</strong> ở dòng <code>exam_user</code> để nạp lại dữ liệu hợp lệ, đổi email thành <code>reader-try@example.test</code>, rồi bấm <strong>Lưu</strong>. Mong đợi <code>403</code>. Tải lại và kiểm tra email vẫn là <code>exam@example.test</code>. Đổi lại <strong>admin</strong> để làm bước 5.</li>
+</ol>
+<h3>5. Xóa nhóm, kiểm tra account, rồi dọn bài</h3>
+<ol>
+<li>Ở <strong>Loại → Group</strong>, bấm <strong>Xóa</strong> đúng dòng <code>Exam Team</code> và xác nhận. Ô kết quả hiện <code>204</code>, dòng này biến mất. Chỉ xóa dữ liệu mình tạo.</li>
+<li>Đổi sang <strong>Account</strong>. <code>exam_user</code> vẫn có email cũ, cột <strong>Group ID</strong> trống. Xóa group đã gỡ liên kết tới group đó, còn bản ghi account được giữ.</li>
+<li>Bấm <strong>Xóa</strong> đúng dòng <code>exam_user</code> và xác nhận. Kiểm tra <code>204</code>. Tìm lại <code>exam_user</code>, bảng rỗng và ô kết quả hiện <code>200</code> với <code>[]</code>. API tìm kiếm đã chạy thành công và không tìm thấy bản ghi nào.</li>
+</ol>
+</section>
+<section id="kiem-api">
+<h2>Kiểm chứng bằng HTTP</h2>
+<p>Mở <strong>F12 → Network → Fetch/XHR</strong> trước khi thao tác trên giao diện. Chọn đúng dòng <code>groups</code> hoặc <code>accounts</code>. Ở <strong>Headers</strong>, đọc <strong>Request Method</strong>, <strong>Request URL</strong> và <strong>Status Code</strong>; ở <strong>Payload</strong>, đọc JSON đã gửi; ở <strong>Response</strong>, xem body. Request ghi có một lần lấy token từ <code>/api/csrf</code> trước đó. Hãy mở dòng POST, PUT hoặc DELETE để đọc kết quả của thao tác ghi.</p>
+<ul>
+<li><code>POST /api/groups</code> gửi <code>{"name":"Exam Team"}</code>. Phản hồi <code>201</code> có header <code>Location</code> như <code>/api/groups/10</code>, là địa chỉ đọc lại nhóm vừa tạo.</li>
+<li><code>POST /api/accounts</code> gửi <code>{"username":"exam_user","email":"exam@example.test","groupIds":[1,10]}</code>. Ở bước sửa, <code>PUT /api/accounts/{id}</code> gửi cùng ba trường nhưng <code>groupIds</code> còn <code>[10]</code>. Thay <code>{id}</code> bằng ID account; số 10 trong body là ID group lấy từ phản hồi tạo nhóm.</li>
+<li><code>GET /api/accounts?q=exam_user</code> đọc dữ liệu sau lỗi. Đối chiếu username, email và Group ID trong bảng sau khi tải lại với ba trường trong JSON phản hồi.</li>
+</ul>
+<p>Để gọi hai request đọc trực tiếp, giữ ứng dụng đang chạy và mở terminal thứ hai. Kỳ vọng lệnh đầu trả <code>401</code> với <code>WWW-Authenticate: Basic</code>. Lệnh sau gửi credential của reader và trả <code>200</code> với account <code>linh</code> có <code>groupIds: [1,2]</code>.</p>
+<figure class="snippet"><figcaption>Đối chiếu request đọc thiếu và có credential</figcaption><pre><code class="language-powershell">curl.exe -si http://127.0.0.1:8117/api/accounts?q=linh
+curl.exe -si -u reader:demo-pass http://127.0.0.1:8117/api/accounts?q=linh</code></pre></figure>
+<details><summary>Bài thêm: đọc và kiểm tra một trang kết quả</summary>
+<p>Demo phân trang trên product. Chạy lệnh dưới và kiểm tra <code>items</code> gồm ID <code>3</code> và <code>4</code>, <code>page=2</code>, <code>size=2</code>, <code>totalElements=6</code> và <code>totalPages=3</code>. Đổi <code>page=2</code> thành <code>page=3</code>, dự đoán ID <code>5</code> và <code>6</code> rồi kiểm tra lại.</p>
+<figure class="snippet"><figcaption>Đọc trang 2, mỗi trang hai sản phẩm</figcaption><pre><code class="language-powershell">curl.exe -sS -u reader:demo-pass "http://127.0.0.1:8117/api/products/page?page=2&amp;size=2"</code></pre></figure>
+</details>
+</section>
+<section id="giai-thich"><h2>Giải thích các quyết định sau khi chạy</h2>
+<p>Tại <a href="../../lessons/springboot/buoi-17/demo/src/main/java/vn/railway89/lab/Directory.java">Directory.java</a>, <code>Directory</code> nhận DTO và gọi <code>DirectoryService</code>. Service kiểm các group đích, lưu account rồi so tập membership đang có với tập đích. Thuật toán có thể mô tả bằng Java dưới đây.</p>
+<pre><code class="language-java">Set&lt;Long&gt; desired = new TreeSet&lt;&gt;(requestedIds);
+Set&lt;Long&gt; toRemove = new HashSet&lt;&gt;(existingIds);
+toRemove.removeAll(desired);
+Set&lt;Long&gt; toAdd = new HashSet&lt;&gt;(desired);
+toAdd.removeAll(existingIds);</code></pre>
+<p>Với cũ <code>[1,2]</code> và yêu cầu <code>[2,3,3]</code>, tập đích là <code>[2,3]</code>, xóa 1, thêm 3, giữ 2. Gửi lại cùng tập sau khi hoàn thành cho tập thêm/xóa rỗng. Khóa chính ghép <code>(account_id, group_id)</code> chặn liên kết trùng ở DB, hai FK bảo đảm hai phía tồn tại, transaction bao toàn bộ thay đổi. Sau khi xóa group, API dùng chính sách gỡ liên kết và giữ account. Muốn chặn xóa group còn người, thay đổi hợp đồng và kiểm thử cả đường xóa lại sau khi đã bỏ liên kết.</p>
+<p>Nếu group trống biến mất khỏi danh sách hoặc đếm sai thành 1, xem truy vấn. <code>LEFT JOIN</code> giữ dòng group dù không có bản ghi khớp. <code>COUNT(m.account_id)</code> bỏ qua giá trị null trên dòng sinh thêm; <code>COUNT(*)</code> sẽ đếm dòng đó.</p>
+<pre><code class="language-sql">SELECT g.id, g.name, COUNT(m.account_id) AS member_count
+FROM lab_groups g
+LEFT JOIN lab_membership m ON m.group_id = g.id
+GROUP BY g.id, g.name
+ORDER BY g.id;</code></pre>
+<p>Gỡ ca cập nhật group lỗi: đọc URL, method, status và ID, sau đó gửi GET chính ID đó. Nếu GET trả 404, tạo group rồi dùng Location cho lần thử tiếp theo. Nếu GET 200 còn PUT 403, thử với admin đã lấy token và đối chiếu role. Nếu chỉ PUT 400, kiểm tra JSON và <code>errors</code>. Để kiểm chứng ràng buộc username, thử tạo account có username đã tồn tại và email mới. Khi nhận 409, đổi riêng username rồi thử lại. Sau khi xác nhận 201, xóa bản ghi vừa thử. DTO trả về chỉ công bố các trường client cần; mapping giảm dữ liệu trả về cho client, còn projection giảm cột đọc ở CSDL.</p>
+</section>
+<section id="tu-kiem-tra"><h2>Tự kiểm tra</h2>
+<details><summary>Tại sao demo đầu tiên nên có cả request sai?</summary><p>Ca sai chứng minh đường xử lý lỗi, role và ràng buộc dữ liệu thực sự hoạt động. Một chuỗi status 200 chưa kiểm được các hợp đồng đó.</p></details>
+<details><summary>GET sản phẩm dùng page nhưng GET account chỉ tìm theo q. Khi trình bày nói thế nào?</summary><p>Chỉ ra phạm vi hai endpoint. Để thêm page cho account, định nghĩa lại hợp đồng page/sort và count sau filter, rồi dùng các tập mẫu của bài API danh sách account để kiểm thử.</p></details>
+<details><summary>Group vừa xóa trả 404 khi PUT, controller hay SQL quyết định?</summary><p>Controller đưa ID xuống service. UPDATE 0 dòng vì ID không tồn tại làm service phát lỗi nghiệp vụ. Advice chuyển lỗi thành 404.</p></details>
+<details><summary>Tại sao nên dùng unique constraint dù đã kiểm trùng ở service?</summary><p>Hai request có thể cùng đọc trạng thái chưa có rồi cùng insert. Unique tại DB ngăn ghi trùng ở thời điểm quyết định.</p></details>
+<details><summary>Trình bày Basic với DB trong ba bước?</summary><p>Filter đọc credential, provider tra UserDetails theo username để có hash và role rồi so matches, filter chain dùng authorities để xét quyền route.</p></details>
+<details><summary>Entity và DTO khác gì trong bài này?</summary><p>Entity đại diện dữ liệu persistence và có vòng đời theo persistence context. DTO định nghĩa dữ liệu qua biên API, có thể chứa tập ID, trường tổng hợp hoặc một phần dữ liệu.</p></details>
+<details><summary>Cấu hình ModelMapper qua @Bean cho phép làm gì?</summary><p>Đăng ký đối tượng do factory method trả về để Spring quản lý và inject. Mapper vẫn cần kiểm tra mapping lồng và trường có tên khác bằng ví dụ cụ thể.</p></details>
+<details><summary>Sửa cùng groupIds hai lần có thể phát sinh liên kết trùng?</summary><p>Phép hiệu tập không tạo thêm hàng ở lượt thứ hai. Khóa ghép tại DB là hàng rào cuối cùng cho dữ liệu. Các thao tác ghi đồng thời còn cần chính sách khóa hoặc xử lý xung đột nhất quán.</p></details>
+</section>
+<section id="moc-video"><h2>Tài liệu bổ trợ</h2><details class="video-reference"><summary>Nguồn video · xem lại tùy chọn</summary>
+<p>Video là các lượt trình bày và vấn đáp của nhiều project. Các mốc dưới chỉ tới thao tác hoặc câu hỏi cụ thể. Đề, tiêu chí tự chấm và các thao tác dùng demo chung của khóa. Trang cung cấp đủ bước để làm bài trước khi xem lại bản ghi.</p><ul><li><a href="https://drive.google.com/file/d/1hr4o6FoVivFnbpQqammJLK8p8O4NZpdR/view?t=748" rel="noopener" target="_blank">12:28</a> · Khởi chạy project và kiểm thử trước khi trình bày</li>
+<li><a href="https://drive.google.com/file/d/1hr4o6FoVivFnbpQqammJLK8p8O4NZpdR/view?t=2915" rel="noopener" target="_blank">48:35</a> · Demo API user/group bằng Postman</li>
+<li><a href="https://drive.google.com/file/d/1hr4o6FoVivFnbpQqammJLK8p8O4NZpdR/view?t=2937" rel="noopener" target="_blank">48:57</a> · Trình bày phân trang user</li>
+<li><a href="https://drive.google.com/file/d/1hr4o6FoVivFnbpQqammJLK8p8O4NZpdR/view?t=3046" rel="noopener" target="_blank">50:46</a> · Giải thích group đích không tồn tại</li>
+<li><a href="https://drive.google.com/file/d/1hr4o6FoVivFnbpQqammJLK8p8O4NZpdR/view?t=3087" rel="noopener" target="_blank">51:27</a> · Gỡ user khỏi group</li>
+<li><a href="https://drive.google.com/file/d/1hr4o6FoVivFnbpQqammJLK8p8O4NZpdR/view?t=3256" rel="noopener" target="_blank">54:16</a> · Hỏi về constructor và annotation</li>
+<li><a href="https://drive.google.com/file/d/1hr4o6FoVivFnbpQqammJLK8p8O4NZpdR/view?t=3763" rel="noopener" target="_blank">1:02:43</a> · Hỏi về validation và bắt trùng username</li>
+<li><a href="https://drive.google.com/file/d/1hr4o6FoVivFnbpQqammJLK8p8O4NZpdR/view?t=4347" rel="noopener" target="_blank">1:12:27</a> · Giải thích luồng gọi controller</li>
+<li><a href="https://drive.google.com/file/d/1hr4o6FoVivFnbpQqammJLK8p8O4NZpdR/view?t=4987" rel="noopener" target="_blank">1:23:07</a> · Thảo luận giới hạn dữ liệu trả về</li>
+<li><a href="https://drive.google.com/file/d/1hr4o6FoVivFnbpQqammJLK8p8O4NZpdR/view?t=5449" rel="noopener" target="_blank">1:30:49</a> · Giải thích ModelMapper</li>
+<li><a href="https://drive.google.com/file/d/1hr4o6FoVivFnbpQqammJLK8p8O4NZpdR/view?t=6160" rel="noopener" target="_blank">1:42:40</a> · Hỏi cách khởi tạo bean</li>
+<li><a href="https://drive.google.com/file/d/1hr4o6FoVivFnbpQqammJLK8p8O4NZpdR/view?t=6914" rel="noopener" target="_blank">1:55:14</a> · Đối chiếu mật khẩu và tìm username</li>
+<li><a href="https://drive.google.com/file/d/1hr4o6FoVivFnbpQqammJLK8p8O4NZpdR/view?t=8973" rel="noopener" target="_blank">2:29:33</a> · Các câu hỏi tổng kết về ORM và Spring Data</li></ul><h3>Tài liệu chính thức</h3><ul><li><a href="https://www.rfc-editor.org/rfc/rfc9110.html" rel="noopener" target="_blank">RFC 9110 · Semantics and Status Codes</a></li><li><a href="https://docs.spring.io/spring-security/reference/6.5/servlet/authentication/passwords/dao-authentication-provider.html" rel="noopener" target="_blank">Spring Security 6.5 · DaoAuthenticationProvider</a></li><li><a href="https://docs.spring.io/spring-framework/reference/6.2/data-access/jdbc/core.html" rel="noopener" target="_blank">Spring Framework 6.2 · JDBC</a></li><li><a href="https://docs.spring.io/spring-framework/reference/6.2/data-access/transaction/declarative/rolling-back.html" rel="noopener" target="_blank">Spring Framework 6.2 · Rollback</a></li></ul>
+</details></section>
+</main></body></html>

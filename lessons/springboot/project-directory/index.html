@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Tự dựng CRUD, mô hình hóa quan hệ nhiều–nhiều và thử hợp đồng API bằng dữ liệu có sẵn."><title>Dự án: thiết kế danh bạ user và group · Backend Service</title>
+<link rel="stylesheet" href="../../../assets/styles.css">
+<link rel="stylesheet" href="../../../assets/vendor/prism/prism.css">
+<script src="../../../assets/vendor/prism/prism.js" defer></script>
+<script src="../../../assets/vendor/codemirror/editor.js" defer></script>
+<script src="../../../assets/site.js" defer></script></head><body id="top">
+<a class="skip" href="#noi-dung">Đến nội dung</a>
+<header class="masthead"><div class="mast-inner"><a class="brand" href="../../../index.html"><span class="mark" aria-hidden="true">B</span> Backend Service</a><a class="source" href="../../../lessons/springboot/index.html">Lộ trình Spring ↗</a></div></header><div class="hero"><div class="hero-inner"><div><nav class="crumbs" aria-label="Vị trí hiện tại"><a href="../../../index.html">Trang chủ</a> / <a href="../index.html#project">Triển khai và dự án</a></nav><p class="kicker">Bài 40 / 42 · Triển khai và dự án</p><h1>Dự án: thiết kế danh bạ user và group</h1><p class="lead">Tự dựng CRUD, mô hình hóa quan hệ nhiều–nhiều và thử hợp đồng API bằng dữ liệu có sẵn.</p><div class="hero-actions"><a class="button" href="#noi-dung">Đọc bài ↓</a><a class="button secondary" href="#bai-tap-code">Tự viết code</a></div></div><div class="flow"><div class="flow-head">Lộ trình trong bài</div><div class="flow-body"><ol><li><b>Hiểu cơ chế</b><span>Triển khai và dự án</span></li><li><b>Thử và giải thích</b><span>Đọc code, dự đoán và kiểm tra giả thuyết</span></li><li><b>Tự triển khai</b><span>Viết code và kiểm chứng ở project</span></li></ol></div></div></div></div><div class="layout"><aside class="sidebar"><nav aria-label="Mục lục bài học"><h2>Nội dung bài học</h2><ol><li><a href="#boi-canh">Dựng danh bạ theo từng bước có thể kiểm tra</a></li><li><a href="#model">Chuyển yêu cầu thành lược đồ</a></li><li><a href="#api">Thiết kế contract trước khi viết controller</a></li><li><a href="#membership">Thêm thành viên và lọc dữ liệu</a></li><li><a href="#thuc-hanh">Thực hành</a></li><li><a href="#milestones">Mốc tự triển khai và dữ liệu nghiệm thu</a></li><li><a href="#tu-kiem-tra">Tự kiểm tra</a></li><li><a href="#bai-tap-code">Bài tập lập trình</a></li><li><a href="#kiem-tra-nang-luc">Kiểm tra cách hiểu</a></li><li><a href="#nguon-chinh-thuc">Nguồn chính thức</a></li></ol></nav></aside><main id="noi-dung" tabindex="-1"><div class="callout intro"><strong>Mục tiêu và điều kiện học</strong><p>Tự triển khai thêm thành viên idempotent và bảo đảm cặp group/user không trùng.</p><p><strong>Cần biết trước:</strong> REST, query và transaction. Các bài ứng dụng có thể cần đọc trước phần dữ liệu tương ứng; dùng <a href="../index.html">lộ trình</a> để chọn kiến thức còn thiếu.</p><p class="version-note">Baseline: Java 17 · Spring Boot 3.5.10 · Framework 6.2 · Security 6.5. Mỗi demo có hướng dẫn riêng; ví dụ H2 không chứng minh hành vi trên DB khác.</p></div><section class="chapter" id="boi-canh"><h2>Dựng danh bạ theo từng bước có thể kiểm tra</h2>
+<p>Team cần tìm thành viên theo bộ lọc, thêm hoặc gỡ thành viên mà không tạo cặp trùng, rồi giữ nền cho use case mời người vào nhóm. Bài này xây phiên bản CRUD và membership bằng demo <code>/api/v1</code> cùng JPA. <a href="../project-capstone/index.html">Đồ án</a> dùng Spring Foundations <code>/api</code> và mở rộng sang lời mời, quyền và worker. Đọc <a href="../dto-contracts/index.html">DTO</a>, <a href="../jpa-relationships/index.html">ánh xạ quan hệ</a> và <a href="../spring-transaction/index.html">biên giao dịch</a> nếu cần ôn.</p></section><aside class="callout"><strong>Chạy các ví dụ trên máy</strong><p><a download="" href="../../../practice/spring-demo-bundle/downloads/spring-demo-bundle.zip">Tải bộ demo Maven (.zip)</a>. Giải nén và dùng thư mục <code>spring-demo-bundle</code> chứa <code>lessons</code> và <code>practice</code> làm thư mục gốc cho các lệnh trong bài. Khi bài yêu cầu vào thư mục demo, mở thư mục chứa <code>pom.xml</code> của demo đó.</p></aside>
+<section class="chapter" id="model">
+<h2>Chuyển yêu cầu thành lược đồ</h2>
+<p>Cần xây API quản lý hồ sơ người dùng và nhóm làm việc. Quản trị viên có thể tạo, xem, sửa và xóa hồ sơ hoặc nhóm, thêm và gỡ thành viên, rồi tìm người dùng theo <code>username</code>, <code>firstName</code>, <code>lastName</code> hoặc <code>age</code>. An tham gia cả Backend và QA, còn Backend có cả An và Bình. Hai tình huống này xác định quan hệ nhiều–nhiều. Nếu quy tắc nghiệp vụ giới hạn mỗi người dùng đúng một nhóm, có thể dùng khóa ngoại trên bảng người dùng để biểu diễn quan hệ một–nhiều.</p>
+<figure class="snippet"><figcaption>DDL · bảng nối có hai khóa ngoại</figcaption><pre tabindex="0"><code class="language-sql">CREATE TABLE user_groups (
+    id BIGINT GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+    user_id BIGINT NOT NULL REFERENCES app_users(id) ON DELETE CASCADE,
+    group_id BIGINT NOT NULL REFERENCES app_groups(id) ON DELETE CASCADE,
+    UNIQUE (group_id, user_id)
+);</code></pre></figure>
+<p>Mỗi hàng biểu diễn một lần tham gia. Khóa riêng <code>id</code> đơn giản hóa ánh xạ entity <code>Membership</code>. Cặp vẫn phải duy nhất vì hai hàng có cùng user và group biểu diễn cùng một quan hệ. Hai FK bắt buộc ngăn liên kết mồ côi. Khi xóa user hoặc group, cascade cấp DB xóa hàng membership theo hướng từ cha xuống bảng nối. Xóa group Backend vẫn giữ các user và nhóm QA. Tên bảng có tiền tố <code>app_</code> để tránh xung đột từ khóa giữa các dialect. Dữ liệu demo chỉ gồm hồ sơ người dùng.</p>
+<p>Trong <code>Membership</code>, hai thuộc tính <code>user</code> và <code>group</code> là <code>@ManyToOne</code>. Chúng sở hữu hai cột FK qua <code>@JoinColumn</code>. Thuộc tính của entity dùng trong JPQL và derived query. Cột vật lý dùng trong schema và SQL gốc. Xem <a href="../buoi-08/demo/src/main/resources/schema.sql">schema.sql</a> và <a href="../buoi-08/demo/src/main/java/vn/railway89/directory/Membership.java">Membership.java</a>.</p>
+</section>
+<section class="chapter" id="api">
+<h2>Thiết kế contract trước khi viết controller</h2>
+<div class="table-wrap"><table><thead><tr><th>Thao tác</th><th>URI sau <code>/api/v1</code></th><th>Thành công</th></tr></thead><tbody>
+<tr><td>GET</td><td><code>/users</code>, <code>/groups</code></td><td>200 với mảng, có thể rỗng. Bộ lọc chỉ áp dụng ở <code>/users</code>.</td></tr>
+<tr><td>POST</td><td><code>/users</code>, <code>/groups</code></td><td>201, body có ID và header Location trỏ tới tài nguyên mới.</td></tr>
+<tr><td>GET / PUT / DELETE</td><td><code>/users/{id}</code>, <code>/groups/{id}</code></td><td>200 cho GET và PUT, 204 cho DELETE. PUT nhận đầy đủ các trường có thể sửa.</td></tr>
+<tr><td>GET</td><td><code>/groups/{groupId}/members</code></td><td>200 với danh sách user thuộc group, sắp xếp theo ID.</td></tr>
+<tr><td>PUT / DELETE</td><td><code>/groups/{groupId}/members/{userId}</code></td><td>204. PUT bảo đảm cặp hiện diện, DELETE bảo đảm cặp vắng mặt.</td></tr>
+</tbody></table></div>
+<p>Ví dụ <code>POST /api/v1/users</code> nhận <code>{"username":"linh","firstName":"Linh","lastName":"Le","age":27}</code>. MVC đọc JSON thành <code>UserInput</code> rồi Bean Validation kiểm tra chuỗi, độ dài và tuổi. DTO dùng <code>Integer</code> để phân biệt thiếu tuổi với tuổi 0. Service ghi một entity và chuyển sang <code>UserView</code>. POST tạo hàng mới với ID do DB sinh. PUT tải hàng theo ID rồi sửa các trường. Entity đang được quản lý nên Hibernate phát hiện thay đổi lúc flush. Client nhận DTO riêng, nhờ đó hình dạng JSON độc lập với cách JPA nạp quan hệ.</p>
+<p>Lỗi body hoặc kiểu tham số trả 400. Tìm tài nguyên theo ID không thấy trả 404. Trùng username hoặc tên group vi phạm UNIQUE và demo chuyển lỗi ràng buộc ghi thành 409. Đọc <code>Location</code> để lấy ID mới trước khi chạy PUT hoặc DELETE. Tên tài nguyên trong ví dụ dùng số nhiều. Đây là quy ước của demo, còn ý nghĩa của GET, PUT và DELETE do HTTP quy định.</p>
+</section>
+<section class="chapter" id="membership">
+<h2>Thêm thành viên và lọc dữ liệu</h2>
+<h3>Giữ mỗi cặp đúng một lần</h3>
+<p>Service chạy trong transaction, khóa hàng group rồi kiểm tra user, kiểm tra cặp và insert nếu thiếu. Các request thay membership của cùng group qua service chia sẻ một điểm khóa. UNIQUE là lớp bảo vệ ở CSDL nếu đường ghi khác cũng thao tác. Riêng DELETE membership kiểm tra group còn tồn tại, rồi xóa cặp nếu có. Gọi lặp với cặp đã vắng mặt vẫn trả 204.</p>
+<figure class="snippet"><figcaption>Spring Data · kiểm tra và đọc membership</figcaption><pre tabindex="0"><code class="language-java">boolean existsByGroup_IdAndUser_Id(long groupId, long userId);
+
+@Query("select m.user from Membership m where m.group.id = :groupId order by m.user.id")
+List&lt;DirectoryUser&gt; findUsers(@Param("groupId") long groupId);</code></pre></figure>
+<p>Trong tên phương thức, dấu gạch dưới chỉ ranh giới đường dẫn <code>group.id</code> và <code>user.id</code>. <code>group_id</code> là tên cột vật lý. Nếu dùng <code>existsByGroupIdAndUserId</code>, Spring Data có thể tự tách camel case khi mô hình rõ ràng. Viết tường minh giúp người đọc biết từng bước đi qua thuộc tính nào và tránh chọn nhầm nếu sau này có thêm field <code>groupId</code>.</p>
+<h3>Lọc mà không nhân số phương thức</h3>
+<p><code>JpaSpecificationExecutor</code> nhận một hàm tạo predicate. Spring Data tạo <code>CriteriaQuery</code>, chạy <code>toPredicate</code>, sắp kết quả theo <code>Sort.by("id")</code> và chạy qua JPA. Demo tìm chuỗi con, hạ chữ thường và escape wildcard ở ba trường chữ. <code>age</code> so đúng một giá trị và có thể kết hợp với bất kỳ trường nào. Mọi lọc kết hợp bằng AND. Không có bộ lọc thì <code>cb.and()</code> cho điều kiện đúng. Với dữ liệu lớn nên định nghĩa phân trang và kiểm tra kế hoạch truy vấn vì <code>lower(column) like '%…%'</code> thường không dùng hiệu quả index B-tree thông thường.</p>
+</section>
+<section class="chapter" id="thuc-hanh">
+<h2>Thực hành</h2>
+<h3>Tự dựng theo thứ tự</h3>
+<ol>
+<li>Tạo project Maven với Spring Web, Spring Data JPA, Validation và H2. Đặt lớp ứng dụng ở package gốc như trong <a href="../buoi-08/demo/pom.xml">pom.xml</a> và <a href="../buoi-08/demo/src/main/java/vn/railway89/directory/DirectoryApplication.java">DirectoryApplication.java</a>. Dùng <a href="../buoi-08/demo/src/main/resources/application.yaml">application.yaml</a> để Spring chạy <code>schema.sql</code>, <a href="../buoi-08/demo/src/main/resources/data.sql">data.sql</a>, rồi kiểm tra mapping.</li>
+<li>Ánh xạ <a href="../buoi-08/demo/src/main/java/vn/railway89/directory/DirectoryUser.java">DirectoryUser</a> và <a href="../buoi-08/demo/src/main/java/vn/railway89/directory/DirectoryGroup.java">DirectoryGroup</a>. Nối repository → service → controller, làm GET trước để kiểm tra seed, rồi thêm POST, PUT và DELETE. Kiểm tra 201 và Location trước khi dùng ID mới cho PUT.</li>
+<li>Thêm entity Membership và hai FK, bảo vệ cặp bằng UNIQUE. Viết GET thành viên trước. Sau đó thêm PUT và DELETE theo cặp. Chạy lại GET sau mỗi lần ghi để phát hiện xóa nhầm user hoặc tạo trùng quan hệ.</li>
+<li>Thêm từng predicate vào GET users. Chạy với một trường, nhiều trường xung đột và không có trường nào. So ID trả về với seed để kiểm tra cách nối điều kiện.</li>
+</ol>
+<h3>Chạy các request</h3>
+<p>Mở terminal tại <code>lessons/springboot/buoi-08/demo</code>, dùng JDK 17+ và Maven. Chạy <code>mvn spring-boot:run</code>. Mở PowerShell thứ hai. Seed gồm An (id 1, 24 tuổi), Bình (id 2, 29 tuổi), Backend (id 1) và QA (id 2). An thuộc cả hai nhóm. H2 tạo lại seed khi khởi động lại.</p>
+<figure class="snippet"><figcaption>PowerShell · CRUD user, lọc và membership</figcaption><pre tabindex="0"><code class="language-powershell">$api = 'http://127.0.0.1:818/api/v1'
+Invoke-RestMethod "$api/users?lastName=nguy&amp;age=24" | ConvertTo-Json -AsArray
+Invoke-RestMethod "$api/groups/1/members" | ConvertTo-Json -AsArray
+
+$user = @{username='linh'; firstName='Linh'; lastName='Le'; age=27}
+$res = Invoke-WebRequest "$api/users" -Method Post -ContentType 'application/json' -Body ($user | ConvertTo-Json)
+$res.StatusCode
+$res.Headers.Location
+$id = ($res.Content | ConvertFrom-Json).id
+
+$user.age = 28
+Invoke-RestMethod "$api/users/$id" -Method Put -ContentType 'application/json' -Body ($user | ConvertTo-Json)
+Invoke-RestMethod "$api/users/${id}"
+curl.exe -i -X PUT "$api/groups/1/members/$id"
+curl.exe -i -X PUT "$api/groups/1/members/$id"
+Invoke-RestMethod "$api/groups/1/members" | ConvertTo-Json -AsArray
+curl.exe -i -X DELETE "$api/groups/1/members/$id"
+curl.exe -i -X DELETE "$api/users/$id"
+curl.exe -i "$api/users/$id"</code></pre></figure>
+<p>Hai truy vấn đầu chỉ trả An. POST trả 201 với Location <code>/api/v1/users/3</code> trên seed mới. Sau PUT, GET thấy tuổi 28. Hai lần thêm đều 204 và danh sách thành viên chỉ chứa An và một Linh. DELETE membership giữ user để request DELETE user tiếp tục thành công. GET cuối trả 404.</p>
+<figure class="snippet"><figcaption>PowerShell · CRUD group và xóa liên kết theo FK</figcaption><pre tabindex="0"><code class="language-powershell">$newGroup = @{name='Platform'} | ConvertTo-Json
+$res = Invoke-WebRequest "$api/groups" -Method Post -ContentType 'application/json' -Body $newGroup
+$g = ($res.Content | ConvertFrom-Json).id
+Invoke-RestMethod "$api/groups/$g" -Method Put -ContentType 'application/json' -Body (@{name='Platform API'} | ConvertTo-Json)
+Invoke-RestMethod "$api/groups/$g"
+curl.exe -i -X PUT "$api/groups/$g/members/2"
+curl.exe -i -X DELETE "$api/groups/$g"
+curl.exe -i "$api/groups/$g"
+curl.exe -i "$api/users/2"</code></pre></figure>
+<p>Nhóm mới trả 201, đổi tên trả 200 với tên Platform API, thêm thành viên và xóa nhóm trả 204. Đọc lại group trả 404. Bình vẫn trả 200 vì cascade chỉ xóa hàng nối. Hãy thử POST lại username <code>an</code> để thấy 409, PUT membership với user <code>999</code> để thấy 404, và GET <code>/users?age=-1</code> để thấy 400. Sửa theo thứ tự kiểm tra input, ID đích và ràng buộc uniqueness.</p>
+<p>Đọc mã hoàn chỉnh theo đường đi của request. <a href="../buoi-08/demo/src/main/java/vn/railway89/directory/DirectoryController.java">Controller</a> · <a href="../buoi-08/demo/src/main/java/vn/railway89/directory/DirectoryService.java">Service</a> · <a href="../buoi-08/demo/src/main/java/vn/railway89/directory/DirectoryRepositories.java">Repositories</a></p>
+</section>
+<section class="chapter" id="milestones"><h2>Mốc tự triển khai và dữ liệu nghiệm thu</h2>
+<p>Với project tự viết, dùng seed An 24 tuổi (thuộc Backend và QA), Bình 29 tuổi (chưa thuộc nhóm), Backend và QA. Lấy ID từ GET hoặc seed fixture rõ ràng. Chạy <code>mvn test</code> rồi <code>mvn spring-boot:run</code> tại project của bạn. Dùng các lệnh trên để nghiệm thu demo tham chiếu sau khi đã chạy test riêng.</p>
+<div class="table-wrap"><table><thead><tr><th>Mốc</th><th>Bài dùng lại</th><th>Bằng chứng yêu cầu</th></tr></thead><tbody>
+<tr><td>CRUD user/group</td><td><a href="../bean-validation/index.html">Validation</a> và <a href="../api-errors/index.html">lỗi API</a></td><td>POST hợp lệ có 201/Location và GET đúng dữ liệu. Tuổi thiếu trả 400 và DB vẫn giữ nguyên.</td></tr>
+<tr><td>Membership</td><td><a href="../spring-transaction/index.html">Transaction</a> và constraint</td><td>Hai PUT tuần tự cho cùng cặp đều trả 204, bảng nối có một row. PUT user không có trả 404 và giữ seed.</td></tr>
+<tr><td>Đọc có bộ lọc</td><td><a href="../dynamic-query/index.html">Specification</a> và <a href="../data-pagination/index.html">phân trang/thứ tự</a></td><td><code>firstName=an&amp;age=29</code> trả mảng rỗng. Nếu thêm phân trang, seed hai hàng đồng hạng và thứ tự phụ theo ID.</td></tr>
+<tr><td>Hai thao tác đồng thời</td><td><a href="../spring-transaction/index.html">Ranh giới khóa</a> và <a href="../testing-deployment/index.html">DB mục tiêu</a></td><td>Dùng hai transaction độc lập và latch, cùng thêm Bình vào Backend; thu kết quả cả hai, với chính sách PUT lặp an toàn cả hai có thể trả 204. Đọc từ transaction mới và xác nhận đúng một cặp.</td></tr>
+</tbody></table></div>
+<p>Hai lần PUT tuần tự kiểm trạng thái cuối của hợp đồng; ca đồng thời mới kiểm cạnh tranh quanh check-then-insert. Nếu dùng khóa hàng group, hai đường ghi cùng group phải dùng cùng cơ chế. Nếu dùng unique và xử lý trùng, kiểm xem lỗi đến khi flush/commit và làm thế nào để trả kết quả đã công bố mà vẫn giữ transaction nhất quán.</p>
+<details class="question"><summary>Lời mời đã được gửi có đồng nghĩa Bình thuộc Backend?</summary><p>Chưa. Invitation mô tả việc mời, còn membership mô tả quan hệ đã có hiệu lực. Đồ án có thể thành công ở bước gửi nhưng giữ số thành viên cho tới khi một use case chấp nhận lời mời thực sự cập nhật membership.</p></details></section>
+<section class="chapter" id="tu-kiem-tra">
+<h2>Tự kiểm tra</h2>
+<details class="question"><summary>Hai trường hợp nào chứng minh quan hệ N–N?</summary><p>Một user có nhiều group và một group có nhiều user. Seed An ở hai group. Gán Bình vào Backend để kiểm tra vế còn lại.</p></details><details class="question"><summary>Vì sao có id riêng rồi vẫn cần UNIQUE trên cặp?</summary><p>Hai id hàng khác nhau có thể mang cùng cặp group/user. UNIQUE đảm bảo trạng thái nghiệp vụ chỉ có một quan hệ.</p></details><details class="question"><summary>Tại sao PUT membership lặp lại là hợp lý?</summary><p>URI đã xác định cặp. PUT đặt trạng thái hiện diện. Lặp cùng yêu cầu cho cùng trạng thái.</p></details><details class="question"><summary>Lọc firstName=an và age=29 trả ai trên seed?</summary><p>Mảng rỗng. An khớp chữ nhưng 24 tuổi. Bình 29 tuổi và tên Binh không chứa an.</p></details><details class="question"><summary>POST và PUT thành công khác gì trong demo?</summary><p>POST cấp ID mới và trả 201 cùng Location. PUT ghi vào ID trong URI và trả 200 kèm trạng thái sau sửa.</p></details><details class="question"><summary>Đọc SQL nào để kiểm tra derived query duyệt đúng cặp?</summary><p>Tìm hai điều kiện theo group_id và user_id trong log Hibernate. Giá trị truy vấn đến từ ID của URI.</p></details><details class="question"><summary>Nếu xóa group mà GET user trả 404 thì kiểm tra đâu?</summary><p>Kiểm tra hướng cascade và các thao tác DELETE trong service. Với schema demo chỉ các row user_groups phụ thuộc group bị xóa.</p></details>
+</section>
+
+<nav aria-label="Bài liền kề"><a href="../dynamic-query/index.html">Tìm kiếm động với Criteria và Specification</a> · <a href="../index.html">Danh mục</a> · <a href="../design-solid/index.html">Thiết kế trách nhiệm và SOLID</a> · <a href="#top">Về đầu trang ↑</a></nav>
+<section class="chapter coding-lab" id="bai-tap-code"><p class="eyebrow">Tự viết trước khi xem lời giải</p>
+<h2>Bài tập lập trình</h2><p>Tự triển khai thêm thành viên idempotent và bảo đảm cặp group/user không trùng.</p>
+<p class="exercise-instructions"><strong>Cách sửa starter:</strong> Giữ @Transactional và addMember; thay TODO bằng kiểm tra group/user và chỉ tạo cặp chưa có. Unique constraint và xử lý cạnh tranh thực hiện thêm trong project.</p>
+<p><strong>Tiêu chí kiểm chứng:</strong> Gọi lặp tuần tự không tạo thêm hàng; ID không có → 404; bổ sung test cạnh tranh theo chiến lược khóa/upsert đã chọn.</p>
+<p>Đoạn dưới là bài tập ngắn; các kiểu và phương thức liên quan cần nằm trong project của bài. Editor cho sửa, lưu nháp và tải file; <strong>không biên dịch hoặc chạy Java/Spring</strong>. Chạy test thật ở local theo hướng dẫn project.</p>
+<div class="editor" data-editor data-lesson="project-directory" data-version="1" data-language="java" data-filename="Exercise.java">
+<label for="editor-project-directory">Mã của bạn · Exercise.java</label>
+<textarea id="editor-project-directory" spellcheck="false" autocapitalize="off" autocomplete="off" rows="10">@Transactional
+public void addMember(long groupId, long userId) {
+    // TODO: kiểm tra đối tượng và xử lý cặp đã có
+}
+</textarea>
+<div class="editor-actions"><button type="button" data-action="save">Lưu nháp</button><button type="button" data-action="download">Tải mã</button><button type="button" data-action="reset">Khôi phục starter</button></div>
+<p class="editor-status" role="status" aria-live="polite">Nháp tự lưu khi trình duyệt cho phép. Không nhập mật khẩu hoặc token thật.</p>
+<template data-starter>@Transactional
+public void addMember(long groupId, long userId) {
+    // TODO: kiểm tra đối tượng và xử lý cặp đã có
+}
+</template>
+</div>
+<details class="hint"><summary>Gợi ý cách làm và tự kiểm tra</summary><p>Viết ra dữ liệu ban đầu, request/lời gọi và trạng thái cuối. Làm trường hợp đúng trước rồi thêm trường hợp lỗi. Tại mỗi bước, đối chiếu cơ chế trong bài; không chỉ sửa cho hết báo lỗi.</p><p>Gọi lặp tuần tự không tạo thêm hàng; ID không có → 404; bổ sung test cạnh tranh theo chiến lược khóa/upsert đã chọn.</p></details>
+<details class="solution"><summary>Lời giải tham khảo · mở sau khi tự làm</summary><p>Đây là hướng giải cho đoạn ngắn, không thay thế implementation và kiểm thử đầy đủ trong project.</p><figure class="snippet"><figcaption>Exercise.java · tham khảo</figcaption><pre tabindex="0"><code class="language-java">@Transactional
+public void addMember(long groupId, long userId) {
+    requireGroup(groupId);
+    requireUser(userId);
+    if (!memberships.existsByGroupIdAndUserId(groupId, userId)) {
+        memberships.save(new Membership(groupId, userId));
+    }
+}
+// Unique constraint bảo vệ cạnh tranh; chọn thêm chính sách xử lý conflict.
+</code></pre></figure></details>
+<p class="practice-link"><a href="../../../practice/spring-foundations/index.html">Starter Maven, đề theo mốc và bộ kiểm thử chạy local →</a></p></section><section class="chapter" id="kiem-tra-nang-luc"><h2>Kiểm tra cách hiểu</h2>
+<p>Trước khi mở đáp án, hãy ghi dự đoán, lý do và dấu hiệu bạn sẽ dùng để kiểm chứng.</p>
+<div class="understanding-cases"><section class="understanding-case"><h3>Hai lần thêm cùng một thành viên</h3><p>Hai request đồng thời cùng qua exists rồi insert cặp group/user chưa có. Vì sao kiểm exists chưa đủ? Chọn cách kiểm chứng.</p><details class="question"><summary>Mở đáp án và tiêu chí</summary><p>Cả hai có thể đọc trạng thái chưa có; dùng unique constraint bảo vệ cặp, kèm chiến lược xử lý conflict/lock hoặc upsert theo contract. Điều phối hai request và đọc DB cuối.</p><p><strong>Tự đánh giá.</strong> Chứng minh có đúng một liên kết và status của hai request theo chính sách.</p></details></section><section class="understanding-case"><h3>Xóa nhóm có ràng buộc</h3><p>Group còn membership, API yêu cầu xóa nhóm và liên kết nhưng giữ account. Nếu bước xóa group thất bại sau bước xóa link thì sao?</p><details class="question"><summary>Mở đáp án và tiêu chí</summary><p>Trong cùng transaction, lỗi dẫn đến rollback theo chính sách; group, account và link giữ nguyên. Test thất bại sau bước đầu và đọc lại từng bảng.</p><p><strong>Tự đánh giá.</strong> Nêu thứ tự thao tác, ranh giới transaction và kiểm không xóa nhầm account.</p></details></section></div>
+<details class="quick-quiz"><summary>Ôn nhanh bằng trắc nghiệm</summary>
+<form class="quiz" data-quiz data-correct="1"><fieldset><legend>Kiểm tra exists trước insert đã đủ ngăn trùng khi đồng thời chưa?</legend><label><input type="radio" name="quiz-project-directory" value="0"> <span>Đủ</span></label><label><input type="radio" name="quiz-project-directory" value="1"> <span>Chưa; cần constraint và chiến lược xử lý cạnh tranh</span></label><label><input type="radio" name="quiz-project-directory" value="2"> <span>Chỉ cần try/catch mọi lỗi</span></label></fieldset><button type="submit">Kiểm tra đáp án</button><p role="status" aria-live="polite" data-feedback></p><template data-explanation>Hai transaction có thể cùng quan sát chưa tồn tại. DB phải bảo vệ invariant cuối cùng.</template></form></details>
+<details><summary>Xem giải thích khi không dùng JavaScript</summary><p><strong>Chưa; cần constraint và chiến lược xử lý cạnh tranh.</strong> Hai transaction có thể cùng quan sát chưa tồn tại. DB phải bảo vệ invariant cuối cùng.</p></details></section><section id="nguon-chinh-thuc"><h2>Nguồn chính thức và tài liệu đối chiếu</h2><ul><li><a href="https://www.rfc-editor.org/rfc/rfc9110.html">RFC 9110 · GET, POST, PUT, DELETE và Location</a></li><li><a href="https://jakarta.ee/specifications/persistence/3.1/jakarta-persistence-spec-3.1">Jakarta Persistence · Quan hệ và vòng đời entity</a></li><li><a href="https://docs.spring.io/spring-data/jpa/reference/3.5/jpa/specifications.html">Spring Data JPA 3.5 · Specifications</a></li><li><a href="https://docs.spring.io/spring-data/jpa/reference/3.5/jpa/query-methods.html">Spring Data JPA 3.5 · Query Methods</a></li></ul></section><section class="chapter" id="moc-video"><h2>Tài liệu bổ trợ</h2><details class="video-reference"><summary>Nguồn video · xem lại tùy chọn</summary>
+<p>Tên tệp trong Drive ghi 17.01.2024. Trình phát không có phụ đề. Nội dung đề lấy từ slide, với màn hình cuối buổi cho thấy cấu trúc controller, DTO, service và các bảng. Lời giải H2 và contract chi tiết bên dưới được dựng để tự học. Phần chữa thêm user vào group và lọc user tiếp tục ở Buổi 9.</p><ul><li><a aria-label="Xem video tại 14:26" class="time" href="https://drive.google.com/file/d/1p-DeTUgiThPstBbsldVLZxkxnUN8lPDe/view?t=866" rel="noopener" target="_blank">14:26</a> Slide đề thực hành: schema, CRUD, membership, lọc và URI</li><li><a aria-label="Xem video tại 25:16" class="time" href="https://drive.google.com/file/d/1p-DeTUgiThPstBbsldVLZxkxnUN8lPDe/view?t=1516" rel="noopener" target="_blank">25:16</a> Xem lại các yêu cầu CRUD và bộ lọc</li><li><a aria-label="Xem video tại 1:13:37" class="time" href="https://drive.google.com/file/d/1p-DeTUgiThPstBbsldVLZxkxnUN8lPDe/view?t=4417" rel="noopener" target="_blank">1:13:37</a> Slide làm đề trong phần thực hành</li><li><a aria-label="Xem video tại 2:27:02" class="time" href="https://drive.google.com/file/d/1p-DeTUgiThPstBbsldVLZxkxnUN8lPDe/view?t=8822" rel="noopener" target="_blank">2:27:02</a> Slide đề còn được trình chiếu</li><li><a aria-label="Xem video tại 3:03:42" class="time" href="https://drive.google.com/file/d/1p-DeTUgiThPstBbsldVLZxkxnUN8lPDe/view?t=11022" rel="noopener" target="_blank">3:03:42</a> Màn hình UserController, project và các bảng</li></ul><h3>Tài liệu chính thức</h3><ul><li><a href="https://www.rfc-editor.org/rfc/rfc9110.html">RFC 9110 · GET, POST, PUT, DELETE và Location</a></li><li><a href="https://jakarta.ee/specifications/persistence/3.1/jakarta-persistence-spec-3.1">Jakarta Persistence · Quan hệ và vòng đời entity</a></li><li><a href="https://docs.spring.io/spring-data/jpa/reference/3.5/jpa/specifications.html">Spring Data JPA 3.5 · Specifications</a></li><li><a href="https://docs.spring.io/spring-data/jpa/reference/3.5/jpa/query-methods.html">Spring Data JPA 3.5 · Query Methods</a></li></ul>
+<ul><li><a href="https://drive.google.com/file/d/1p-DeTUgiThPstBbsldVLZxkxnUN8lPDe/view">Video gốc ↗</a></li></ul></details></section><div class="completion"><label><input type="checkbox" data-complete="project-directory"> Tôi đã tự làm bài tập và giải thích được kết quả</label><p>Đánh dấu để tự theo dõi trên trình duyệt này; đây không phải chứng nhận hay kết quả chấm code.</p><p role="status" data-progress-status aria-live="polite"></p></div><nav class="lesson-navigation" aria-label="Chuyển bài"><a href="../api-list-contract/index.html">← Thiết kế API danh sách account</a><a href="../deployment-lifecycle/index.html">Readiness, graceful shutdown và migration khi rollout →</a></nav><p><a href="#top">Về đầu trang ↑</a></p></main></div></body></html>
